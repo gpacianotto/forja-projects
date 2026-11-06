@@ -1,0 +1,18 @@
+# Builds
+build/
+**/build/
+_tools/juce-build/
+_tools/pluginval/
+
+# IDEs
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Claude Code (configurações locais pessoais)
+.claude/settings.local.json
+
+# Sistema
+Thumbs.db
+desktop.ini
