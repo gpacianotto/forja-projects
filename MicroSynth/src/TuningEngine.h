@@ -28,6 +28,12 @@ public:
     // Converte o valor bruto do pitch wheel MIDI (0 a 16383, centro 8192) para -1..+1.
     static double pitchWheelToBend (int wheelValue) noexcept;
 
+    // RF4: só tocamos frequências entre 20 Hz e 45% da taxa de amostragem.
+    // Abaixo é inaudível; acima geraria aliasing.
+    static constexpr double minAudibleHz      = 20.0;
+    static constexpr double maxNyquistFraction = 0.45;
+    static bool isPlayable (double hz, double sampleRate) noexcept;
+
 private:
     Settings settings;
 };

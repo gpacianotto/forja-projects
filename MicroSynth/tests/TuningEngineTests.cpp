@@ -99,3 +99,33 @@ TEST_CASE ("Pitch wheel MIDI vira bend de -1 a +1")
     CHECK (TuningEngine::pitchWheelToBend (-5) == -1.0);
     CHECK (TuningEngine::pitchWheelToBend (20000) == 1.0);
 }
+
+TEST_CASE ("RF4: so toca entre 20 Hz e 45% da taxa de amostragem")
+{
+    CHECK (TuningEngine::isPlayable (20.0, 48000.0));
+    CHECK (TuningEngine::isPlayable (440.0, 48000.0));
+    CHECK (TuningEngine::isPlayable (21600.0, 48000.0));   // exatamente 45%
+
+    CHECK_FALSE (TuningEngine::isPlayable (19.99, 48000.0));
+    CHECK_FALSE (TuningEngine::isPlayable (21600.1, 48000.0));
+    CHECK_FALSE (TuningEngine::isPlayable (440.0, 0.0));    // sample rate ainda desconhecido
+
+    // A mesma nota pode ser tocável em 96 kHz e não em 44,1 kHz
+    CHECK (TuningEngine::isPlayable (30000.0, 96000.0));
+    CHECK_FALSE (TuningEngine::isPlayable (30000.0, 44100.0));
+}
+
+TEST_CASE ("RF4 com o motor: nos extremos do teclado, so as notas audiveis passam")
+{
+    // 12 EDO padrão: nota 0 = 8,18 Hz (ignorada), nota 16 = 20,6 Hz (toca), nota 127 = 12,5 kHz (toca)
+    const auto engine = makeEngine (12);
+
+    CHECK_FALSE (TuningEngine::isPlayable (engine.noteToHz (0), 48000.0));
+    CHECK (TuningEngine::isPlayable (engine.noteToHz (16), 48000.0));
+    CHECK (TuningEngine::isPlayable (engine.noteToHz (127), 48000.0));
+
+    // 1 EDO (cada tecla = uma oitava): poucas teclas acima da referência já passam do limite
+    const auto oneEdo = makeEngine (1);
+    CHECK (TuningEngine::isPlayable (oneEdo.noteToHz (74), 48000.0));        // 440 * 32 = 14 kHz
+    CHECK_FALSE (TuningEngine::isPlayable (oneEdo.noteToHz (75), 48000.0));  // 28 kHz
+}

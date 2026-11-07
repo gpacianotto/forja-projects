@@ -27,3 +27,10 @@ double TuningEngine::pitchWheelToBend (int wheelValue) noexcept
     // pelo seu tamanho garante que os extremos dêem exatamente -1 e +1.
     return offset < 0 ? offset / 8192.0 : offset / 8191.0;
 }
+
+bool TuningEngine::isPlayable (double hz, double sampleRate) noexcept
+{
+    return sampleRate > 0.0
+        && hz >= minAudibleHz
+        && hz <= maxNyquistFraction * sampleRate;
+}

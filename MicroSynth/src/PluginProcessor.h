@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include "MicroSynthesiser.h"
 #include "TuningEngine.h"
 
 // Processador do MicroSynth: recebe MIDI do host e devolve áudio estéreo.
@@ -60,7 +61,7 @@ private:
     // guardam uma referência para ele.
     TuningEngine tuning;
 
-    juce::Synthesiser synth; // distribui as notas MIDI entre as vozes
+    MicroSynthesiser synth { tuning }; // distribui as notas MIDI entre as vozes (com a guarda do RF4)
 
     juce::SmoothedValue<float> gainSmoothed; // volume de saída, com rampa de 20 ms
 
