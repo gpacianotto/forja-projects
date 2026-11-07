@@ -29,7 +29,9 @@ O app Standalone sai em `build/MicroSynth_artefacts/Debug/Standalone/MicroSynth.
 | 3. Motor de afinação (`edo`, `baseHz`, `refNote`) | Testada no Ableton |
 | 4. Synth completo (ondas PolyBLEP, filtro, ADSR, volume, pitch bend) | Testada no Ableton |
 | 5. Estado e robustez (RF4, RF5, pluginval) | Testada no Ableton |
-| 6. Interface própria (grupos Tuning, Oscillator, Output, Envelope, Filter; redimensionável) | pluginval nível 5 passou; aguardando teste no Ableton |
+| 6. Interface própria (grupos Tuning, Oscillator, Output, Envelope, Filter; redimensionável) | Testada no Ableton |
+
+**MVP v0.1.0 concluído em 2026-11-07.** Próximo item do roadmap (Spec): reajuste das notas presas ao mudar a afinação, com glide.
 
 ## Validações
 
