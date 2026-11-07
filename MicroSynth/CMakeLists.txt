@@ -25,6 +25,7 @@ juce_add_plugin(MicroSynth
 target_sources(MicroSynth PRIVATE
     src/PluginProcessor.cpp
     src/MicroVoice.cpp
+    src/Oscillator.cpp
     src/TuningEngine.cpp)
 
 target_include_directories(MicroSynth PRIVATE src)
@@ -59,7 +60,9 @@ if(MICROSYNTH_BUILD_TESTS)
 
     add_executable(MicroSynthTests
         tests/TuningEngineTests.cpp
-        src/TuningEngine.cpp)
+        tests/OscillatorTests.cpp
+        src/TuningEngine.cpp
+        src/Oscillator.cpp)
     target_include_directories(MicroSynthTests PRIVATE src)
     target_link_libraries(MicroSynthTests PRIVATE Catch2::Catch2WithMain)
 

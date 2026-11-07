@@ -25,6 +25,9 @@ public:
     // bend vai de -1 (pitch wheel todo para baixo) a +1 (todo para cima); 0 = sem bend.
     double noteToHz (int midiNote, double bend = 0.0) const noexcept;
 
+    // Converte o valor bruto do pitch wheel MIDI (0 a 16383, centro 8192) para -1..+1.
+    static double pitchWheelToBend (int wheelValue) noexcept;
+
 private:
     Settings settings;
 };

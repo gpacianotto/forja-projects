@@ -109,5 +109,5 @@ ctest --test-dir build -C Debug             # rodar testes
 
 | Pasta | Produto | Tipo | PLUGIN_CODE | Status |
 | --- | --- | --- | --- | --- |
-| MicroSynth | MicroSynth | VST3 instrumento | Mcsy | Em implementação (etapas 1–2 testadas; etapa 3 aguardando teste no Live) |
+| MicroSynth | MicroSynth | VST3 instrumento | Mcsy | Em implementação (etapas 1–3 testadas; etapa 4 aguardando teste no Live) |
 | HelloGain | HelloGain | VST3 efeito | Hlgn | Teste do setup (descartável); v0.1.0 validada (pluginval nível 5) |

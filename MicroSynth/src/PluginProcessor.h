@@ -45,15 +45,27 @@ private:
     std::atomic<float>* edoParam     = nullptr;
     std::atomic<float>* baseHzParam  = nullptr;
     std::atomic<float>* refNoteParam = nullptr;
+    std::atomic<float>* bendStepsParam = nullptr;
+    std::atomic<float>* waveParam    = nullptr;
+    std::atomic<float>* attackParam  = nullptr;
+    std::atomic<float>* decayParam   = nullptr;
+    std::atomic<float>* sustainParam = nullptr;
+    std::atomic<float>* releaseParam = nullptr;
+    std::atomic<float>* cutoffParam  = nullptr;
+    std::atomic<float>* resoParam    = nullptr;
+    std::atomic<float>* gainParam    = nullptr;
 
     // Atualizado no início de cada processBlock; as vozes consultam no note-on.
     // Declarado antes do synth: membros são construídos na ordem de declaração e as vozes
-    // guardam um ponteiro para ele.
+    // guardam uma referência para ele.
     TuningEngine tuning;
 
     juce::Synthesiser synth; // distribui as notas MIDI entre as vozes
 
+    juce::SmoothedValue<float> gainSmoothed; // volume de saída, com rampa de 20 ms
+
     void updateTuning();
+    void updateVoices();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

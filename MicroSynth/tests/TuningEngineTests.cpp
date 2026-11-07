@@ -87,3 +87,15 @@ TEST_CASE ("edo invalido (0) e corrigido para 1, sem divisao por zero")
     CHECK (engine.getSettings().edo == 1);
     CHECK_THAT (engine.noteToHz (70), WithinRel (880.0, 1e-12));
 }
+
+TEST_CASE ("Pitch wheel MIDI vira bend de -1 a +1")
+{
+    CHECK (TuningEngine::pitchWheelToBend (0) == -1.0);
+    CHECK (TuningEngine::pitchWheelToBend (8192) == 0.0);
+    CHECK (TuningEngine::pitchWheelToBend (16383) == 1.0);
+    CHECK_THAT (TuningEngine::pitchWheelToBend (4096), WithinAbs (-0.5, 1e-12));
+
+    // Valores fora da faixa são limitados
+    CHECK (TuningEngine::pitchWheelToBend (-5) == -1.0);
+    CHECK (TuningEngine::pitchWheelToBend (20000) == 1.0);
+}

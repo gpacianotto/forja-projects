@@ -26,4 +26,5 @@ O app Standalone sai em `build/MicroSynth_artefacts/Debug/Standalone/MicroSynth.
 | --- | --- |
 | 1. Esqueleto | Testada no Ableton |
 | 2. Som básico (8 vozes, seno, ADSR fixo) | Testada no Ableton |
-| 3. Motor de afinação (`edo`, `baseHz`, `refNote`) | Compila, testes passam; aguardando teste no Ableton |
+| 3. Motor de afinação (`edo`, `baseHz`, `refNote`) | Testada no Ableton |
+| 4. Synth completo (ondas PolyBLEP, filtro, ADSR, volume, pitch bend) | Compila, testes passam, pluginval nível 5 (Debug) passou; aguardando teste no Ableton |
