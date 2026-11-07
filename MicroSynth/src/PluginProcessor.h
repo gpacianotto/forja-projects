@@ -37,5 +37,9 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
 private:
+    static constexpr int numVoices = 8;
+
+    juce::Synthesiser synth; // distribui as notas MIDI entre as vozes
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

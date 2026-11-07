@@ -23,7 +23,8 @@ juce_add_plugin(MicroSynth
     PRODUCT_NAME "MicroSynth")
 
 target_sources(MicroSynth PRIVATE
-    src/PluginProcessor.cpp)
+    src/PluginProcessor.cpp
+    src/MicroVoice.cpp)
 
 target_include_directories(MicroSynth PRIVATE src)
 

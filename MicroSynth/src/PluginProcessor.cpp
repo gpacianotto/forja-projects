@@ -1,4 +1,6 @@
 #include "PluginProcessor.h"
+#include "MicroSound.h"
+#include "MicroVoice.h"
 
 PluginProcessor::PluginProcessor()
     // Instrumento: sem barramento de entrada, só saída estéreo.
@@ -6,6 +8,11 @@ PluginProcessor::PluginProcessor()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMS", createParameterLayout())
 {
+    // O Synthesiser vira dono dos ponteiros (como um "new" cujo delete fica a cargo dele).
+    for (int i = 0; i < numVoices; ++i)
+        synth.addVoice (new MicroVoice());
+
+    synth.addSound (new MicroSound());
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParameterLayout()
@@ -14,8 +21,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParam
     return {};
 }
 
-void PluginProcessor::prepareToPlay (double, int)
+void PluginProcessor::prepareToPlay (double sampleRate, int)
 {
+    synth.setCurrentPlaybackSampleRate (sampleRate);
+
+    for (int i = 0; i < synth.getNumVoices(); ++i)
+        if (auto* voice = dynamic_cast<MicroVoice*> (synth.getVoice (i)))
+            voice->prepare (sampleRate);
 }
 
 bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -24,12 +36,13 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
     return out == juce::AudioChannelSet::mono() || out == juce::AudioChannelSet::stereo();
 }
 
-void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
 
-    // Etapa 1: plugin vazio, só devolve silêncio.
+    // O buffer chega com lixo/silêncio; as vozes somam por cima dele.
     buffer.clear();
+    synth.renderNextBlock (buffer, midi, 0, buffer.getNumSamples());
 }
 
 juce::AudioProcessorEditor* PluginProcessor::createEditor()

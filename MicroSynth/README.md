@@ -19,3 +19,4 @@ O app Standalone sai em `build/MicroSynth_artefacts/Debug/Standalone/MicroSynth.
 | Etapa | Status |
 | --- | --- |
 | 1. Esqueleto | Compila; aguardando teste no Ableton |
+| 2. Som básico (8 vozes, seno, ADSR fixo, 12 tons) | Compila; aguardando teste no Ableton |
