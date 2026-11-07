@@ -28,10 +28,12 @@ O app Standalone sai em `build/MicroSynth_artefacts/Debug/Standalone/MicroSynth.
 | 2. Som básico (8 vozes, seno, ADSR fixo) | Testada no Ableton |
 | 3. Motor de afinação (`edo`, `baseHz`, `refNote`) | Testada no Ableton |
 | 4. Synth completo (ondas PolyBLEP, filtro, ADSR, volume, pitch bend) | Testada no Ableton |
-| 5. Estado e robustez (RF4, RF5, pluginval) | pluginval nível 5 passou; aguardando teste de reabrir o set no Ableton |
+| 5. Estado e robustez (RF4, RF5, pluginval) | Testada no Ableton |
+| 6. Interface própria (grupos Tuning, Oscillator, Output, Envelope, Filter; redimensionável) | pluginval nível 5 passou; aguardando teste no Ableton |
 
 ## Validações
 
 | Versão | Data | pluginval | Resultado |
 | --- | --- | --- | --- |
 | 0.1.0 (etapa 5) | 2026-11-07 | 1.0.4, nível 5, Release | Passou (o validador VST3 da Steinberg não estava configurado e foi pulado) |
+| 0.1.0 (etapa 6) | 2026-11-07 | 1.0.4, nível 5, Release | Passou, com a interface própria (validador VST3 da Steinberg pulado) |

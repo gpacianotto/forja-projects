@@ -24,6 +24,8 @@ juce_add_plugin(MicroSynth
 
 target_sources(MicroSynth PRIVATE
     src/PluginProcessor.cpp
+    src/PluginEditor.cpp
+    src/Controls.cpp
     src/MicroVoice.cpp
     src/Oscillator.cpp
     src/TuningEngine.cpp)

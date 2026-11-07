@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 #include "MicroSound.h"
 #include "MicroVoice.h"
 #include "Parameters.h"
@@ -173,8 +174,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
 juce::AudioProcessorEditor* PluginProcessor::createEditor()
 {
-    // Interface genérica: um slider por parâmetro. Interface própria na etapa 6.
-    return new juce::GenericAudioProcessorEditor (*this);
+    // Interface própria (etapa 6). Para depurar, juce::GenericAudioProcessorEditor (*this)
+    // ainda mostra um slider por parâmetro.
+    return new PluginEditor (*this);
 }
 
 void PluginProcessor::getStateInformation (juce::MemoryBlock& destData)
