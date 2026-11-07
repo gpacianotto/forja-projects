@@ -12,11 +12,18 @@ cmake --build build --config Debug
 ```
 
 O `.vst3` é copiado automaticamente para `C:\Program Files\Common Files\VST3\Dev`.
+Testes unitários (Catch2, baixado pelo CMake no primeiro `cmake -B build`):
+
+```
+ctest --test-dir build -C Debug
+```
+
 O app Standalone sai em `build/MicroSynth_artefacts/Debug/Standalone/MicroSynth.exe`.
 
 ## Progresso
 
 | Etapa | Status |
 | --- | --- |
-| 1. Esqueleto | Compila; aguardando teste no Ableton |
-| 2. Som básico (8 vozes, seno, ADSR fixo, 12 tons) | Compila; aguardando teste no Ableton |
+| 1. Esqueleto | Testada no Ableton |
+| 2. Som básico (8 vozes, seno, ADSR fixo) | Testada no Ableton |
+| 3. Motor de afinação (`edo`, `baseHz`, `refNote`) | Compila, testes passam; aguardando teste no Ableton |

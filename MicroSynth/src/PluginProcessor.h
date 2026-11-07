@@ -2,6 +2,8 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include "TuningEngine.h"
+
 // Processador do MicroSynth: recebe MIDI do host e devolve áudio estéreo.
 class PluginProcessor final : public juce::AudioProcessor
 {
@@ -39,7 +41,19 @@ public:
 private:
     static constexpr int numVoices = 8;
 
+    // Parâmetros lidos na thread de áudio (atômicos, donos são o apvts)
+    std::atomic<float>* edoParam     = nullptr;
+    std::atomic<float>* baseHzParam  = nullptr;
+    std::atomic<float>* refNoteParam = nullptr;
+
+    // Atualizado no início de cada processBlock; as vozes consultam no note-on.
+    // Declarado antes do synth: membros são construídos na ordem de declaração e as vozes
+    // guardam um ponteiro para ele.
+    TuningEngine tuning;
+
     juce::Synthesiser synth; // distribui as notas MIDI entre as vozes
+
+    void updateTuning();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

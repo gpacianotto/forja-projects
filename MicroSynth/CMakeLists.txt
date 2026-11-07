@@ -24,7 +24,8 @@ juce_add_plugin(MicroSynth
 
 target_sources(MicroSynth PRIVATE
     src/PluginProcessor.cpp
-    src/MicroVoice.cpp)
+    src/MicroVoice.cpp
+    src/TuningEngine.cpp)
 
 target_include_directories(MicroSynth PRIVATE src)
 
@@ -41,3 +42,29 @@ target_link_libraries(MicroSynth
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# ---------------------------------------------------------------------------
+# Testes unitários (lógica pura, sem JUCE) com Catch2
+# Rodar: ctest --test-dir build -C Debug
+# ---------------------------------------------------------------------------
+option(MICROSYNTH_BUILD_TESTS "Compilar os testes unitários" ON)
+
+if(MICROSYNTH_BUILD_TESTS)
+    include(FetchContent)
+    FetchContent_Declare(Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG        v3.7.1
+        GIT_SHALLOW    TRUE)
+    FetchContent_MakeAvailable(Catch2)
+
+    add_executable(MicroSynthTests
+        tests/TuningEngineTests.cpp
+        src/TuningEngine.cpp)
+    target_include_directories(MicroSynthTests PRIVATE src)
+    target_link_libraries(MicroSynthTests PRIVATE Catch2::Catch2WithMain)
+
+    enable_testing()
+    list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
+    include(Catch)
+    catch_discover_tests(MicroSynthTests)
+endif()

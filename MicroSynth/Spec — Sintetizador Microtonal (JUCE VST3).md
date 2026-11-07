@@ -229,5 +229,5 @@ Depois que o MVP estiver em uso, a ordem abaixo prioriza o que mais diferencia o
 - [ ] Nome definitivo do produto e códigos de fabricante e plugin (`Gmsy`/`Mcsy` são provisórios).
 - [ ] Faixa máxima de EDO: 72 é suficiente, ou vale ir até 128 ou mais?
 - [ ] Unidade do pitch bend: passos da EDO (proposto) ou cents?
-- [ ] Qual biblioteca de testes usar: Catch2 ou `juce::UnitTest`?
+- [x] Qual biblioteca de testes usar: Catch2 ou `juce::UnitTest`? → **Catch2 v3** (07/11/2026), testa o `TuningEngine` sem JUCE.
 - [ ] Licença do código: repositório privado (closed source) desde já?

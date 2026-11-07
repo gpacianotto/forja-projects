@@ -2,11 +2,16 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
+#include "TuningEngine.h"
+
 // Uma voz do synth: oscilador + envelope de amplitude (ADSR).
 // O juce::Synthesiser tem várias vozes e entrega cada nota nova a uma voz livre.
 class MicroVoice final : public juce::SynthesiserVoice
 {
 public:
+    // A voz só lê o TuningEngine (const&); o dono é o PluginProcessor, que vive mais que ela.
+    explicit MicroVoice (const TuningEngine& tuningEngine) : tuning (tuningEngine) {}
+
     // Chamado em prepareToPlay, fora da thread de áudio.
     void prepare (double sampleRate);
 
@@ -19,6 +24,7 @@ public:
     void renderNextBlock (juce::AudioBuffer<float>& output, int startSample, int numSamples) override;
 
 private:
+    const TuningEngine& tuning;
     juce::ADSR adsr;
 
     double phase = 0.0;          // posição no ciclo da onda, de 0 a 1

@@ -21,9 +21,9 @@ bool MicroVoice::canPlaySound (juce::SynthesiserSound* sound)
 
 void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*, int)
 {
-    // TEMPORÁRIO (etapa 2): afinação padrão de 12 tons do JUCE, como pede o Spec.
-    // Na etapa 3 isto vira TuningEngine::noteToHz.
-    const double frequency = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber);
+    // RF1: a frequência vem do motor de afinação (qualquer EDO), nunca do 12 tons do JUCE.
+    // Pitch bend entra na etapa 4.
+    const double frequency = tuning.noteToHz (midiNoteNumber);
 
     phase = 0.0;
     phaseIncrement = frequency / getSampleRate();
