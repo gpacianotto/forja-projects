@@ -9,13 +9,18 @@ void TuningEngine::setSettings (const Settings& newSettings) noexcept
     settings.edo = std::max (1, settings.edo); // evita divisão por zero
 }
 
-double TuningEngine::noteToHz (int midiNote, double bend) const noexcept
+double TuningEngine::noteToHz (double midiNote, double bend) const noexcept
 {
     // Quantos passos da EDO a nota está acima (ou abaixo) da referência, incluindo o bend.
     const double steps = (midiNote - settings.refNote) + bend * settings.bendSteps;
 
     // Cada passo multiplica a frequência por 2^(1/edo); edo passos = uma oitava = dobro.
     return settings.baseHz * std::exp2 (steps / settings.edo);
+}
+
+double TuningEngine::transposeRatio (int edo, int octaves, double steps, double cents) noexcept
+{
+    return std::exp2 (octaves + steps / std::max (1, edo) + cents / 1200.0);
 }
 
 double TuningEngine::pitchWheelToBend (int wheelValue) noexcept

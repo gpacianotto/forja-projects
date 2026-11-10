@@ -49,6 +49,21 @@ Todos os parâmetros abaixo são expostos ao host, então podem ser automatizado
 | Filtro | Ressonância (`reso`) | 0,1 a 10 | 0,7 |
 | Saída | Volume (`gain`) | -48 a +6 dB | -12 dB |
 
+**Parâmetros pós-MVP (v0.2)**
+
+| Grupo | Parâmetro (ID) | Faixa | Padrão |
+| --- | --- | --- | --- |
+| Osciladores | Liga/desliga (`osc1On`, `osc2On`, `osc3On`) | sim/não | Osc 1 ligado; 2 e 3 desligados |
+| Osciladores | Forma de onda (`wave` = osc 1, `osc2Wave`, `osc3Wave`) | Seno, Serra, Quadrada, Triângulo | Serra |
+| Osciladores | Volume (`osc1Level`, `osc2Level`, `osc3Level`) | 0 a 100 % | 100 % |
+| Osciladores | Oitava (`osc1Octave`, `osc2Octave`, `osc3Octave`) | -3 a +3 | 0 |
+| Osciladores | Transposição (`osc1Steps`, `osc2Steps`, `osc3Steps`) | -24 a +24 passos da EDO | 0 |
+| Osciladores | Desafinação fina (`osc1Fine`, `osc2Fine`, `osc3Fine`) | -100 a +100 cents | 0 |
+| Vozes | Modo (`voiceMode`) | Poly, Mono | Poly |
+| Vozes | Legato (`legato`) | sim/não | sim |
+| Vozes | Glide (`glide`) | 0 a 2000 ms | 0 ms |
+| Afinação | Trava de afinação (`tuningLock`) | sim/não (não automatizável) | não |
+
 **Comportamentos obrigatórios**
 
 - RF1: cada nota MIDI recebida toca na frequência calculada pelo motor de afinação.
@@ -56,6 +71,9 @@ Todos os parâmetros abaixo são expostos ao host, então podem ser automatizado
 - RF3: mudar `edo`, `baseHz` ou `refNote` afeta as próximas notas tocadas (o reajuste de notas já presas fica para depois do MVP).
 - RF4: notas cuja frequência fique abaixo de 20 Hz ou acima de 45% da taxa de amostragem são ignoradas, para evitar sons inaudíveis e aliasing.
 - RF5: o estado completo é salvo e restaurado com o set do Ableton.
+- RF6 (v0.2): cada voz tem 3 osciladores somados antes do filtro. A frequência de cada um é a da nota × 2^(oitava + passos / `edo` + cents / 1200). O oscilador 1 continua usando o parâmetro `wave`, e os osciladores 2 e 3 começam desligados, então sets salvos na v0.1 soam igual. Ligar, desligar ou mudar o volume de um oscilador é suavizado (20 ms) para não estalar. Um oscilador cuja frequência transposta saia da faixa do RF4 fica mudo; os outros continuam tocando. Não há compensação automática de volume: com 3 osciladores no máximo, o som fica mais alto.
+- RF7 (v0.2): no modo **Poly**, o synth toca até 8 notas (comportamento da v0.1). No modo **Mono**, toca uma nota por vez, com prioridade para a última nota tocada; ao soltar a nota atual, volta para a nota anterior que ainda está pressionada. Com `legato` ligado, trocar de nota com outra tecla ainda pressionada não redispara o envelope; com `legato` desligado, toda nota redispara o envelope a partir do nível atual (sem estalo). O `glide` desliza a altura da nota anterior para a nova em tempo constante, linear em passos da EDO (exponencial em Hz), sempre que a voz já está soando. Trocar de modo solta todas as notas (com release).
+- RF8 (v0.2): a interface é organizada em abas: **Oscillators**, **Amp & Filter** (vozes, envelope, filtro e volume) e **Tuning**. Na aba Tuning, o botão de trava (`tuningLock`) desabilita os knobs de afinação na interface para evitar mudanças acidentais. A trava é salva com o set, mas não é automatizável e não bloqueia automação do host.
 
 ## Modelo de afinação
 
@@ -104,6 +122,10 @@ O Live manda o MIDI ao PluginProcessor; cada voz consulta o TuningEngine no note
 | `TuningEngine` | nenhuma (C++ puro) | `noteToHz(note, bend)` a partir de `edo`, `baseHz`, `refNote`, `bendSteps`; sem alocação, segura para a thread de áudio |
 | `MicroVoice` | `juce::SynthesiserVoice` | Uma voz: oscilador, ADSR e filtro; pede a frequência ao `TuningEngine` no note-on |
 | `MicroSound` | `juce::SynthesiserSound` | Marcador exigido pelo `Synthesiser` (aceita todas as notas e canais) |
+| `MicroSynthesiser` | `juce::Synthesiser` | Guarda do RF4 e modo Mono (RF7): pilha de notas pressionadas e troca de nota na voz 0 |
+| `Oscillator` | nenhuma (C++ puro) | Oscilador com PolyBLEP; cada voz tem 3 (RF6) |
+| `Glide` | nenhuma (C++ puro) | Rampa linear da altura (em notas/passos) para o portamento |
+| `NoteStack` | nenhuma (C++ puro) | Pilha de tamanho fixo das notas pressionadas no modo Mono, sem alocação |
 
 **Estrutura de pastas**
 
@@ -188,6 +210,14 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 | 4. Synth completo | Formas de onda com PolyBLEP, filtro passa-baixa, parâmetros de ADSR, ganho e pitch bend | Todos os parâmetros aparecem na automação do Live e respondem em tempo real |
 | 5. Estado e robustez | Salvar/restaurar estado, guarda de Nyquist (RF4), pluginval | O set reabre com os mesmos valores; pluginval passa no nível 5 |
 | 6. Interface própria | Editor com knobs agrupados (Afinação, Oscilador, Envelope, Filtro) | Usável sem a interface genérica; redimensiona sem quebrar o layout |
+
+**Pós-MVP (v0.2)** — cards do kanban
+
+| Etapa | Entrega | Critério de aceite |
+| --- | --- | --- |
+| 7. Múltiplos osciladores | 3 osciladores por voz (RF6) | Set da v0.1 soa igual; ligar o osc 2 uma oitava abaixo engrossa o som sem estalo |
+| 8. Modo Mono | `voiceMode`, `legato`, `glide` (RF7) | Em Mono, segurar uma nota e tocar outra desliza (glide) sem redisparar o envelope; soltar volta à anterior |
+| 9. Abas e trava | Abas Oscillators / Amp & Filter / Tuning e `tuningLock` (RF8) | Com a trava ligada, os knobs de afinação não mexem; reabrir o set mantém a trava |
 
 Uma sugestão de ritmo: as etapas 1 e 2 cabem numa primeira noite, e a etapa 3 é o marco que prova a ideia.
 

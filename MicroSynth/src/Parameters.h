@@ -1,18 +1,36 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
+
 // IDs dos parâmetros expostos ao host.
 // ATENÇÃO: nunca mudar um ID depois de publicado — sets do Ableton salvos com o ID antigo
 // perderiam o valor e a automação.
 namespace ParamIDs
 {
     // Afinação
-    inline constexpr auto edo       = "edo";
-    inline constexpr auto baseHz    = "baseHz";
-    inline constexpr auto refNote   = "refNote";
-    inline constexpr auto bendSteps = "bendSteps";
+    inline constexpr auto edo        = "edo";
+    inline constexpr auto baseHz     = "baseHz";
+    inline constexpr auto refNote    = "refNote";
+    inline constexpr auto bendSteps  = "bendSteps";
+    inline constexpr auto tuningLock = "tuningLock"; // trava da interface (RF8), não automatizável
 
-    // Oscilador
-    inline constexpr auto wave = "wave";
+    // Osciladores (RF6). Índice 0..2 = osc 1..3.
+    // O osc 1 reaproveita o ID "wave" da v0.1, para sets antigos continuarem iguais.
+    inline constexpr std::size_t numOscillators = 3;
+
+    // std::array<const char*, 3>: array de tamanho fixo de strings C (como String[3] em Java).
+    inline constexpr std::array<const char*, numOscillators> oscOn     { "osc1On",     "osc2On",     "osc3On" };
+    inline constexpr std::array<const char*, numOscillators> oscWave   { "wave",       "osc2Wave",   "osc3Wave" };
+    inline constexpr std::array<const char*, numOscillators> oscLevel  { "osc1Level",  "osc2Level",  "osc3Level" };
+    inline constexpr std::array<const char*, numOscillators> oscOctave { "osc1Octave", "osc2Octave", "osc3Octave" };
+    inline constexpr std::array<const char*, numOscillators> oscSteps  { "osc1Steps",  "osc2Steps",  "osc3Steps" };
+    inline constexpr std::array<const char*, numOscillators> oscFine   { "osc1Fine",   "osc2Fine",   "osc3Fine" };
+
+    // Vozes (RF7)
+    inline constexpr auto voiceMode = "voiceMode"; // 0 = Poly, 1 = Mono
+    inline constexpr auto legato    = "legato";
+    inline constexpr auto glide     = "glide";     // ms
 
     // Envelope de amplitude (tempos em ms)
     inline constexpr auto attack  = "attack";

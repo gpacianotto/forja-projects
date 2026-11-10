@@ -63,6 +63,7 @@ if(MICROSYNTH_BUILD_TESTS)
     add_executable(MicroSynthTests
         tests/TuningEngineTests.cpp
         tests/OscillatorTests.cpp
+        tests/VoiceLogicTests.cpp
         src/TuningEngine.cpp
         src/Oscillator.cpp)
     target_include_directories(MicroSynthTests PRIVATE src)

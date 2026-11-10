@@ -35,6 +35,21 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> attachment;
 };
 
+// Botão liga/desliga (parâmetro bool) com nome em cima.
+class Toggle final : public juce::Component
+{
+public:
+    Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& paramID, const juce::String& labelText);
+    void resized() override;
+
+    juce::ToggleButton& getButton() noexcept { return button; }
+
+private:
+    juce::Label label;
+    juce::ToggleButton button;
+    juce::AudioProcessorValueTreeState::ButtonAttachment attachment;
+};
+
 // Caixa com título que organiza seus controles lado a lado.
 class ParameterGroup final : public juce::Component
 {
@@ -42,7 +57,16 @@ public:
     explicit ParameterGroup (const juce::String& groupTitle);
 
     // O grupo vira dono do controle (unique_ptr ~ objeto com um único dono; apagado junto com o grupo).
-    void add (std::unique_ptr<juce::Component> control);
+    // Devolve uma referência ao controle, para quem precisar mexer nele depois (ex.: desabilitar).
+    // "template" ~ método genérico do Java: T é o tipo concreto (Knob, Choice, Toggle...).
+    template <typename ControlType>
+    ControlType& add (std::unique_ptr<ControlType> control)
+    {
+        auto& ref = *control;
+        addAndMakeVisible (ref);
+        controls.push_back (std::move (control)); // std::move: transfere a posse, não copia
+        return ref;
+    }
 
     int getNumControls() const { return static_cast<int> (controls.size()); }
 

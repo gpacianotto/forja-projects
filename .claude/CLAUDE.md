@@ -122,5 +122,5 @@ ctest --test-dir build -C Debug             # rodar testes
 
 | Pasta | Produto | Tipo | PLUGIN_CODE | Status |
 | --- | --- | --- | --- | --- |
-| MicroSynth | MicroSynth | VST3 instrumento | Mcsy | MVP v0.1.0 concluído e validado (pluginval nível 5 + testes no Live); próximo: roadmap pós-MVP |
+| MicroSynth | MicroSynth | VST3 instrumento | Mcsy | v0.1.0 validada; v0.2 (3 osciladores, modo Mono, abas + trava de afinação) em revisão no Live |
 | HelloGain | HelloGain | VST3 efeito | Hlgn | Teste do setup (descartável); v0.1.0 validada (pluginval nível 5) |

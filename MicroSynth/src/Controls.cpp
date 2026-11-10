@@ -74,15 +74,29 @@ void Choice::resized()
     comboBox.setBounds (area.withSizeKeepingCentre (juce::jmin (area.getWidth() - 8, 140), comboHeight));
 }
 
+// ----------------------------------------------------------------------------- Toggle
+
+Toggle::Toggle (juce::AudioProcessorValueTreeState& apvts, const juce::String& paramID, const juce::String& labelText)
+    : attachment (apvts, paramID, button)
+{
+    setupLabel (label, labelText);
+    addAndMakeVisible (label);
+    addAndMakeVisible (button);
+}
+
+void Toggle::resized()
+{
+    auto area = getLocalBounds();
+    label.setBounds (area.removeFromTop (labelHeight));
+
+    // O ToggleButton desenha a caixinha encostada à esquerda (4 px de margem); um botão
+    // estreito e centralizado deixa a caixinha no meio da coluna.
+    button.setBounds (area.withSizeKeepingCentre (24, 28));
+}
+
 // ----------------------------------------------------------------------------- ParameterGroup
 
 ParameterGroup::ParameterGroup (const juce::String& groupTitle) : title (groupTitle) {}
-
-void ParameterGroup::add (std::unique_ptr<juce::Component> control)
-{
-    addAndMakeVisible (*control);
-    controls.push_back (std::move (control)); // std::move: transfere a posse, não copia
-}
 
 void ParameterGroup::paint (juce::Graphics& g)
 {

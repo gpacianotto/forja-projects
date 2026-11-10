@@ -10,18 +10,30 @@ PluginProcessor::PluginProcessor()
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMS", createParameterLayout())
 {
-    edoParam     = apvts.getRawParameterValue (ParamIDs::edo);
-    baseHzParam  = apvts.getRawParameterValue (ParamIDs::baseHz);
-    refNoteParam = apvts.getRawParameterValue (ParamIDs::refNote);
+    edoParam       = apvts.getRawParameterValue (ParamIDs::edo);
+    baseHzParam    = apvts.getRawParameterValue (ParamIDs::baseHz);
+    refNoteParam   = apvts.getRawParameterValue (ParamIDs::refNote);
     bendStepsParam = apvts.getRawParameterValue (ParamIDs::bendSteps);
-    waveParam    = apvts.getRawParameterValue (ParamIDs::wave);
-    attackParam  = apvts.getRawParameterValue (ParamIDs::attack);
-    decayParam   = apvts.getRawParameterValue (ParamIDs::decay);
-    sustainParam = apvts.getRawParameterValue (ParamIDs::sustain);
-    releaseParam = apvts.getRawParameterValue (ParamIDs::release);
-    cutoffParam  = apvts.getRawParameterValue (ParamIDs::cutoff);
-    resoParam    = apvts.getRawParameterValue (ParamIDs::reso);
-    gainParam    = apvts.getRawParameterValue (ParamIDs::gain);
+    attackParam    = apvts.getRawParameterValue (ParamIDs::attack);
+    decayParam     = apvts.getRawParameterValue (ParamIDs::decay);
+    sustainParam   = apvts.getRawParameterValue (ParamIDs::sustain);
+    releaseParam   = apvts.getRawParameterValue (ParamIDs::release);
+    cutoffParam    = apvts.getRawParameterValue (ParamIDs::cutoff);
+    resoParam      = apvts.getRawParameterValue (ParamIDs::reso);
+    gainParam      = apvts.getRawParameterValue (ParamIDs::gain);
+    voiceModeParam = apvts.getRawParameterValue (ParamIDs::voiceMode);
+    legatoParam    = apvts.getRawParameterValue (ParamIDs::legato);
+    glideParam     = apvts.getRawParameterValue (ParamIDs::glide);
+
+    for (size_t i = 0; i < oscParams.size(); ++i)
+    {
+        oscParams[i].on     = apvts.getRawParameterValue (ParamIDs::oscOn[i]);
+        oscParams[i].wave   = apvts.getRawParameterValue (ParamIDs::oscWave[i]);
+        oscParams[i].level  = apvts.getRawParameterValue (ParamIDs::oscLevel[i]);
+        oscParams[i].octave = apvts.getRawParameterValue (ParamIDs::oscOctave[i]);
+        oscParams[i].steps  = apvts.getRawParameterValue (ParamIDs::oscSteps[i]);
+        oscParams[i].fine   = apvts.getRawParameterValue (ParamIDs::oscFine[i]);
+    }
 
     // O Synthesiser vira dono dos ponteiros (como um "new" cujo delete fica a cargo dele).
     for (int i = 0; i < numVoices; ++i)
@@ -52,10 +64,57 @@ juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParam
         juce::ParameterID { ParamIDs::bendSteps, 1 }, "Pitch Bend Range", 0, 24, 2,
         juce::AudioParameterIntAttributes().withLabel ("steps")));
 
-    // --- Oscilador --- (a ordem das opções = enum Waveform)
+    // Trava da interface (RF8): só a interface lê; não faz sentido automatizar.
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParamIDs::tuningLock, 1 }, "Tuning Lock", false,
+        juce::AudioParameterBoolAttributes().withAutomatable (false)));
+
+    // --- Osciladores (RF6) --- (a ordem das opções de onda = enum Waveform)
+    const juce::StringArray waveforms { "Sine", "Saw", "Square", "Triangle" };
+
+    for (size_t i = 0; i < ParamIDs::numOscillators; ++i)
+    {
+        const juce::String prefix = "Osc " + juce::String (i + 1) + " ";
+        const bool isFirst = (i == 0);
+
+        // Osc 1 ligado e osc 2/3 desligados: um set da v0.1 soa igual na v0.2.
+        layout.add (std::make_unique<juce::AudioParameterBool> (
+            juce::ParameterID { ParamIDs::oscOn[i], 1 }, prefix + "On", isFirst));
+
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { ParamIDs::oscWave[i], 1 }, prefix + "Waveform", waveforms, 1));
+
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ParamIDs::oscLevel[i], 1 }, prefix + "Level",
+            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("%")));
+
+        layout.add (std::make_unique<juce::AudioParameterInt> (
+            juce::ParameterID { ParamIDs::oscOctave[i], 1 }, prefix + "Octave", -3, 3, 0));
+
+        layout.add (std::make_unique<juce::AudioParameterInt> (
+            juce::ParameterID { ParamIDs::oscSteps[i], 1 }, prefix + "Steps", -24, 24, 0,
+            juce::AudioParameterIntAttributes().withLabel ("steps")));
+
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ParamIDs::oscFine[i], 1 }, prefix + "Fine",
+            juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("ct")));
+    }
+
+    // --- Vozes (RF7) ---
     layout.add (std::make_unique<juce::AudioParameterChoice> (
-        juce::ParameterID { ParamIDs::wave, 1 }, "Waveform",
-        juce::StringArray { "Sine", "Saw", "Square", "Triangle" }, 1));
+        juce::ParameterID { ParamIDs::voiceMode, 1 }, "Voice Mode",
+        juce::StringArray { "Poly", "Mono" }, 0));
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParamIDs::legato, 1 }, "Legato", true));
+
+    juce::NormalisableRange<float> glideRange (0.0f, 2000.0f, 0.1f);
+    glideRange.setSkewForCentre (200.0f);
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParamIDs::glide, 1 }, "Glide", glideRange, 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("ms")));
 
     // --- Envelope --- tempos em ms; o skew dá mais resolução aos valores curtos.
     auto timeRange = [] (float maxMs, float centreMs)
@@ -110,7 +169,18 @@ void PluginProcessor::updateTuning()
 void PluginProcessor::updateVoices()
 {
     VoiceParameters params;
-    params.waveform     = static_cast<Waveform> (static_cast<int> (waveParam->load()));
+    for (size_t i = 0; i < oscParams.size(); ++i)
+    {
+        auto& osc = params.oscillators[i];
+        osc.enabled   = oscParams[i].on->load() > 0.5f;
+        osc.waveform  = static_cast<Waveform> (static_cast<int> (oscParams[i].wave->load()));
+        osc.level     = oscParams[i].level->load() / 100.0f; // % -> 0..1
+        osc.octave    = static_cast<int> (oscParams[i].octave->load());
+        osc.steps     = static_cast<int> (oscParams[i].steps->load());
+        osc.fineCents = oscParams[i].fine->load();
+    }
+
+    params.glideSeconds = glideParam->load() / 1000.0f; // ms -> s
     params.adsr.attack  = attackParam->load() / 1000.0f; // ms -> s
     params.adsr.decay   = decayParam->load() / 1000.0f;
     params.adsr.sustain = sustainParam->load();
@@ -154,8 +224,11 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     // RF3: a afinação nova vale para as próximas notas; notas presas mantêm a frequência.
     updateTuning();
 
-    // Onda, envelope e filtro valem em tempo real, inclusive para notas presas.
+    // Osciladores, envelope e filtro valem em tempo real, inclusive para notas presas.
     updateVoices();
+
+    // RF7: Poly ou Mono (trocar de modo solta as notas que estão tocando).
+    synth.setVoiceMode (voiceModeParam->load() > 0.5f, legatoParam->load() > 0.5f);
 
     const int numSamples = buffer.getNumSamples();
     synth.renderNextBlock (buffer, midi, 0, numSamples);

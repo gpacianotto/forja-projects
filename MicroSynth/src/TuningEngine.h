@@ -23,7 +23,12 @@ public:
     const Settings& getSettings() const noexcept { return settings; }
 
     // bend vai de -1 (pitch wheel todo para baixo) a +1 (todo para cima); 0 = sem bend.
-    double noteToHz (int midiNote, double bend = 0.0) const noexcept;
+    // A nota é double para aceitar alturas "entre notas" (ex.: 60,5 no meio de um glide).
+    double noteToHz (double midiNote, double bend = 0.0) const noexcept;
+
+    // Razão de frequência de um oscilador transposto (RF6): 2^(oitavas + passos/edo + cents/1200).
+    // Ex.: 1 oitava acima = 2,0; 0 de tudo = 1,0.
+    static double transposeRatio (int edo, int octaves, double steps, double cents) noexcept;
 
     // Converte o valor bruto do pitch wheel MIDI (0 a 16383, centro 8192) para -1..+1.
     static double pitchWheelToBend (int wheelValue) noexcept;

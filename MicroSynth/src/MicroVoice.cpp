@@ -1,6 +1,8 @@
 #include "MicroVoice.h"
 #include "MicroSound.h"
 
+#include <utility>
+
 void MicroVoice::prepare (double sampleRate, int maxBlockSize)
 {
     adsr.setSampleRate (sampleRate);
@@ -12,6 +14,12 @@ void MicroVoice::prepare (double sampleRate, int maxBlockSize)
     cutoffSmoothed.reset (sampleRate, 0.02);
     cutoffSmoothed.setCurrentAndTargetValue (clampCutoff (8000.0f));
     filter.setCutoffFrequency (cutoffSmoothed.getCurrentValue());
+
+    for (auto& oscLevel : oscLevels)
+    {
+        oscLevel.reset (sampleRate, 0.02);
+        oscLevel.setCurrentAndTargetValue (0.0f);
+    }
 }
 
 float MicroVoice::clampCutoff (float hz) const
@@ -23,10 +31,19 @@ float MicroVoice::clampCutoff (float hz) const
 
 void MicroVoice::setParameters (const VoiceParameters& params)
 {
-    oscillator.setWaveform (params.waveform);
+    parameters = params;
+
+    for (size_t i = 0; i < oscillators.size(); ++i)
+        oscillators[i].setWaveform (params.oscillators[i].waveform);
+
     adsr.setParameters (params.adsr);
     filter.setResonance (params.resonance);
     cutoffSmoothed.setTargetValue (clampCutoff (params.cutoffHz));
+    glide.setTime (params.glideSeconds, getSampleRate());
+
+    // Oitava, passos e cents valem em tempo real, inclusive para notas presas.
+    if (isVoiceActive())
+        updateFrequencies();
 }
 
 bool MicroVoice::canPlaySound (juce::SynthesiserSound* sound)
@@ -37,12 +54,39 @@ bool MicroVoice::canPlaySound (juce::SynthesiserSound* sound)
 void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*,
                             int currentPitchWheelPosition)
 {
-    noteTuning  = tuning; // cópia (sem alocação: só números)
-    currentNote = midiNoteNumber;
-    bend        = TuningEngine::pitchWheelToBend (currentPitchWheelPosition);
+    // std::exchange: lê o valor e já zera a flag (vale só para esta nota).
+    const bool handoff = std::exchange (monoHandoffPending, false);
 
-    oscillator.resetPhase();
-    updateFrequency();
+    noteTuning = tuning; // cópia (sem alocação: só números)
+    bend       = TuningEngine::pitchWheelToBend (currentPitchWheelPosition);
+
+    // Modo Mono com a voz ainda soando: troca de nota sem recomeçar do zero (RF7).
+    if (handoff && adsr.isActive())
+    {
+        glide.glideTo (midiNoteNumber);
+        updateFrequencies();
+
+        if (monoRetrigger)
+        {
+            // juce::ADSR::noteOn parte do nível atual do envelope, então não estala.
+            level = velocity;
+            adsr.noteOn();
+        }
+
+        return;
+    }
+
+    // Nota nova numa voz parada.
+    glide.jumpTo (midiNoteNumber);
+
+    for (auto& oscillator : oscillators)
+        oscillator.resetPhase();
+
+    updateFrequencies();
+
+    // Volumes dos osciladores já no valor certo, sem fade-in.
+    for (auto& oscLevel : oscLevels)
+        oscLevel.setCurrentAndTargetValue (oscLevel.getTargetValue());
 
     // Nota nova começa com o filtro "limpo" e já no cutoff atual, sem deslizar.
     filter.reset();
@@ -55,6 +99,11 @@ void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesise
 
 void MicroVoice::stopNote (float, bool allowTailOff)
 {
+    // Troca de nota no modo Mono: o juce::Synthesiser corta a nota antiga antes de começar
+    // a nova; aqui ignoramos o corte para a voz seguir soando (o startNote faz a troca).
+    if (monoHandoffPending)
+        return;
+
     if (allowTailOff)
     {
         adsr.noteOff(); // entra no release; a voz é liberada em renderNextBlock quando acabar
@@ -70,13 +119,28 @@ void MicroVoice::stopNote (float, bool allowTailOff)
 void MicroVoice::pitchWheelMoved (int newPitchWheelValue)
 {
     bend = TuningEngine::pitchWheelToBend (newPitchWheelValue);
-    updateFrequency();
+    updateFrequencies();
 }
 
-void MicroVoice::updateFrequency()
+void MicroVoice::updateFrequencies()
 {
+    const double sampleRate = getSampleRate();
+
     // RF1: a frequência vem do motor de afinação (qualquer EDO), nunca do 12 tons do JUCE.
-    oscillator.setFrequency (noteTuning.noteToHz (currentNote, bend), getSampleRate());
+    const double noteHz = noteTuning.noteToHz (glide.getCurrent(), bend);
+    const int edo = noteTuning.getSettings().edo;
+
+    for (size_t i = 0; i < oscillators.size(); ++i)
+    {
+        const auto& osc = parameters.oscillators[i];
+        const double hz = noteHz * TuningEngine::transposeRatio (edo, osc.octave, osc.steps, osc.fineCents);
+
+        oscillators[i].setFrequency (hz, sampleRate);
+
+        // RF6 + RF4: oscilador transposto para fora da faixa tocável fica mudo.
+        const bool audible = osc.enabled && TuningEngine::isPlayable (hz, sampleRate);
+        oscLevels[i].setTargetValue (audible ? osc.level : 0.0f);
+    }
 }
 
 void MicroVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSample, int numSamples)
@@ -88,10 +152,27 @@ void MicroVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSam
 
     for (int i = 0; i < numSamples; ++i)
     {
+        // Durante o glide a altura muda a cada amostra.
+        if (glide.isGliding())
+        {
+            glide.next();
+            updateFrequencies();
+        }
+
         if (cutoffSmoothed.isSmoothing())
             filter.setCutoffFrequency (cutoffSmoothed.getNextValue());
 
-        const float raw      = oscillator.nextSample();
+        float raw = 0.0f;
+
+        for (size_t o = 0; o < oscillators.size(); ++o)
+        {
+            const float oscLevel = oscLevels[o].getNextValue();
+
+            // Oscilador mudo e parado em 0: não gasta CPU calculando a onda.
+            if (oscLevel > 0.0f)
+                raw += oscillators[o].nextSample() * oscLevel;
+        }
+
         const float filtered = filter.processSample (0, raw);
         const float sample   = filtered * adsr.getNextSample() * level;
 

@@ -2,7 +2,10 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <array>
+
 #include "MicroSynthesiser.h"
+#include "Parameters.h"
 #include "TuningEngine.h"
 
 // Processador do MicroSynth: recebe MIDI do host e devolve áudio estéreo.
@@ -43,18 +46,32 @@ private:
     static constexpr int numVoices = 8;
 
     // Parâmetros lidos na thread de áudio (atômicos, donos são o apvts)
-    std::atomic<float>* edoParam     = nullptr;
-    std::atomic<float>* baseHzParam  = nullptr;
-    std::atomic<float>* refNoteParam = nullptr;
+    std::atomic<float>* edoParam       = nullptr;
+    std::atomic<float>* baseHzParam    = nullptr;
+    std::atomic<float>* refNoteParam   = nullptr;
     std::atomic<float>* bendStepsParam = nullptr;
-    std::atomic<float>* waveParam    = nullptr;
-    std::atomic<float>* attackParam  = nullptr;
-    std::atomic<float>* decayParam   = nullptr;
-    std::atomic<float>* sustainParam = nullptr;
-    std::atomic<float>* releaseParam = nullptr;
-    std::atomic<float>* cutoffParam  = nullptr;
-    std::atomic<float>* resoParam    = nullptr;
-    std::atomic<float>* gainParam    = nullptr;
+    std::atomic<float>* attackParam    = nullptr;
+    std::atomic<float>* decayParam     = nullptr;
+    std::atomic<float>* sustainParam   = nullptr;
+    std::atomic<float>* releaseParam   = nullptr;
+    std::atomic<float>* cutoffParam    = nullptr;
+    std::atomic<float>* resoParam      = nullptr;
+    std::atomic<float>* gainParam      = nullptr;
+    std::atomic<float>* voiceModeParam = nullptr;
+    std::atomic<float>* legatoParam    = nullptr;
+    std::atomic<float>* glideParam     = nullptr;
+
+    // Um conjunto de ponteiros por oscilador (RF6).
+    struct OscillatorParamPointers
+    {
+        std::atomic<float>* on     = nullptr;
+        std::atomic<float>* wave   = nullptr;
+        std::atomic<float>* level  = nullptr;
+        std::atomic<float>* octave = nullptr;
+        std::atomic<float>* steps  = nullptr;
+        std::atomic<float>* fine   = nullptr;
+    };
+    std::array<OscillatorParamPointers, ParamIDs::numOscillators> oscParams;
 
     // Atualizado no início de cada processBlock; as vozes consultam no note-on.
     // Declarado antes do synth: membros são construídos na ordem de declaração e as vozes
