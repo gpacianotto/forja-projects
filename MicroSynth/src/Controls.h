@@ -70,10 +70,22 @@ public:
 
     int getNumControls() const { return static_cast<int> (controls.size()); }
 
+    // Componente opcional (ex.: um gráfico) desenhado acima da linha de controles.
+    // O grupo vira dono dele, como dos controles.
+    template <typename DisplayType>
+    DisplayType& setDisplay (std::unique_ptr<DisplayType> newDisplay)
+    {
+        auto& ref = *newDisplay;
+        addAndMakeVisible (ref);
+        display = std::move (newDisplay);
+        return ref;
+    }
+
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
     juce::String title;
     std::vector<std::unique_ptr<juce::Component>> controls;
+    std::unique_ptr<juce::Component> display;
 };

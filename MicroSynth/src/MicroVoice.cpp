@@ -36,7 +36,14 @@ void MicroVoice::setParameters (const VoiceParameters& params)
     for (size_t i = 0; i < oscillators.size(); ++i)
         oscillators[i].setWaveform (params.oscillators[i].waveform);
 
-    adsr.setParameters (params.adsr);
+    // Só repassa ao ADSR quando algo mudou: juce::ADSR::setParameters recalcula a velocidade
+    // do release a partir do sustain, o que, chamado a cada bloco durante um release,
+    // deformava a curva (e com sustain = 0 cortava a nota de uma vez, com estalo).
+    const auto& a = params.adsr;
+    const auto& current = adsr.getParameters();
+    if (a.attack != current.attack || a.decay != current.decay
+        || a.sustain != current.sustain || a.release != current.release)
+        adsr.setParameters (a);
     filter.setResonance (params.resonance);
     cutoffSmoothed.setTargetValue (clampCutoff (params.cutoffHz));
     glide.setTime (params.glideSeconds, getSampleRate());
@@ -71,6 +78,8 @@ void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesise
             // juce::ADSR::noteOn parte do nível atual do envelope, então não estala.
             level = velocity;
             adsr.noteOn();
+            samplesInStage = 0;
+            released = false;
         }
 
         return;
@@ -95,6 +104,8 @@ void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesise
 
     level = velocity;
     adsr.noteOn();
+    samplesInStage = 0;
+    released = false;
 }
 
 void MicroVoice::stopNote (float, bool allowTailOff)
@@ -107,6 +118,8 @@ void MicroVoice::stopNote (float, bool allowTailOff)
     if (allowTailOff)
     {
         adsr.noteOff(); // entra no release; a voz é liberada em renderNextBlock quando acabar
+        samplesInStage = 0;
+        released = true;
     }
     else
     {
@@ -114,6 +127,19 @@ void MicroVoice::stopNote (float, bool allowTailOff)
         adsr.reset();
         clearCurrentNote();
     }
+}
+
+MicroVoice::EnvelopeSnapshot MicroVoice::getEnvelopeSnapshot() const noexcept
+{
+    EnvelopeSnapshot snapshot;
+
+    if (! isVoiceActive())
+        return snapshot; // idle
+
+    snapshot.stage = released ? GraphMath::EnvelopeStage::released : GraphMath::EnvelopeStage::held;
+    snapshot.secondsInStage = getSampleRate() > 0.0 ? samplesInStage / getSampleRate() : 0.0;
+    snapshot.level = lastEnvelopeLevel;
+    return snapshot;
 }
 
 void MicroVoice::pitchWheelMoved (int newPitchWheelValue)
@@ -174,7 +200,9 @@ void MicroVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSam
         }
 
         const float filtered = filter.processSample (0, raw);
-        const float sample   = filtered * adsr.getNextSample() * level;
+        lastEnvelopeLevel    = adsr.getNextSample();
+        const float sample   = filtered * lastEnvelopeLevel * level;
+        ++samplesInStage;
 
         // Somar, não sobrescrever: as outras vozes escrevem no mesmo buffer.
         for (int ch = 0; ch < numChannels; ++ch)

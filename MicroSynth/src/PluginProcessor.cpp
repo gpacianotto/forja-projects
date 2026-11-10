@@ -232,6 +232,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
     const int numSamples = buffer.getNumSamples();
     synth.renderNextBlock (buffer, midi, 0, numSamples);
+    publishEnvelopeDisplay();
 
     // Volume de saída, suavizado amostra a amostra para não estalar.
     gainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (gainParam->load()));
@@ -243,6 +244,25 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
             buffer.getWritePointer (ch)[s] *= g;
     }
+}
+
+void PluginProcessor::publishEnvelopeDisplay()
+{
+    // A voz ativa que começou por último é a "última nota tocada".
+    MicroVoice* newest = nullptr;
+
+    for (int i = 0; i < synth.getNumVoices(); ++i)
+        if (auto* voice = dynamic_cast<MicroVoice*> (synth.getVoice (i)))
+            if (voice->isVoiceActive() && (newest == nullptr || newest->wasStartedBefore (*voice)))
+                newest = voice;
+
+    MicroVoice::EnvelopeSnapshot snapshot; // idle se nenhuma voz estiver tocando
+    if (newest != nullptr)
+        snapshot = newest->getEnvelopeSnapshot();
+
+    envelopeDisplay.stage.store (static_cast<int> (snapshot.stage));
+    envelopeDisplay.secondsInStage.store (static_cast<float> (snapshot.secondsInStage));
+    envelopeDisplay.level.store (snapshot.level);
 }
 
 juce::AudioProcessorEditor* PluginProcessor::createEditor()

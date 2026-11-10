@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
+#include "Graphs.h"
 
 namespace
 {
@@ -31,9 +32,9 @@ namespace
 
 // ----------------------------------------------------------------------------- TabPage
 
-void TabPage::addRow (std::initializer_list<ParameterGroup*> groups)
+void TabPage::addRow (std::initializer_list<ParameterGroup*> groups, int weight)
 {
-    rows.emplace_back (groups);
+    rows.push_back ({ groups, weight });
 
     for (auto* group : groups)
         addAndMakeVisible (*group);
@@ -57,11 +58,16 @@ void TabPage::resized()
         return;
 
     const int numRows = static_cast<int> (rows.size());
-    const int rowHeight = juce::jmin (maxRowHeight, (area.getHeight() - gap * (numRows - 1)) / numRows);
+    int totalWeight = 0;
+    for (const auto& row : rows)
+        totalWeight += row.weight;
+
+    // Altura de uma linha de peso 1.
+    const int unitHeight = (area.getHeight() - gap * (numRows - 1)) / totalWeight;
 
     for (const auto& row : rows)
     {
-        layoutRow (area.removeFromTop (rowHeight), row);
+        layoutRow (area.removeFromTop (juce::jmin (maxRowHeight, unitHeight * row.weight)), row.groups);
         area.removeFromTop (gap);
     }
 
@@ -106,8 +112,12 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
     filterGroup.add (std::make_unique<Knob> (apvts, ParamIDs::cutoff, "Cutoff"));
     filterGroup.add (std::make_unique<Knob> (apvts, ParamIDs::reso,   "Resonance"));
 
+    // Gráficos (RF9) acima dos knobs do envelope e do filtro.
+    envelopeGroup.setDisplay (std::make_unique<EnvelopeGraph> (apvts, processor.envelopeDisplay));
+    filterGroup.setDisplay (std::make_unique<FilterGraph> (apvts));
+
     ampFilterPage.addRow ({ &voiceGroup, &outputGroup });
-    ampFilterPage.addRow ({ &envelopeGroup, &filterGroup });
+    ampFilterPage.addRow ({ &envelopeGroup, &filterGroup }, 2); // linha com gráficos: o dobro da altura
 
     // --- Aba Tuning (RF8) ---
     tuningGroup.add (std::make_unique<Toggle> (apvts, ParamIDs::tuningLock, "Lock"));

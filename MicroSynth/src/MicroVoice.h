@@ -6,6 +6,7 @@
 #include <juce_dsp/juce_dsp.h>
 
 #include "Glide.h"
+#include "GraphMath.h"
 #include "Oscillator.h"
 #include "Parameters.h"
 #include "TuningEngine.h"
@@ -56,6 +57,15 @@ public:
         monoRetrigger      = retriggerEnvelope;
     }
 
+    // Onde o envelope desta voz está, para o ponto do gráfico (RF9).
+    struct EnvelopeSnapshot
+    {
+        GraphMath::EnvelopeStage stage = GraphMath::EnvelopeStage::idle;
+        double secondsInStage = 0.0;
+        float  level = 0.0f; // valor atual do envelope, 0..1
+    };
+    EnvelopeSnapshot getEnvelopeSnapshot() const noexcept;
+
     bool canPlaySound (juce::SynthesiserSound*) override;
     void startNote (int midiNoteNumber, float velocity,
                     juce::SynthesiserSound*, int currentPitchWheelPosition) override;
@@ -93,6 +103,11 @@ private:
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> cutoffSmoothed;
 
     float level = 0.0f; // volume da nota (vem da velocity)
+
+    // Contagem para o gráfico: amostras desde o note-on (ou desde o note-off, se released).
+    int   samplesInStage = 0;
+    bool  released = false;
+    float lastEnvelopeLevel = 0.0f;
 
     bool monoHandoffPending = false;
     bool monoRetrigger      = true;

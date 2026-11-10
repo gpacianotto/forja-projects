@@ -74,6 +74,7 @@ Todos os parâmetros abaixo são expostos ao host, então podem ser automatizado
 - RF6 (v0.2): cada voz tem 3 osciladores somados antes do filtro. A frequência de cada um é a da nota × 2^(oitava + passos / `edo` + cents / 1200). O oscilador 1 continua usando o parâmetro `wave`, e os osciladores 2 e 3 começam desligados, então sets salvos na v0.1 soam igual. Ligar, desligar ou mudar o volume de um oscilador é suavizado (20 ms) para não estalar. Um oscilador cuja frequência transposta saia da faixa do RF4 fica mudo; os outros continuam tocando. Não há compensação automática de volume: com 3 osciladores no máximo, o som fica mais alto.
 - RF7 (v0.2): no modo **Poly**, o synth toca até 8 notas (comportamento da v0.1). No modo **Mono**, toca uma nota por vez, com prioridade para a última nota tocada; ao soltar a nota atual, volta para a nota anterior que ainda está pressionada. Com `legato` ligado, trocar de nota com outra tecla ainda pressionada não redispara o envelope; com `legato` desligado, toda nota redispara o envelope a partir do nível atual (sem estalo). O `glide` desliza a altura da nota anterior para a nova em tempo constante, linear em passos da EDO (exponencial em Hz), sempre que a voz já está soando. Trocar de modo solta todas as notas (com release).
 - RF8 (v0.2): a interface é organizada em abas: **Oscillators**, **Amp & Filter** (vozes, envelope, filtro e volume) e **Tuning**. Na aba Tuning, o botão de trava (`tuningLock`) desabilita os knobs de afinação na interface para evitar mudanças acidentais. A trava é salva com o set, mas não é automatizável e não bloqueia automação do host.
+- RF9 (v0.3): a aba Amp & Filter mostra dois gráficos que acompanham os knobs e a automação em tempo real: a curva de resposta do filtro passa-baixa (frequência em escala log de 20 Hz a 20 kHz, ganho em dB) e o desenho do envelope ADSR. Os tempos do envelope são desenhados em escala de raiz quadrada, para que um attack de 5 ms continue visível ao lado de um release de 10 s; o sustain ocupa uma faixa fixa. Um ponto mostra a posição atual do envelope da última nota tocada. Os gráficos só leem valores (atômicos), sem travar a thread de áudio.
 
 ## Modelo de afinação
 
@@ -218,6 +219,7 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 | 7. Múltiplos osciladores | 3 osciladores por voz (RF6) | Set da v0.1 soa igual; ligar o osc 2 uma oitava abaixo engrossa o som sem estalo |
 | 8. Modo Mono | `voiceMode`, `legato`, `glide` (RF7) | Em Mono, segurar uma nota e tocar outra desliza (glide) sem redisparar o envelope; soltar volta à anterior |
 | 9. Abas e trava | Abas Oscillators / Amp & Filter / Tuning e `tuningLock` (RF8) | Com a trava ligada, os knobs de afinação não mexem; reabrir o set mantém a trava |
+| 10. Gráficos | Curva do filtro e desenho do ADSR com ponto de posição (RF9) | Girar Cutoff/Resonance/ADSR ou automatizá-los move os gráficos; tocar uma nota faz o ponto percorrer o envelope |
 
 Uma sugestão de ritmo: as etapas 1 e 2 cabem numa primeira noite, e a etapa 3 é o marco que prova a ideia.
 

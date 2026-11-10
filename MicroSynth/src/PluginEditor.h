@@ -15,7 +15,8 @@ class PluginProcessor;
 class TabPage final : public juce::Component
 {
 public:
-    void addRow (std::initializer_list<ParameterGroup*> groups);
+    // weight: altura relativa da linha (2 = o dobro de uma linha com peso 1).
+    void addRow (std::initializer_list<ParameterGroup*> groups, int weight = 1);
 
     // Altura máxima de cada linha, para os knobs não ficarem gigantes numa aba com poucos controles.
     void setMaxRowHeight (int height) { maxRowHeight = height; }
@@ -24,7 +25,12 @@ public:
     void resized() override;
 
 private:
-    std::vector<std::vector<ParameterGroup*>> rows;
+    struct Row
+    {
+        std::vector<ParameterGroup*> groups;
+        int weight = 1;
+    };
+    std::vector<Row> rows;
     int maxRowHeight = 10000;
     juce::Label note;
 };

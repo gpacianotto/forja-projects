@@ -42,6 +42,16 @@ public:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState apvts;
 
+    // Posição do envelope da última nota tocada, para o ponto do gráfico (RF9).
+    // A thread de áudio escreve e a interface lê; atômicos = sem lock.
+    struct EnvelopeDisplay
+    {
+        std::atomic<int>   stage { 0 };            // GraphMath::EnvelopeStage
+        std::atomic<float> secondsInStage { 0.0f };
+        std::atomic<float> level { 0.0f };
+    };
+    EnvelopeDisplay envelopeDisplay;
+
 private:
     static constexpr int numVoices = 8;
 
@@ -84,6 +94,7 @@ private:
 
     void updateTuning();
     void updateVoices();
+    void publishEnvelopeDisplay();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

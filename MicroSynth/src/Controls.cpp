@@ -122,6 +122,13 @@ void ParameterGroup::resized()
     auto area = getLocalBounds().reduced (6);
     area.removeFromTop (titleHeight - 6);
 
+    // Com gráfico: ele fica com a metade de cima, e os controles com a de baixo.
+    if (display != nullptr)
+    {
+        display->setBounds (area.removeFromTop (area.getHeight() / 2).reduced (2, 0));
+        area.removeFromTop (4);
+    }
+
     // FlexBox: como o flexbox do CSS. Cada controle ocupa uma fatia igual da largura.
     juce::FlexBox row;
     row.flexDirection = juce::FlexBox::Direction::row;

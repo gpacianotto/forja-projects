@@ -6,6 +6,31 @@ kanban-plugin: board
 
 ## Backlog
 
+- [ ] # Feat: matriz de modulação
+	
+	Permitir ligar fontes de modulação a parâmetros de destino, como a aba Matrix do Serum. Nome técnico: **matriz de modulação** (modulation matrix).
+	
+	Cada linha (slot) da matriz tem: fonte → destino → quantidade (amount, positiva ou negativa).
+	
+	Fontes iniciais (antes do LFO): velocity, mod wheel, aftertouch e um segundo envelope (envelope de modulação).
+	Destinos iniciais: cutoff, resonance, pitch e volume de cada oscilador, fine, glide.
+	
+	[a definir] número de slots (sugestão: 8 fixos, com IDs estáveis), lista final de destinos e se haverá arrastar-e-soltar na interface.
+	
+	Base para o card do LFO.
+	
+	#MicroSynth
+- [ ] # Feat: LFO
+	
+	Adicionar LFO como fonte de modulação da matriz.
+	
+	Implementar **depois** do card "Feat: matriz de modulação" (o LFO só tem efeito ligado a um destino).
+	
+	Proposta: formas de onda (seno, triângulo, serra, quadrada, sample & hold), rate em Hz ou sincronizado ao tempo do Ableton, e modo por nota (reinicia a cada nota) ou livre.
+	
+	[a definir] quantidade de LFOs (1 ou 2).
+	
+	#MicroSynth
 
 
 ## Em Andamento
@@ -18,6 +43,19 @@ kanban-plugin: board
 
 ## Concluído
 
+- [x] # Interface: gráfico visual do filtro e do envelope
+	
+	Mostrar na aba Amp & Filter:
+	- Filtro: curva de resposta de frequência do passa-baixa (eixo em escala log), que se move com Cutoff e Resonance.
+	- Envelope: desenho do ADSR (attack, decay, sustain, release) que muda conforme os knobs.
+	
+	Os gráficos atualizam em tempo real, inclusive com automação do Ableton.
+	
+	> Tentar: mostrar a posição atual do envelope da última nota tocada (ponto andando na curva).
+	
+	Ver RF9 no Spec.
+	
+	#MicroSynth
 - [x] # Feat: Modo Mono (monofônico × polifônico)
 	
 	Adicionar seletor de modo de vozes: **Poly** (8 vozes, comportamento atual) ou **Mono** (uma nota por vez).
