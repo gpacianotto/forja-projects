@@ -96,6 +96,12 @@ public:
 
     int getNumControls() const { return static_cast<int> (controls.size()); }
 
+    // Largura relativa do grupo na linha. Por padrão é o número de controles (todos os knobs
+    // da linha ficam do mesmo tamanho); um grupo com um componente composto (ex.: as abas do
+    // envelope, com 4 knobs dentro) informa quantas "colunas" ele ocupa.
+    void setLayoutWeight (int weight) { layoutWeight = weight; }
+    int getLayoutWeight() const { return layoutWeight > 0 ? layoutWeight : getNumControls(); }
+
     // Componente opcional (ex.: um gráfico) desenhado acima da linha de controles.
     // O grupo vira dono dele, como dos controles.
     // heightFraction: parte da altura útil que o componente ocupa (o resto fica para os controles).
@@ -117,4 +123,5 @@ private:
     std::vector<std::unique_ptr<juce::Component>> controls;
     std::unique_ptr<juce::Component> display;
     float displayFraction = 0.5f;
+    int layoutWeight = 0; // 0 = usar o número de controles
 };

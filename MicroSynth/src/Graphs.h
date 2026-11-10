@@ -27,6 +27,25 @@ private:
     float drawnCutoff = -1.0f, drawnReso = -1.0f; // valores do último desenho
 };
 
+// Um ciclo da forma de onda de um oscilador (card "gráfico das ondas dos osciladores").
+// A altura acompanha o Level; oscilador desligado aparece apagado.
+class OscillatorGraph final : public juce::Component, private juce::Timer
+{
+public:
+    OscillatorGraph (juce::AudioProcessorValueTreeState& apvts, std::size_t oscIndex);
+    ~OscillatorGraph() override { stopTimer(); }
+
+    void paint (juce::Graphics&) override;
+
+private:
+    void timerCallback() override;
+
+    std::atomic<float>* onParam    = nullptr;
+    std::atomic<float>* waveParam  = nullptr;
+    std::atomic<float>* levelParam = nullptr;
+    float drawnOn = -1.0f, drawnWave = -1.0f, drawnLevel = -1.0f;
+};
+
 // Desenho do ADSR, com um ponto na posição atual do envelope da última nota tocada.
 // Serve para o envelope de volume e para o de modulação: recebe os IDs dos 4 parâmetros.
 class EnvelopeGraph final : public juce::Component, private juce::Timer

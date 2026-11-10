@@ -38,8 +38,8 @@ private:
 
 // Interface própria do MicroSynth, organizada em abas (RF8):
 //   Oscillators  — os 3 osciladores (RF6)
-//   Amp & Filter — modo de vozes (RF7), volume, envelope e filtro
-//   Matrix       — envelope de modulação e os 8 slots da matriz (RF10)
+//   Amp & Filter — modo de vozes (RF7), volume, envelopes (Amp Env / Mod Env) e filtro
+//   Matrix       — os 8 slots da matriz de modulação (RF10)
 //   LFOs         — os 3 LFOs (RF11)
 //   Tuning       — afinação, com trava contra mudanças acidentais
 //
@@ -74,7 +74,6 @@ private:
     ParameterGroup envelopeGroup { "Envelope" };
     ParameterGroup filterGroup   { "Filter" };
     ParameterGroup tuningGroup   { "Tuning" };
-    ParameterGroup modEnvGroup   { "Mod Env" };
     ParameterGroup slotsGroup    { "Modulation Matrix" };
     std::array<ParameterGroup, ParamIDs::numLfos> lfoGroups { ParameterGroup { "LFO 1" },
                                                               ParameterGroup { "LFO 2" },

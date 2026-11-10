@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
+#include "EnvelopeTabs.h"
 #include "Graphs.h"
 
 namespace
@@ -25,7 +26,7 @@ namespace
 
         for (auto* group : groups)
             row.items.add (juce::FlexItem (*group)
-                               .withFlex (static_cast<float> (group->getNumControls()))
+                               .withFlex (static_cast<float> (group->getLayoutWeight()))
                                .withMargin (juce::FlexItem::Margin (0.0f, gap / 2.0f, 0.0f, gap / 2.0f)));
 
         row.performLayout (area.expanded (gap / 2, 0));
@@ -92,6 +93,7 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
         auto& group = oscillatorGroups[i];
         group.add (std::make_unique<Toggle> (apvts, ParamIDs::oscOn[i],     "On"));
         group.add (std::make_unique<Choice> (apvts, ParamIDs::oscWave[i],   "Waveform"));
+        group.add (std::make_unique<OscillatorGraph> (apvts, i));
         group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscLevel[i],  "Level"))
             .enableModulation (modulationModel, ModMatrix::oscLevelDest (i));
         group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscOctave[i], "Octave"));
@@ -111,40 +113,25 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
 
     outputGroup.add (std::make_unique<Knob> (apvts, ParamIDs::gain, "Volume"));
 
-    envelopeGroup.add (std::make_unique<Knob> (apvts, ParamIDs::attack,  "Attack"));
-    envelopeGroup.add (std::make_unique<Knob> (apvts, ParamIDs::decay,   "Decay"));
-    envelopeGroup.add (std::make_unique<Knob> (apvts, ParamIDs::sustain, "Sustain"));
-    envelopeGroup.add (std::make_unique<Knob> (apvts, ParamIDs::release, "Release"));
+    // Envelope de volume e de modulação em abas internas, cada um com gráfico e 4 knobs.
+    envelopeGroup.add (std::make_unique<EnvelopeTabs> (apvts, processor.envelopeDisplay, processor.modEnvDisplay));
+    envelopeGroup.setLayoutWeight (4); // ocupa a largura de 4 knobs, como antes
 
     filterGroup.add (std::make_unique<Knob> (apvts, ParamIDs::cutoff, "Cutoff"))
         .enableModulation (modulationModel, ModMatrix::Dest::cutoff);
     filterGroup.add (std::make_unique<Knob> (apvts, ParamIDs::reso,   "Resonance"))
         .enableModulation (modulationModel, ModMatrix::Dest::resonance);
 
-    // Gráficos (RF9) acima dos knobs do envelope e do filtro.
-    envelopeGroup.setDisplay (std::make_unique<EnvelopeGraph> (
-        apvts, EnvelopeGraph::ParamIDs4 { ParamIDs::attack, ParamIDs::decay, ParamIDs::sustain, ParamIDs::release },
-        processor.envelopeDisplay));
+    // Gráfico (RF9) acima dos knobs do filtro (os do envelope ficam dentro das abas).
     filterGroup.setDisplay (std::make_unique<FilterGraph> (apvts));
 
     ampFilterPage.addRow ({ &voiceGroup, &outputGroup });
     ampFilterPage.addRow ({ &envelopeGroup, &filterGroup }, 2); // linha com gráficos: o dobro da altura
 
-    // --- Aba Matrix (RF10) ---
-    modEnvGroup.add (std::make_unique<Knob> (apvts, ParamIDs::modEnvAttack,  "Attack"));
-    modEnvGroup.add (std::make_unique<Knob> (apvts, ParamIDs::modEnvDecay,   "Decay"));
-    modEnvGroup.add (std::make_unique<Knob> (apvts, ParamIDs::modEnvSustain, "Sustain"));
-    modEnvGroup.add (std::make_unique<Knob> (apvts, ParamIDs::modEnvRelease, "Release"));
-    modEnvGroup.setDisplay (std::make_unique<EnvelopeGraph> (
-        apvts, EnvelopeGraph::ParamIDs4 { ParamIDs::modEnvAttack, ParamIDs::modEnvDecay,
-                                          ParamIDs::modEnvSustain, ParamIDs::modEnvRelease },
-        processor.modEnvDisplay),
-        0.4f);
-
+    // --- Aba Matrix (RF10) --- só os 8 slots (o Mod Env fica nas abas do Envelope).
     slotsGroup.add (std::make_unique<ModSlotList> (apvts, modulationModel));
-
-    matrixPage.addRow ({ &modEnvGroup });
     matrixPage.addRow ({ &slotsGroup });
+    matrixPage.setMaxRowHeight (360); // linhas dos slots sem esticar demais em janelas altas
 
     // --- Aba LFOs (RF11) ---
     for (size_t k = 0; k < lfoGroups.size(); ++k)

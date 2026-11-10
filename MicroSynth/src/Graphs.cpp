@@ -1,5 +1,6 @@
 #include "Graphs.h"
 #include "GraphMath.h"
+#include "Oscillator.h"
 #include "Parameters.h"
 
 namespace
@@ -130,6 +131,64 @@ void FilterGraph::paint (juce::Graphics& g)
 
     g.setColour (curveColour (*this));
     g.strokePath (curve, juce::PathStrokeType (2.0f));
+}
+
+// ----------------------------------------------------------------------------- OscillatorGraph
+
+OscillatorGraph::OscillatorGraph (juce::AudioProcessorValueTreeState& apvts, std::size_t oscIndex)
+{
+    onParam    = apvts.getRawParameterValue (ParamIDs::oscOn[oscIndex]);
+    waveParam  = apvts.getRawParameterValue (ParamIDs::oscWave[oscIndex]);
+    levelParam = apvts.getRawParameterValue (ParamIDs::oscLevel[oscIndex]);
+    startTimerHz (refreshHz);
+}
+
+void OscillatorGraph::timerCallback()
+{
+    if (onParam->load() != drawnOn || waveParam->load() != drawnWave || levelParam->load() != drawnLevel)
+        repaint();
+}
+
+void OscillatorGraph::paint (juce::Graphics& g)
+{
+    drawnOn    = onParam->load();
+    drawnWave  = waveParam->load();
+    drawnLevel = levelParam->load();
+
+    // Deixa livre a faixa do nome (18 px), para o gráfico alinhar com os combos e knobs vizinhos.
+    auto bounds = getLocalBounds().toFloat().withTrimmedTop (18.0f).reduced (2.0f, 4.0f);
+    g.setColour (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId).darker (0.3f));
+    g.fillRoundedRectangle (bounds, 6.0f);
+    const auto area = bounds.reduced (6.0f, 6.0f);
+
+    // Linha do zero.
+    g.setColour (gridColour (*this));
+    g.drawHorizontalLine (juce::roundToInt (area.getCentreY()), area.getX(), area.getRight());
+
+    // Um ciclo gerado pelo próprio Oscillator do synth (a mesma onda que soa), com uma
+    // amostra por pixel: frequência 1 Hz numa "taxa de amostragem" igual à largura.
+    Oscillator oscillator;
+    oscillator.setWaveform (static_cast<Waveform> (juce::roundToInt (drawnWave)));
+    const int numPoints = juce::jmax (2, juce::roundToInt (area.getWidth()));
+    oscillator.setFrequency (1.0, numPoints);
+
+    const float amplitude = juce::jlimit (0.0f, 1.0f, drawnLevel / 100.0f) * area.getHeight() / 2.0f;
+
+    juce::Path wave;
+    for (int i = 0; i <= numPoints; ++i)
+    {
+        const float x = area.getX() + area.getWidth() * static_cast<float> (i) / static_cast<float> (numPoints);
+        const float y = area.getCentreY() - oscillator.nextSample() * amplitude;
+
+        if (i == 0)
+            wave.startNewSubPath (x, y);
+        else
+            wave.lineTo (x, y);
+    }
+
+    const bool enabled = drawnOn > 0.5f;
+    g.setColour (curveColour (*this).withAlpha (enabled ? 1.0f : 0.3f));
+    g.strokePath (wave, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved));
 }
 
 // ----------------------------------------------------------------------------- EnvelopeGraph

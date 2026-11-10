@@ -27,6 +27,7 @@ target_sources(MicroSynth PRIVATE
     src/PluginEditor.cpp
     src/Graphs.cpp
     src/ModulationUI.cpp
+    src/EnvelopeTabs.cpp
     src/Controls.cpp
     src/MicroVoice.cpp
     src/Oscillator.cpp
