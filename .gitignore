@@ -16,3 +16,6 @@ _tools/pluginval/
 # Sistema
 Thumbs.db
 desktop.ini
+
+# Obsidian (estado da janela, muda a cada uso)
+.kanban/.obsidian/workspace.json

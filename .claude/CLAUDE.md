@@ -15,6 +15,7 @@ O caminho tem espaços: SEMPRE coloque caminhos entre aspas em comandos de shell
 ```
 Plugins Ableton/
 ├── .claude/            contexto compartilhado (este arquivo, skills, templates)
+├── .kanban/            quadro kanban (vault do Obsidian) — ver seção "Kanban"
 ├── _libs/JUCE/         submódulo git do JUCE 8 — NUNCA editar
 ├── _tools/
 │   ├── juce-build/     build do AudioPluginHost
@@ -23,6 +24,15 @@ Plugins Ableton/
 ```
 
 Regra: pastas que começam com `_` ou `.` são compartilhadas; qualquer outra pasta na raiz é um projeto.
+
+## Kanban
+
+As tarefas de todos os projetos ficam no quadro `.kanban/Plugins Ableton.md` (plugin Kanban do
+Obsidian; o Guilherme abre `.kanban/` como vault). Colunas: Backlog → Em Andamento → Em Revisão →
+Concluído. Cada card tem título `# <Tipo>: <resumo>` e a tag do projeto (`#MicroSynth`).
+Para ler ou editar cards, use a skill `kanban` (o formato é sensível: indentação com TAB e bloco de
+configuração no fim). Nunca edite `.kanban/.obsidian/`. Card só vai para Concluído com aprovação do
+Guilherme.
 
 ## VST3 ou Max for Live?
 
@@ -87,6 +97,8 @@ Dentro de `processBlock`, `renderNextBlock` e de qualquer código chamado por el
 5. Ao terminar uma etapa: dizer ao Guilherme o que testar no Ableton; só então considerar concluída.
 6. Antes de considerar uma versão estável: skill `build-e-validar` (pluginval nível 5).
 7. Ao criar ou mudar o status de um projeto, atualizar a tabela de projetos abaixo.
+8. Se a tarefa tiver card no kanban, movê-lo junto com o trabalho (skill `kanban`): Em Andamento ao
+   começar, Em Revisão ao entregar para teste, Concluído só após o OK do Guilherme.
 
 ## Skills disponíveis
 
@@ -94,6 +106,7 @@ Dentro de `processBlock`, `renderNextBlock` e de qualquer código chamado por el
 - `juce-vst3` — padrões de implementação com JUCE.
 - `max-for-live` — padrões de devices Max for Live com v8 e gen~.
 - `build-e-validar` — build Release, pluginval e instalação.
+- `kanban` — criar, mover, detalhar e concluir cards do quadro `.kanban/`.
 
 ## Comandos úteis (dentro da pasta do projeto)
 
