@@ -3,9 +3,13 @@
 
 #include <utility>
 
+using ModMatrix::Dest;
+using ModMatrix::Source;
+
 void MicroVoice::prepare (double sampleRate, int maxBlockSize)
 {
     adsr.setSampleRate (sampleRate);
+    modEnv.setSampleRate (sampleRate);
 
     // Uma voz gera um sinal mono; ele é copiado para os canais no renderNextBlock.
     filter.prepare ({ sampleRate, static_cast<juce::uint32> (maxBlockSize), 1 });
@@ -20,6 +24,9 @@ void MicroVoice::prepare (double sampleRate, int maxBlockSize)
         oscLevel.reset (sampleRate, 0.02);
         oscLevel.setCurrentAndTargetValue (0.0f);
     }
+
+    modWheelSmoothed.reset (sampleRate, 0.02);
+    aftertouchSmoothed.reset (sampleRate, 0.02);
 }
 
 float MicroVoice::clampCutoff (float hz) const
@@ -29,6 +36,17 @@ float MicroVoice::clampCutoff (float hz) const
     return juce::jlimit (20.0f, juce::jmax (20.0f, maxHz), hz);
 }
 
+void MicroVoice::setEnvelopeParameters (juce::ADSR& envelope, const juce::ADSR::Parameters& p)
+{
+    // Só repassa ao ADSR quando algo mudou: juce::ADSR::setParameters recalcula a velocidade
+    // do release a partir do sustain, o que, chamado a cada bloco durante um release,
+    // deformava a curva (e com sustain = 0 cortava a nota de uma vez, com estalo).
+    const auto& current = envelope.getParameters();
+    if (p.attack != current.attack || p.decay != current.decay
+        || p.sustain != current.sustain || p.release != current.release)
+        envelope.setParameters (p);
+}
+
 void MicroVoice::setParameters (const VoiceParameters& params)
 {
     parameters = params;
@@ -36,21 +54,12 @@ void MicroVoice::setParameters (const VoiceParameters& params)
     for (size_t i = 0; i < oscillators.size(); ++i)
         oscillators[i].setWaveform (params.oscillators[i].waveform);
 
-    // Só repassa ao ADSR quando algo mudou: juce::ADSR::setParameters recalcula a velocidade
-    // do release a partir do sustain, o que, chamado a cada bloco durante um release,
-    // deformava a curva (e com sustain = 0 cortava a nota de uma vez, com estalo).
-    const auto& a = params.adsr;
-    const auto& current = adsr.getParameters();
-    if (a.attack != current.attack || a.decay != current.decay
-        || a.sustain != current.sustain || a.release != current.release)
-        adsr.setParameters (a);
-    filter.setResonance (params.resonance);
-    cutoffSmoothed.setTargetValue (clampCutoff (params.cutoffHz));
+    setEnvelopeParameters (adsr, params.adsr);
+    setEnvelopeParameters (modEnv, params.modEnv);
     glide.setTime (params.glideSeconds, getSampleRate());
 
-    // Oitava, passos e cents valem em tempo real, inclusive para notas presas.
-    if (isVoiceActive())
-        updateFrequencies();
+    // Knobs (e a matriz em cima deles) valem em tempo real, inclusive para notas presas.
+    updateModulation();
 }
 
 bool MicroVoice::canPlaySound (juce::SynthesiserSound* sound)
@@ -64,34 +73,44 @@ void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesise
     // std::exchange: lê o valor e já zera a flag (vale só para esta nota).
     const bool handoff = std::exchange (monoHandoffPending, false);
 
-    noteTuning = tuning; // cópia (sem alocação: só números)
-    bend       = TuningEngine::pitchWheelToBend (currentPitchWheelPosition);
+    noteTuning      = tuning; // cópia (sem alocação: só números)
+    bend            = TuningEngine::pitchWheelToBend (currentPitchWheelPosition);
+    currentMidiNote = midiNoteNumber;
 
     // Modo Mono com a voz ainda soando: troca de nota sem recomeçar do zero (RF7).
     if (handoff && adsr.isActive())
     {
         glide.glideTo (midiNoteNumber);
-        updateFrequencies();
 
         if (monoRetrigger)
         {
             // juce::ADSR::noteOn parte do nível atual do envelope, então não estala.
             level = velocity;
             adsr.noteOn();
+            modEnv.noteOn();
             samplesInStage = 0;
             released = false;
         }
 
+        updateModulation();
         return;
     }
 
     // Nota nova numa voz parada.
     glide.jumpTo (midiNoteNumber);
+    level = velocity;
+    polyAftertouch = 0.0f;
+
+    // Fontes globais já no valor atual, sem deslizar a partir do valor da nota anterior.
+    modWheelSmoothed.setCurrentAndTargetValue (globalMod.modWheel);
+    aftertouchSmoothed.setCurrentAndTargetValue (globalMod.channelPressure);
 
     for (auto& oscillator : oscillators)
         oscillator.resetPhase();
 
-    updateFrequencies();
+    modEnv.reset();
+    modEnvValue = 0.0f;
+    updateModulation();
 
     // Volumes dos osciladores já no valor certo, sem fade-in.
     for (auto& oscLevel : oscLevels)
@@ -102,9 +121,10 @@ void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesise
     cutoffSmoothed.setCurrentAndTargetValue (cutoffSmoothed.getTargetValue());
     filter.setCutoffFrequency (cutoffSmoothed.getCurrentValue());
 
-    level = velocity;
     adsr.noteOn();
+    modEnv.noteOn();
     samplesInStage = 0;
+    samplesUntilModUpdate = 0;
     released = false;
 }
 
@@ -118,6 +138,7 @@ void MicroVoice::stopNote (float, bool allowTailOff)
     if (allowTailOff)
     {
         adsr.noteOff(); // entra no release; a voz é liberada em renderNextBlock quando acabar
+        modEnv.noteOff();
         samplesInStage = 0;
         released = true;
     }
@@ -125,8 +146,14 @@ void MicroVoice::stopNote (float, bool allowTailOff)
     {
         // O host pediu silêncio imediato (ex.: roubo de voz ou "all notes off").
         adsr.reset();
+        modEnv.reset();
         clearCurrentNote();
     }
+}
+
+void MicroVoice::aftertouchChanged (int newAftertouchValue)
+{
+    polyAftertouch = static_cast<float> (newAftertouchValue) / 127.0f;
 }
 
 MicroVoice::EnvelopeSnapshot MicroVoice::getEnvelopeSnapshot() const noexcept
@@ -138,7 +165,8 @@ MicroVoice::EnvelopeSnapshot MicroVoice::getEnvelopeSnapshot() const noexcept
 
     snapshot.stage = released ? GraphMath::EnvelopeStage::released : GraphMath::EnvelopeStage::held;
     snapshot.secondsInStage = getSampleRate() > 0.0 ? samplesInStage / getSampleRate() : 0.0;
-    snapshot.level = lastEnvelopeLevel;
+    snapshot.level    = lastEnvelopeLevel;
+    snapshot.modLevel = modEnvValue;
     return snapshot;
 }
 
@@ -146,6 +174,38 @@ void MicroVoice::pitchWheelMoved (int newPitchWheelValue)
 {
     bend = TuningEngine::pitchWheelToBend (newPitchWheelValue);
     updateFrequencies();
+}
+
+void MicroVoice::updateModulation()
+{
+    // 1. Valor atual de cada fonte.
+    ModMatrix::SourceValues sources {};
+    sources[ModMatrix::index (Source::velocity)]   = level;
+    sources[ModMatrix::index (Source::modWheel)]   = modWheelSmoothed.getCurrentValue();
+    sources[ModMatrix::index (Source::aftertouch)] = juce::jmax (aftertouchSmoothed.getCurrentValue(), polyAftertouch);
+    sources[ModMatrix::index (Source::keyTrack)]   = ModMatrix::keyTrack (currentMidiNote);
+    sources[ModMatrix::index (Source::modEnv)]     = modEnvValue;
+    // LFO 1-3 ficam em 0 até o RF11.
+
+    // 2. Deslocamento de cada destino.
+    ModMatrix::computeOffsets (parameters.modSlots, sources, modOffsets);
+
+    // 3. Filtro: soma na posição normalizada do knob e converte de volta para Hz / Q.
+    auto modulate = [this] (const juce::NormalisableRange<float>& range, float base, Dest dest)
+    {
+        const float offset = modOffsets[ModMatrix::index (dest)];
+        if (offset == 0.0f)
+            return base; // sem modulação: valor exato do knob
+
+        return range.convertFrom0to1 (ModMatrix::applyNormalized (range.convertTo0to1 (base), offset));
+    };
+
+    cutoffSmoothed.setTargetValue (clampCutoff (modulate (ranges.cutoff, parameters.cutoffHz, Dest::cutoff)));
+    filter.setResonance (modulate (ranges.resonance, parameters.resonance, Dest::resonance));
+
+    // 4. Osciladores (volume, altura e fine).
+    if (isVoiceActive())
+        updateFrequencies();
 }
 
 void MicroVoice::updateFrequencies()
@@ -156,16 +216,27 @@ void MicroVoice::updateFrequencies()
     const double noteHz = noteTuning.noteToHz (glide.getCurrent(), bend);
     const int edo = noteTuning.getSettings().edo;
 
+    const double globalPitchSteps = modOffsets[ModMatrix::index (Dest::pitch)] * ModMatrix::pitchStepsAtFull;
+
     for (size_t i = 0; i < oscillators.size(); ++i)
     {
         const auto& osc = parameters.oscillators[i];
-        const double hz = noteHz * TuningEngine::transposeRatio (edo, osc.octave, osc.steps, osc.fineCents);
 
+        // Matriz: Pitch em passos da EDO; Level e Fine na faixa normalizada do knob.
+        const double steps = osc.steps + globalPitchSteps
+                           + modOffsets[ModMatrix::index (ModMatrix::oscPitchDest (i))] * ModMatrix::pitchStepsAtFull;
+
+        const float fineNormalized = (osc.fineCents + 100.0f) / 200.0f; // -100..+100 ct -> 0..1
+        const float fineCents = ModMatrix::applyNormalized (fineNormalized, modOffsets[ModMatrix::index (ModMatrix::oscFineDest (i))]) * 200.0f - 100.0f;
+
+        const float oscLevel = ModMatrix::applyNormalized (osc.level, modOffsets[ModMatrix::index (ModMatrix::oscLevelDest (i))]);
+
+        const double hz = noteHz * TuningEngine::transposeRatio (edo, osc.octave, steps, fineCents);
         oscillators[i].setFrequency (hz, sampleRate);
 
         // RF6 + RF4: oscilador transposto para fora da faixa tocável fica mudo.
         const bool audible = osc.enabled && TuningEngine::isPlayable (hz, sampleRate);
-        oscLevels[i].setTargetValue (audible ? osc.level : 0.0f);
+        oscLevels[i].setTargetValue (audible ? oscLevel : 0.0f);
     }
 }
 
@@ -176,12 +247,29 @@ void MicroVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSam
 
     const int numChannels = output.getNumChannels();
 
+    modWheelSmoothed.setTargetValue (globalMod.modWheel);
+    aftertouchSmoothed.setTargetValue (globalMod.channelPressure);
+
     for (int i = 0; i < numSamples; ++i)
     {
+        modWheelSmoothed.getNextValue();
+        aftertouchSmoothed.getNextValue();
+        modEnvValue = modEnv.getNextSample();
+
+        // Matriz recalculada a cada 32 amostras (~0,7 ms a 48 kHz): rápido o bastante para
+        // soar contínuo e barato o bastante para 8 vozes.
         // Durante o glide a altura muda a cada amostra.
-        if (glide.isGliding())
-        {
+        const bool gliding = glide.isGliding();
+        if (gliding)
             glide.next();
+
+        if (--samplesUntilModUpdate <= 0)
+        {
+            updateModulation(); // inclui updateFrequencies
+            samplesUntilModUpdate = modUpdateInterval;
+        }
+        else if (gliding)
+        {
             updateFrequencies();
         }
 

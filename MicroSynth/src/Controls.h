@@ -2,6 +2,11 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include "ModMatrix.h"
+
+class ModulationModel;
+class ModRingOverlay;
+
 // Componentes da interface do MicroSynth. Cada controle se liga a um parâmetro do APVTS por um
 // "Attachment", que sincroniza os dois lados (mexer no knob muda o parâmetro; automação no
 // Ableton move o knob).
@@ -10,16 +15,37 @@
 // depois e destruído antes dele (C++ destrói membros na ordem inversa da declaração).
 
 // Knob giratório com nome em cima e valor embaixo.
-class Knob final : public juce::Component
+//
+// Um knob pode ser destino da matriz de modulação (RF10): aceita uma fonte arrastada
+// (DragAndDropTarget ~ interface Java que o componente implementa) e mostra um anel com o
+// alcance da modulação, que também pode ser arrastado para ajustar a quantidade.
+class Knob final : public juce::Component, public juce::DragAndDropTarget
 {
 public:
     Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& paramID, const juce::String& labelText);
+    ~Knob() override; // definido no .cpp, onde ModRingOverlay é um tipo completo
+
+    // ringScale: quanto 100 % de modulação anda na faixa do knob (ex.: Pitch no knob de
+    // Steps: 24 passos de uma faixa de 48 = 0,5).
+    void enableModulation (ModulationModel& model, ModMatrix::Dest dest, float ringScale = 1.0f);
+
     void resized() override;
+    void paintOverChildren (juce::Graphics&) override;
+
+    bool isInterestedInDragSource (const SourceDetails&) override;
+    void itemDragEnter (const SourceDetails&) override;
+    void itemDragExit (const SourceDetails&) override;
+    void itemDropped (const SourceDetails&) override;
 
 private:
     juce::Label label;
     juce::Slider slider;
     juce::AudioProcessorValueTreeState::SliderAttachment attachment;
+
+    ModulationModel* modulationModel = nullptr;
+    ModMatrix::Dest modDest = ModMatrix::Dest::none;
+    std::unique_ptr<ModRingOverlay> ring;
+    bool dropHighlight = false;
 };
 
 // Lista de opções (ex.: forma de onda) com nome em cima.
@@ -72,12 +98,14 @@ public:
 
     // Componente opcional (ex.: um gráfico) desenhado acima da linha de controles.
     // O grupo vira dono dele, como dos controles.
+    // heightFraction: parte da altura útil que o componente ocupa (o resto fica para os controles).
     template <typename DisplayType>
-    DisplayType& setDisplay (std::unique_ptr<DisplayType> newDisplay)
+    DisplayType& setDisplay (std::unique_ptr<DisplayType> newDisplay, float heightFraction = 0.5f)
     {
         auto& ref = *newDisplay;
         addAndMakeVisible (ref);
         display = std::move (newDisplay);
+        displayFraction = heightFraction;
         return ref;
     }
 
@@ -88,4 +116,5 @@ private:
     juce::String title;
     std::vector<std::unique_ptr<juce::Component>> controls;
     std::unique_ptr<juce::Component> display;
+    float displayFraction = 0.5f;
 };

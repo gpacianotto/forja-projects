@@ -7,6 +7,7 @@
 
 #include "Glide.h"
 #include "GraphMath.h"
+#include "ModMatrix.h"
 #include "Oscillator.h"
 #include "Parameters.h"
 #include "TuningEngine.h"
@@ -27,19 +28,39 @@ struct OscillatorParameters
 struct VoiceParameters
 {
     std::array<OscillatorParameters, ParamIDs::numOscillators> oscillators {};
-    juce::ADSR::Parameters adsr { 0.005f, 0.2f, 0.8f, 0.3f }; // em segundos
+    juce::ADSR::Parameters adsr    { 0.005f, 0.2f, 0.8f, 0.3f }; // em segundos
+    juce::ADSR::Parameters modEnv  { 0.005f, 0.3f, 0.0f, 0.3f }; // envelope de modulação (RF10)
     float cutoffHz     = 8000.0f;
     float resonance    = 0.7f;
     float glideSeconds = 0.0f;
+    ModMatrix::Slots modSlots {};
 };
 
-// Uma voz do synth: 3 osciladores somados -> filtro passa-baixa -> envelope de amplitude (ADSR).
-// O juce::Synthesiser tem várias vozes e entrega cada nota nova a uma voz livre.
+// Faixas normalizadas dos destinos com escala não linear. A matriz soma em valores
+// normalizados (0 a 1), como a posição do knob; estas faixas convertem de/para Hz e Q.
+// O processador preenche uma vez no construtor; as vozes só leem.
+struct ModRanges
+{
+    juce::NormalisableRange<float> cutoff;
+    juce::NormalisableRange<float> resonance;
+};
+
+// Fontes de modulação globais (não dependem da nota). Escritas pelo MicroSynthesiser ao
+// receber MIDI e lidas pelas vozes, as duas coisas na thread de áudio.
+struct GlobalModState
+{
+    float modWheel        = 0.0f; // CC 1, 0..1
+    float channelPressure = 0.0f; // aftertouch de canal, 0..1
+};
+
+// Uma voz do synth: 3 osciladores somados -> filtro passa-baixa -> envelope de amplitude (ADSR),
+// com a matriz de modulação (RF10) recalculada a cada 32 amostras.
 class MicroVoice final : public juce::SynthesiserVoice
 {
 public:
-    // A voz só lê o TuningEngine (const&); o dono é o PluginProcessor, que vive mais que ela.
-    explicit MicroVoice (const TuningEngine& tuningEngine) : tuning (tuningEngine) {}
+    // A voz só lê estas referências; o dono é o PluginProcessor, que vive mais que ela.
+    MicroVoice (const TuningEngine& tuningEngine, const GlobalModState& globalModState, const ModRanges& modRanges)
+        : tuning (tuningEngine), globalMod (globalModState), ranges (modRanges) {}
 
     // Chamado em prepareToPlay, fora da thread de áudio (o filtro aloca memória aqui).
     void prepare (double sampleRate, int maxBlockSize);
@@ -57,12 +78,13 @@ public:
         monoRetrigger      = retriggerEnvelope;
     }
 
-    // Onde o envelope desta voz está, para o ponto do gráfico (RF9).
+    // Onde os envelopes desta voz estão, para o ponto dos gráficos (RF9 e RF10).
     struct EnvelopeSnapshot
     {
         GraphMath::EnvelopeStage stage = GraphMath::EnvelopeStage::idle;
         double secondsInStage = 0.0;
-        float  level = 0.0f; // valor atual do envelope, 0..1
+        float  level    = 0.0f; // envelope de volume, 0..1
+        float  modLevel = 0.0f; // envelope de modulação, 0..1
     };
     EnvelopeSnapshot getEnvelopeSnapshot() const noexcept;
 
@@ -71,20 +93,26 @@ public:
                     juce::SynthesiserSound*, int currentPitchWheelPosition) override;
     void stopNote (float velocity, bool allowTailOff) override;
     void pitchWheelMoved (int newPitchWheelValue) override;
-    void controllerMoved (int, int) override {}
+    void controllerMoved (int, int) override {} // mod wheel é global (GlobalModState)
+    void aftertouchChanged (int newAftertouchValue) override; // aftertouch polifônico, só desta nota
     void renderNextBlock (juce::AudioBuffer<float>& output, int startSample, int numSamples) override;
 
 private:
+    void updateModulation();
     void updateFrequencies();
     float clampCutoff (float hz) const;
+    static void setEnvelopeParameters (juce::ADSR& envelope, const juce::ADSR::Parameters& newParams);
 
     const TuningEngine& tuning;
+    const GlobalModState& globalMod;
+    const ModRanges& ranges;
     VoiceParameters parameters;
 
     // Cópia da afinação tirada no note-on: se edo/baseHz mudarem com a nota presa, ela não
     // muda (RF3), nem quando o pitch bend recalcula a frequência.
     TuningEngine noteTuning;
     double bend = 0.0; // -1..+1
+    int currentMidiNote = 60; // para o Key Track
 
     // Altura atual em notas MIDI/passos (fracionária durante o glide).
     Glide glide;
@@ -97,10 +125,20 @@ private:
 
     juce::dsp::StateVariableTPTFilter<float> filter;
     juce::ADSR adsr;
+    juce::ADSR modEnv; // envelope de modulação: não toca som, só alimenta a matriz
 
-    // Suaviza o cutoff (20 ms) para não estalar ao girar o knob ou automatizar.
+    // Suaviza o cutoff (20 ms) para não estalar ao girar o knob, automatizar ou modular.
     // Multiplicativo: anda em proporção (oitavas), como o ouvido percebe frequência.
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> cutoffSmoothed;
+
+    // Matriz de modulação: fontes suavizadas (MIDI chega em degraus de 1/127) e
+    // deslocamento atual de cada destino.
+    juce::SmoothedValue<float> modWheelSmoothed, aftertouchSmoothed;
+    float polyAftertouch = 0.0f;
+    float modEnvValue    = 0.0f;
+    ModMatrix::DestOffsets modOffsets {};
+    static constexpr int modUpdateInterval = 32; // amostras entre recálculos da matriz
+    int samplesUntilModUpdate = 0;
 
     float level = 0.0f; // volume da nota (vem da velocity)
 

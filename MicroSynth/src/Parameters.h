@@ -44,4 +44,16 @@ namespace ParamIDs
 
     // Saída
     inline constexpr auto gain = "gain";
+
+    // Matriz de modulação (RF10): 8 slots. Índice 0..7 = slot 1..8.
+    inline constexpr std::size_t numModSlots = 8;
+    inline constexpr std::array<const char*, numModSlots> modSource { "mod1Source", "mod2Source", "mod3Source", "mod4Source", "mod5Source", "mod6Source", "mod7Source", "mod8Source" };
+    inline constexpr std::array<const char*, numModSlots> modDest   { "mod1Dest", "mod2Dest", "mod3Dest", "mod4Dest", "mod5Dest", "mod6Dest", "mod7Dest", "mod8Dest" };
+    inline constexpr std::array<const char*, numModSlots> modAmount { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount", "mod7Amount", "mod8Amount" };
+
+    // Envelope de modulação (Mod Env), tempos em ms
+    inline constexpr auto modEnvAttack  = "modEnvAttack";
+    inline constexpr auto modEnvDecay   = "modEnvDecay";
+    inline constexpr auto modEnvSustain = "modEnvSustain";
+    inline constexpr auto modEnvRelease = "modEnvRelease";
 }

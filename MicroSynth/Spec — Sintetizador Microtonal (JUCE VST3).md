@@ -64,6 +64,20 @@ Todos os parâmetros abaixo são expostos ao host, então podem ser automatizado
 | Vozes | Glide (`glide`) | 0 a 2000 ms | 0 ms |
 | Afinação | Trava de afinação (`tuningLock`) | sim/não (não automatizável) | não |
 
+**Parâmetros da matriz de modulação (v0.4)**
+
+| Grupo | Parâmetro (ID) | Faixa | Padrão |
+| --- | --- | --- | --- |
+| Matriz | Fonte do slot N (`mod1Source` … `mod8Source`) | lista de fontes (abaixo), não automatizável | None |
+| Matriz | Destino do slot N (`mod1Dest` … `mod8Dest`) | lista de destinos (abaixo), não automatizável | None |
+| Matriz | Quantidade do slot N (`mod1Amount` … `mod8Amount`) | -100 a +100 % | 0 % |
+| Mod Env | Attack / Decay / Sustain / Release (`modEnvAttack`, `modEnvDecay`, `modEnvSustain`, `modEnvRelease`) | mesmas faixas do envelope de volume | 5 ms / 300 ms / 0 / 300 ms |
+
+**Listas fechadas** (a ordem é o valor salvo: nunca reordenar nem remover; opções novas só ocupam as vagas reservadas)
+
+- Fontes: None, Velocity, Mod Wheel, Aftertouch, Key Track, Mod Env, LFO 1, LFO 2, LFO 3, Reserved 1, Reserved 2.
+- Destinos: None, Cutoff, Resonance, Pitch, Osc 1 Level, Osc 1 Pitch, Osc 1 Fine, Osc 2 Level, Osc 2 Pitch, Osc 2 Fine, Osc 3 Level, Osc 3 Pitch, Osc 3 Fine, Reserved 1, Reserved 2, Reserved 3, Reserved 4.
+
 **Comportamentos obrigatórios**
 
 - RF1: cada nota MIDI recebida toca na frequência calculada pelo motor de afinação.
@@ -75,6 +89,12 @@ Todos os parâmetros abaixo são expostos ao host, então podem ser automatizado
 - RF7 (v0.2): no modo **Poly**, o synth toca até 8 notas (comportamento da v0.1). No modo **Mono**, toca uma nota por vez, com prioridade para a última nota tocada; ao soltar a nota atual, volta para a nota anterior que ainda está pressionada. Com `legato` ligado, trocar de nota com outra tecla ainda pressionada não redispara o envelope; com `legato` desligado, toda nota redispara o envelope a partir do nível atual (sem estalo). O `glide` desliza a altura da nota anterior para a nova em tempo constante, linear em passos da EDO (exponencial em Hz), sempre que a voz já está soando. Trocar de modo solta todas as notas (com release).
 - RF8 (v0.2): a interface é organizada em abas: **Oscillators**, **Amp & Filter** (vozes, envelope, filtro e volume) e **Tuning**. Na aba Tuning, o botão de trava (`tuningLock`) desabilita os knobs de afinação na interface para evitar mudanças acidentais. A trava é salva com o set, mas não é automatizável e não bloqueia automação do host.
 - RF9 (v0.3): a aba Amp & Filter mostra dois gráficos que acompanham os knobs e a automação em tempo real: a curva de resposta do filtro passa-baixa (frequência em escala log de 20 Hz a 20 kHz, ganho em dB) e o desenho do envelope ADSR. Os tempos do envelope são desenhados em escala de raiz quadrada, para que um attack de 5 ms continue visível ao lado de um release de 10 s; o sustain ocupa uma faixa fixa. Um ponto mostra a posição atual do envelope da última nota tocada. Os gráficos só leem valores (atômicos), sem travar a thread de áudio.
+- RF10 (v0.4): matriz de modulação com 8 slots (fonte → destino → quantidade), calculada por voz a cada bloco.
+  - Fontes unipolares (0 a 1): Velocity, Mod Wheel, Aftertouch, Mod Env. Bipolares (-1 a +1): Key Track (−1 na nota MIDI 0, +1 na 127) e LFOs. LFOs valem 0 até o RF11.
+  - A modulação soma `fonte × quantidade` ao valor normalizado (0 a 1) do destino, com limite nas pontas; vários slots no mesmo destino se somam. No Pitch, 100 % = 24 passos da EDO.
+  - Mod Wheel e Aftertouch são suavizados (20 ms) para não estalar.
+  - Interface: aba **Matrix** com alças arrastáveis das fontes, o Mod Env (knobs + gráfico com ponto) e a lista dos 8 slots. Soltar uma fonte num knob de destino ocupa o primeiro slot livre (com os 8 ocupados, aparece um aviso). Knobs modulados mostram um anel com o alcance da modulação; arrastar o anel ajusta a quantidade do primeiro slot ligado àquele knob.
+- RF11 (v0.5): 3 LFOs (fontes LFO 1–3 da matriz), com forma de onda, rate livre ou sincronizado ao tempo do host e modo por nota ou livre. Detalhes no card do LFO.
 
 ## Modelo de afinação
 
@@ -220,6 +240,8 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 | 8. Modo Mono | `voiceMode`, `legato`, `glide` (RF7) | Em Mono, segurar uma nota e tocar outra desliza (glide) sem redisparar o envelope; soltar volta à anterior |
 | 9. Abas e trava | Abas Oscillators / Amp & Filter / Tuning e `tuningLock` (RF8) | Com a trava ligada, os knobs de afinação não mexem; reabrir o set mantém a trava |
 | 10. Gráficos | Curva do filtro e desenho do ADSR com ponto de posição (RF9) | Girar Cutoff/Resonance/ADSR ou automatizá-los move os gráficos; tocar uma nota faz o ponto percorrer o envelope |
+| 11. Matriz de modulação | 8 slots, Mod Env, aba Matrix, arrastar e soltar, anel nos knobs (RF10) | Velocity → Cutoff abre o filtro com notas fortes; arrastar Mod Env até o Cutoff cria o slot; o anel acompanha e ajusta a quantidade |
+| 12. LFOs | 3 LFOs como fontes (RF11) | LFO 1 → Pitch faz vibrato audível; com sync, acompanha o tempo do Live |
 
 Uma sugestão de ritmo: as etapas 1 e 2 cabem numa primeira noite, e a etapa 3 é o marco que prova a ideia.
 

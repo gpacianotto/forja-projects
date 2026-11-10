@@ -51,6 +51,7 @@ public:
         std::atomic<float> level { 0.0f };
     };
     EnvelopeDisplay envelopeDisplay;
+    EnvelopeDisplay modEnvDisplay; // envelope de modulação (RF10)
 
 private:
     static constexpr int numVoices = 8;
@@ -83,12 +84,27 @@ private:
     };
     std::array<OscillatorParamPointers, ParamIDs::numOscillators> oscParams;
 
+    // Matriz de modulação (RF10)
+    struct ModSlotParamPointers
+    {
+        std::atomic<float>* source = nullptr;
+        std::atomic<float>* dest   = nullptr;
+        std::atomic<float>* amount = nullptr;
+    };
+    std::array<ModSlotParamPointers, ParamIDs::numModSlots> modSlotParams;
+    std::atomic<float>* modEnvAttackParam  = nullptr;
+    std::atomic<float>* modEnvDecayParam   = nullptr;
+    std::atomic<float>* modEnvSustainParam = nullptr;
+    std::atomic<float>* modEnvReleaseParam = nullptr;
+
     // Atualizado no início de cada processBlock; as vozes consultam no note-on.
     // Declarado antes do synth: membros são construídos na ordem de declaração e as vozes
     // guardam uma referência para ele.
     TuningEngine tuning;
+    GlobalModState globalMod; // mod wheel e aftertouch de canal (RF10)
+    ModRanges modRanges;      // faixas do cutoff e da ressonância, para a matriz
 
-    MicroSynthesiser synth { tuning }; // distribui as notas MIDI entre as vozes (com a guarda do RF4)
+    MicroSynthesiser synth { tuning, globalMod }; // distribui as notas MIDI entre as vozes (RF4, RF7)
 
     juce::SmoothedValue<float> gainSmoothed; // volume de saída, com rampa de 20 ms
 

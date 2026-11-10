@@ -6,29 +6,15 @@ kanban-plugin: board
 
 ## Backlog
 
-- [ ] # Feat: matriz de modulação
-	
-	Permitir ligar fontes de modulação a parâmetros de destino, como a aba Matrix do Serum. Nome técnico: **matriz de modulação** (modulation matrix).
-	
-	Cada linha (slot) da matriz tem: fonte → destino → quantidade (amount, positiva ou negativa).
-	
-	Fontes iniciais (antes do LFO): velocity, mod wheel, aftertouch e um segundo envelope (envelope de modulação).
-	Destinos iniciais: cutoff, resonance, pitch e volume de cada oscilador, fine, glide.
-	
-	[a definir] número de slots (sugestão: 8 fixos, com IDs estáveis), lista final de destinos e se haverá arrastar-e-soltar na interface.
-	
-	Base para o card do LFO.
-	
-	#MicroSynth
 - [ ] # Feat: LFO
 	
-	Adicionar LFO como fonte de modulação da matriz.
+	Adicionar **3 LFOs** como fontes de modulação da matriz (já reservados na lista de fontes: LFO 1, LFO 2, LFO 3).
 	
 	Implementar **depois** do card "Feat: matriz de modulação" (o LFO só tem efeito ligado a um destino).
 	
 	Proposta: formas de onda (seno, triângulo, serra, quadrada, sample & hold), rate em Hz ou sincronizado ao tempo do Ableton, e modo por nota (reinicia a cada nota) ou livre.
 	
-	[a definir] quantidade de LFOs (1 ou 2).
+	Ver RF11 no Spec.
 	
 	#MicroSynth
 
@@ -43,6 +29,29 @@ kanban-plugin: board
 
 ## Concluído
 
+- [x] # Feat: matriz de modulação
+	
+	Permitir ligar fontes de modulação a parâmetros de destino, como a aba Matrix do Serum. Nome técnico: **matriz de modulação** (modulation matrix).
+	
+	**8 slots fixos.** Cada slot: fonte → destino → quantidade (-100 % a +100 % da faixa do destino; no Pitch, 100 % = 24 passos da EDO). Quantidade automatizável; fonte e destino não.
+	
+	**Fontes** (lista fechada para sempre): None, Velocity, Mod Wheel, Aftertouch, Key Track, Mod Env, LFO 1, LFO 2, LFO 3 + 2 vagas reservadas. Os LFOs ficam sem efeito até o card do LFO.
+	
+	**Destinos** (lista fechada para sempre): None, Cutoff, Resonance, Pitch (todos os osciladores), Osc 1/2/3 Level, Osc 1/2/3 Pitch, Osc 1/2/3 Fine + 4 vagas reservadas.
+	
+	**Envelope de modulação (Mod Env):** segundo ADSR com 4 knobs e gráfico com ponto, como o do volume.
+	
+	**Interface:**
+	- Nova aba Matrix com as fontes como alças arrastáveis e a lista dos 8 slots (editar quantidade, trocar fonte/destino, apagar).
+	- Arrastar uma fonte até um knob de destino cria a ligação no primeiro slot livre; com os 8 ocupados, aparece um aviso.
+	- Anel colorido em volta do knob modulado mostrando até onde a modulação leva o valor.
+	- Arrastar o anel ajusta a quantidade direto no knob.
+	
+	Ver RF10 no Spec.
+	
+	Base para o card do LFO.
+	
+	#MicroSynth
 - [x] # Interface: gráfico visual do filtro e do envelope
 	
 	Mostrar na aba Amp & Filter:

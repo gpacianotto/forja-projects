@@ -1,4 +1,5 @@
 #include "Controls.h"
+#include "ModulationUI.h"
 
 namespace
 {
@@ -39,11 +40,70 @@ Knob::Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& param
     addAndMakeVisible (slider);
 }
 
+Knob::~Knob() = default;
+
+void Knob::enableModulation (ModulationModel& model, ModMatrix::Dest dest, float ringScale)
+{
+    modulationModel = &model;
+    modDest = dest;
+    ring = std::make_unique<ModRingOverlay> (model, dest, slider, ringScale);
+    addAndMakeVisible (*ring); // por cima do slider: só captura o mouse sobre o anel
+}
+
 void Knob::resized()
 {
     auto area = getLocalBounds();
     label.setBounds (area.removeFromTop (labelHeight));
     slider.setBounds (area);
+
+    if (ring != nullptr)
+        ring->setBounds (slider.getBounds());
+}
+
+void Knob::paintOverChildren (juce::Graphics& g)
+{
+    // Contorno enquanto uma fonte é arrastada por cima: "solte aqui".
+    if (dropHighlight)
+    {
+        g.setColour (ModulationModel::accentColour());
+        g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (1.0f), 6.0f, 2.0f);
+    }
+}
+
+bool Knob::isInterestedInDragSource (const SourceDetails& details)
+{
+    return modulationModel != nullptr && ModulationModel::parseDragDescription (details.description) != ModMatrix::Source::none;
+}
+
+void Knob::itemDragEnter (const SourceDetails&)
+{
+    dropHighlight = true;
+    repaint();
+}
+
+void Knob::itemDragExit (const SourceDetails&)
+{
+    dropHighlight = false;
+    repaint();
+}
+
+void Knob::itemDropped (const SourceDetails& details)
+{
+    dropHighlight = false;
+    repaint();
+
+    const auto source = ModulationModel::parseDragDescription (details.description);
+    if (modulationModel->addLink (source, modDest) < 0)
+    {
+        // Os 8 slots estão ocupados.
+        juce::AlertWindow::showAsync (juce::MessageBoxOptions()
+                                          .withIconType (juce::MessageBoxIconType::WarningIcon)
+                                          .withTitle ("Modulation matrix full")
+                                          .withMessage ("All 8 slots are in use. Delete a slot in the Matrix tab first.")
+                                          .withButton ("OK")
+                                          .withAssociatedComponent (this),
+                                      nullptr);
+    }
 }
 
 // ----------------------------------------------------------------------------- Choice
@@ -122,10 +182,10 @@ void ParameterGroup::resized()
     auto area = getLocalBounds().reduced (6);
     area.removeFromTop (titleHeight - 6);
 
-    // Com gráfico: ele fica com a metade de cima, e os controles com a de baixo.
+    // Com gráfico: ele fica com a parte de cima, e os controles com o resto.
     if (display != nullptr)
     {
-        display->setBounds (area.removeFromTop (area.getHeight() / 2).reduced (2, 0));
+        display->setBounds (area.removeFromTop (juce::roundToInt (area.getHeight() * displayFraction)).reduced (2, 0));
         area.removeFromTop (4);
     }
 

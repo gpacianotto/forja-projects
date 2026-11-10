@@ -8,6 +8,8 @@ namespace
     constexpr int margin       = 12;
     constexpr int gap          = 10;
     constexpr int tabBarDepth  = 30;
+    constexpr int titleWidth   = 140; // espaço do nome "MicroSynth" no cabeçalho
+    constexpr int versionWidth = 60;
 
     // Tamanho inicial e limites da janela redimensionável.
     constexpr int defaultWidth  = 840, defaultHeight = 560;
@@ -77,7 +79,8 @@ void TabPage::resized()
 // ----------------------------------------------------------------------------- PluginEditor
 
 PluginEditor::PluginEditor (PluginProcessor& processor)
-    : AudioProcessorEditor (processor)
+    : AudioProcessorEditor (processor),
+      modulationModel (processor.apvts)
 {
     setLookAndFeel (&lookAndFeel);
 
@@ -89,10 +92,14 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
         auto& group = oscillatorGroups[i];
         group.add (std::make_unique<Toggle> (apvts, ParamIDs::oscOn[i],     "On"));
         group.add (std::make_unique<Choice> (apvts, ParamIDs::oscWave[i],   "Waveform"));
-        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscLevel[i],  "Level"));
+        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscLevel[i],  "Level"))
+            .enableModulation (modulationModel, ModMatrix::oscLevelDest (i));
         group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscOctave[i], "Octave"));
-        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscSteps[i],  "Steps"));
-        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscFine[i],   "Fine"));
+        // Pitch do oscilador no knob de Steps: 100 % = 24 passos, metade da faixa de 48.
+        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscSteps[i],  "Steps"))
+            .enableModulation (modulationModel, ModMatrix::oscPitchDest (i), 0.5f);
+        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscFine[i],   "Fine"))
+            .enableModulation (modulationModel, ModMatrix::oscFineDest (i));
 
         oscillatorsPage.addRow ({ &group });
     }
@@ -109,15 +116,43 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
     envelopeGroup.add (std::make_unique<Knob> (apvts, ParamIDs::sustain, "Sustain"));
     envelopeGroup.add (std::make_unique<Knob> (apvts, ParamIDs::release, "Release"));
 
-    filterGroup.add (std::make_unique<Knob> (apvts, ParamIDs::cutoff, "Cutoff"));
-    filterGroup.add (std::make_unique<Knob> (apvts, ParamIDs::reso,   "Resonance"));
+    filterGroup.add (std::make_unique<Knob> (apvts, ParamIDs::cutoff, "Cutoff"))
+        .enableModulation (modulationModel, ModMatrix::Dest::cutoff);
+    filterGroup.add (std::make_unique<Knob> (apvts, ParamIDs::reso,   "Resonance"))
+        .enableModulation (modulationModel, ModMatrix::Dest::resonance);
 
     // Gráficos (RF9) acima dos knobs do envelope e do filtro.
-    envelopeGroup.setDisplay (std::make_unique<EnvelopeGraph> (apvts, processor.envelopeDisplay));
+    envelopeGroup.setDisplay (std::make_unique<EnvelopeGraph> (
+        apvts, EnvelopeGraph::ParamIDs4 { ParamIDs::attack, ParamIDs::decay, ParamIDs::sustain, ParamIDs::release },
+        processor.envelopeDisplay));
     filterGroup.setDisplay (std::make_unique<FilterGraph> (apvts));
 
     ampFilterPage.addRow ({ &voiceGroup, &outputGroup });
     ampFilterPage.addRow ({ &envelopeGroup, &filterGroup }, 2); // linha com gráficos: o dobro da altura
+
+    // --- Aba Matrix (RF10) ---
+    modEnvGroup.add (std::make_unique<Knob> (apvts, ParamIDs::modEnvAttack,  "Attack"));
+    modEnvGroup.add (std::make_unique<Knob> (apvts, ParamIDs::modEnvDecay,   "Decay"));
+    modEnvGroup.add (std::make_unique<Knob> (apvts, ParamIDs::modEnvSustain, "Sustain"));
+    modEnvGroup.add (std::make_unique<Knob> (apvts, ParamIDs::modEnvRelease, "Release"));
+    modEnvGroup.setDisplay (std::make_unique<EnvelopeGraph> (
+        apvts, EnvelopeGraph::ParamIDs4 { ParamIDs::modEnvAttack, ParamIDs::modEnvDecay,
+                                          ParamIDs::modEnvSustain, ParamIDs::modEnvRelease },
+        processor.modEnvDisplay),
+        0.4f);
+
+    slotsGroup.add (std::make_unique<ModSlotList> (apvts, modulationModel));
+
+    matrixPage.addRow ({ &modEnvGroup });
+    matrixPage.addRow ({ &slotsGroup });
+
+    // --- Fontes arrastáveis (cabeçalho) --- os LFOs entram no card do LFO (RF11).
+    for (auto source : { ModMatrix::Source::velocity, ModMatrix::Source::modWheel, ModMatrix::Source::aftertouch,
+                         ModMatrix::Source::keyTrack, ModMatrix::Source::modEnv })
+    {
+        sourceChips.push_back (std::make_unique<SourceChip> (source));
+        addAndMakeVisible (*sourceChips.back());
+    }
 
     // --- Aba Tuning (RF8) ---
     tuningGroup.add (std::make_unique<Toggle> (apvts, ParamIDs::tuningLock, "Lock"));
@@ -139,6 +174,7 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
     // false = as abas não apagam as páginas (elas são membros do editor).
     tabs.addTab ("Oscillators",  tabColour, &oscillatorsPage, false);
     tabs.addTab ("Amp & Filter", tabColour, &ampFilterPage,   false);
+    tabs.addTab ("Matrix",       tabColour, &matrixPage,      false);
     tabs.addTab ("Tuning",       tabColour, &tuningPage,      false);
     addAndMakeVisible (tabs);
 
@@ -189,6 +225,20 @@ void PluginEditor::paint (juce::Graphics& g)
 void PluginEditor::resized()
 {
     auto area = getLocalBounds();
-    area.removeFromTop (headerHeight + margin / 2);
+    auto header = area.removeFromTop (headerHeight + margin / 2);
     tabs.setBounds (area);
+
+    // Alças das fontes entre o nome e a versão, divididas igualmente.
+    auto chipsArea = header.reduced (margin, 0);
+    chipsArea.removeFromLeft (titleWidth);
+    chipsArea.removeFromRight (versionWidth);
+    chipsArea = chipsArea.withSizeKeepingCentre (chipsArea.getWidth(), 24);
+
+    const int numChips = static_cast<int> (sourceChips.size());
+    const int chipWidth = juce::jmin (100, (chipsArea.getWidth() - 6 * (numChips - 1)) / numChips);
+    for (auto& chip : sourceChips)
+    {
+        chip->setBounds (chipsArea.removeFromLeft (chipWidth));
+        chipsArea.removeFromLeft (6);
+    }
 }

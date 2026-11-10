@@ -35,9 +35,25 @@ PluginProcessor::PluginProcessor()
         oscParams[i].fine   = apvts.getRawParameterValue (ParamIDs::oscFine[i]);
     }
 
+    for (size_t i = 0; i < modSlotParams.size(); ++i)
+    {
+        modSlotParams[i].source = apvts.getRawParameterValue (ParamIDs::modSource[i]);
+        modSlotParams[i].dest   = apvts.getRawParameterValue (ParamIDs::modDest[i]);
+        modSlotParams[i].amount = apvts.getRawParameterValue (ParamIDs::modAmount[i]);
+    }
+
+    modEnvAttackParam  = apvts.getRawParameterValue (ParamIDs::modEnvAttack);
+    modEnvDecayParam   = apvts.getRawParameterValue (ParamIDs::modEnvDecay);
+    modEnvSustainParam = apvts.getRawParameterValue (ParamIDs::modEnvSustain);
+    modEnvReleaseParam = apvts.getRawParameterValue (ParamIDs::modEnvRelease);
+
+    // A matriz soma na posição normalizada do knob; as vozes usam as mesmas faixas dos parâmetros.
+    modRanges.cutoff    = apvts.getParameterRange (ParamIDs::cutoff);
+    modRanges.resonance = apvts.getParameterRange (ParamIDs::reso);
+
     // O Synthesiser vira dono dos ponteiros (como um "new" cujo delete fica a cargo dele).
     for (int i = 0; i < numVoices; ++i)
-        synth.addVoice (new MicroVoice (tuning));
+        synth.addVoice (new MicroVoice (tuning, globalMod, modRanges));
 
     synth.addSound (new MicroSound());
 }
@@ -153,6 +169,42 @@ juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParam
         juce::NormalisableRange<float> (-48.0f, 6.0f, 0.1f), -12.0f,
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 
+    // --- Matriz de modulação (RF10) ---
+    // Fonte e destino não são automatizáveis (trocar no meio de uma música geraria saltos);
+    // a quantidade é. As listas vêm de ModMatrix e nunca mudam de ordem.
+    juce::StringArray sourceNames, destNames;
+    for (auto* name : ModMatrix::sourceNames) sourceNames.add (name);
+    for (auto* name : ModMatrix::destNames)   destNames.add (name);
+
+    for (size_t i = 0; i < ParamIDs::numModSlots; ++i)
+    {
+        const juce::String prefix = "Mod " + juce::String (i + 1) + " ";
+
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { ParamIDs::modSource[i], 1 }, prefix + "Source", sourceNames, 0,
+            juce::AudioParameterChoiceAttributes().withAutomatable (false)));
+
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { ParamIDs::modDest[i], 1 }, prefix + "Destination", destNames, 0,
+            juce::AudioParameterChoiceAttributes().withAutomatable (false)));
+
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ParamIDs::modAmount[i], 1 }, prefix + "Amount",
+            juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("%")));
+    }
+
+    // --- Envelope de modulação ---
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParamIDs::modEnvAttack, 1 }, "Mod Env Attack", timeRange (5000.0f, 200.0f), 5.0f, msAttributes));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParamIDs::modEnvDecay, 1 }, "Mod Env Decay", timeRange (5000.0f, 300.0f), 300.0f, msAttributes));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParamIDs::modEnvSustain, 1 }, "Mod Env Sustain",
+        juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.0f));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParamIDs::modEnvRelease, 1 }, "Mod Env Release", timeRange (10000.0f, 500.0f), 300.0f, msAttributes));
+
     return layout;
 }
 
@@ -181,6 +233,19 @@ void PluginProcessor::updateVoices()
     }
 
     params.glideSeconds = glideParam->load() / 1000.0f; // ms -> s
+
+    params.modEnv.attack  = modEnvAttackParam->load() / 1000.0f;
+    params.modEnv.decay   = modEnvDecayParam->load() / 1000.0f;
+    params.modEnv.sustain = modEnvSustainParam->load();
+    params.modEnv.release = modEnvReleaseParam->load() / 1000.0f;
+
+    for (size_t i = 0; i < modSlotParams.size(); ++i)
+    {
+        auto& slot = params.modSlots[i];
+        slot.source = static_cast<ModMatrix::Source> (static_cast<int> (modSlotParams[i].source->load()));
+        slot.dest   = static_cast<ModMatrix::Dest>   (static_cast<int> (modSlotParams[i].dest->load()));
+        slot.amount = modSlotParams[i].amount->load() / 100.0f; // % -> -1..+1
+    }
     params.adsr.attack  = attackParam->load() / 1000.0f; // ms -> s
     params.adsr.decay   = decayParam->load() / 1000.0f;
     params.adsr.sustain = sustainParam->load();
@@ -263,6 +328,10 @@ void PluginProcessor::publishEnvelopeDisplay()
     envelopeDisplay.stage.store (static_cast<int> (snapshot.stage));
     envelopeDisplay.secondsInStage.store (static_cast<float> (snapshot.secondsInStage));
     envelopeDisplay.level.store (snapshot.level);
+
+    modEnvDisplay.stage.store (static_cast<int> (snapshot.stage));
+    modEnvDisplay.secondsInStage.store (static_cast<float> (snapshot.secondsInStage));
+    modEnvDisplay.level.store (snapshot.modLevel);
 }
 
 juce::AudioProcessorEditor* PluginProcessor::createEditor()

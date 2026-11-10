@@ -134,14 +134,14 @@ void FilterGraph::paint (juce::Graphics& g)
 
 // ----------------------------------------------------------------------------- EnvelopeGraph
 
-EnvelopeGraph::EnvelopeGraph (juce::AudioProcessorValueTreeState& apvts,
+EnvelopeGraph::EnvelopeGraph (juce::AudioProcessorValueTreeState& apvts, ParamIDs4 ids,
                               const PluginProcessor::EnvelopeDisplay& display)
     : envelopeDisplay (display)
 {
-    attackParam  = apvts.getRawParameterValue (ParamIDs::attack);
-    decayParam   = apvts.getRawParameterValue (ParamIDs::decay);
-    sustainParam = apvts.getRawParameterValue (ParamIDs::sustain);
-    releaseParam = apvts.getRawParameterValue (ParamIDs::release);
+    attackParam  = apvts.getRawParameterValue (ids.attack);
+    decayParam   = apvts.getRawParameterValue (ids.decay);
+    sustainParam = apvts.getRawParameterValue (ids.sustain);
+    releaseParam = apvts.getRawParameterValue (ids.release);
     startTimerHz (refreshHz);
 }
 

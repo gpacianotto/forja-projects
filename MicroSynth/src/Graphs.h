@@ -28,10 +28,14 @@ private:
 };
 
 // Desenho do ADSR, com um ponto na posição atual do envelope da última nota tocada.
+// Serve para o envelope de volume e para o de modulação: recebe os IDs dos 4 parâmetros.
 class EnvelopeGraph final : public juce::Component, private juce::Timer
 {
 public:
-    EnvelopeGraph (juce::AudioProcessorValueTreeState& apvts, const PluginProcessor::EnvelopeDisplay& display);
+    struct ParamIDs4 { const char* attack; const char* decay; const char* sustain; const char* release; };
+
+    EnvelopeGraph (juce::AudioProcessorValueTreeState& apvts, ParamIDs4 ids,
+                   const PluginProcessor::EnvelopeDisplay& display);
     ~EnvelopeGraph() override { stopTimer(); }
 
     void paint (juce::Graphics&) override;

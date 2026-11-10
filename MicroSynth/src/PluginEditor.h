@@ -6,6 +6,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "Controls.h"
+#include "ModulationUI.h"
 #include "Parameters.h"
 
 class PluginProcessor;
@@ -38,8 +39,12 @@ private:
 // Interface própria do MicroSynth, organizada em abas (RF8):
 //   Oscillators  — os 3 osciladores (RF6)
 //   Amp & Filter — modo de vozes (RF7), volume, envelope e filtro
+//   Matrix       — envelope de modulação e os 8 slots da matriz (RF10)
 //   Tuning       — afinação, com trava contra mudanças acidentais
-class PluginEditor final : public juce::AudioProcessorEditor
+//
+// As fontes de modulação ficam no cabeçalho, visíveis em todas as abas, para poderem ser
+// arrastadas até qualquer knob. O editor é o DragAndDropContainer que coordena o arrasto.
+class PluginEditor final : public juce::AudioProcessorEditor, public juce::DragAndDropContainer
 {
 public:
     explicit PluginEditor (PluginProcessor&);
@@ -55,6 +60,10 @@ private:
     // (construído primeiro, destruído por último).
     juce::LookAndFeel_V4 lookAndFeel { juce::LookAndFeel_V4::getMidnightColourScheme() };
 
+    // Usado pelos knobs (que guardam um ponteiro para ele): declarado antes dos grupos,
+    // é destruído depois deles.
+    ModulationModel modulationModel;
+
     std::array<ParameterGroup, ParamIDs::numOscillators> oscillatorGroups { ParameterGroup { "Osc 1" },
                                                                             ParameterGroup { "Osc 2" },
                                                                             ParameterGroup { "Osc 3" } };
@@ -63,8 +72,16 @@ private:
     ParameterGroup envelopeGroup { "Envelope" };
     ParameterGroup filterGroup   { "Filter" };
     ParameterGroup tuningGroup   { "Tuning" };
+    ParameterGroup modEnvGroup   { "Mod Env" };
+    ParameterGroup slotsGroup    { "Modulation Matrix" };
 
-    TabPage oscillatorsPage, ampFilterPage, tuningPage;
+    TabPage oscillatorsPage, ampFilterPage, matrixPage, tuningPage;
+
+    // Alças das fontes de modulação, no cabeçalho.
+    std::vector<std::unique_ptr<SourceChip>> sourceChips;
+
+    // Mostra as dicas (tooltips) das alças e dos botões.
+    juce::TooltipWindow tooltipWindow { this, 600 };
 
     // Declarado depois das páginas: é destruído antes delas.
     juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };

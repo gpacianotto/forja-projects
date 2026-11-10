@@ -6,7 +6,7 @@
 #include "NoteStack.h"
 #include "TuningEngine.h"
 
-// juce::Synthesiser com duas extensões:
+// juce::Synthesiser com três extensões:
 //
 // 1. Guarda do RF4: notas cuja frequência fique fora da faixa tocável (abaixo de 20 Hz ou
 //    acima de 45% da taxa de amostragem) são ignoradas. O filtro fica aqui, antes do
@@ -14,10 +14,29 @@
 //
 // 2. Modo Mono (RF7): só a voz 0 toca. As teclas pressionadas ficam numa pilha; a última
 //    pressionada é a que soa, e ao soltá-la o synth volta para a anterior.
+//
+// 3. Fontes globais da matriz (RF10): guarda mod wheel e aftertouch de canal mesmo sem
+//    nota tocando (o juce::Synthesiser só repassa CC às vozes ativas), para a próxima
+//    nota já começar com o valor certo.
 class MicroSynthesiser final : public juce::Synthesiser
 {
 public:
-    explicit MicroSynthesiser (const TuningEngine& tuningEngine) : tuning (tuningEngine) {}
+    MicroSynthesiser (const TuningEngine& tuningEngine, GlobalModState& globalModState)
+        : tuning (tuningEngine), globalMod (globalModState) {}
+
+    void handleController (int midiChannel, int controllerNumber, int controllerValue) override
+    {
+        if (controllerNumber == 1) // CC 1 = mod wheel
+            globalMod.modWheel = static_cast<float> (controllerValue) / 127.0f;
+
+        juce::Synthesiser::handleController (midiChannel, controllerNumber, controllerValue);
+    }
+
+    void handleChannelPressure (int midiChannel, int channelPressureValue) override
+    {
+        globalMod.channelPressure = static_cast<float> (channelPressureValue) / 127.0f;
+        juce::Synthesiser::handleChannelPressure (midiChannel, channelPressureValue);
+    }
 
     // Chamado no início de cada processBlock (thread de áudio). Trocar de modo solta
     // todas as notas, com release, para não deixar notas presas.
@@ -103,6 +122,7 @@ private:
     }
 
     const TuningEngine& tuning;
+    GlobalModState& globalMod;
 
     NoteStack heldNotes;
     bool monoMode = false;
