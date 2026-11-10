@@ -78,6 +78,18 @@ Todos os parâmetros abaixo são expostos ao host, então podem ser automatizado
 - Fontes: None, Velocity, Mod Wheel, Aftertouch, Key Track, Mod Env, LFO 1, LFO 2, LFO 3, Reserved 1, Reserved 2.
 - Destinos: None, Cutoff, Resonance, Pitch, Osc 1 Level, Osc 1 Pitch, Osc 1 Fine, Osc 2 Level, Osc 2 Pitch, Osc 2 Fine, Osc 3 Level, Osc 3 Pitch, Osc 3 Fine, Reserved 1, Reserved 2, Reserved 3, Reserved 4.
 
+**Parâmetros dos LFOs (v0.5)** — N = 1, 2, 3
+
+| Grupo | Parâmetro (ID) | Faixa | Padrão |
+| --- | --- | --- | --- |
+| LFO | Forma (`lfoNShape`) | Sine, Triangle, Saw Up, Saw Down, Square, Sample & Hold | Sine |
+| LFO | Rate (`lfoNRate`) | 0,02 a 40 Hz (centro em 2 Hz) | 2 Hz |
+| LFO | Sync (`lfoNSync`) | sim/não | não |
+| LFO | Divisão (`lfoNDivision`) | 1/32, 1/16T, 1/16, 1/8T, 1/8, 1/8D, 1/4T, 1/4, 1/4D, 1/2, 1 Bar, 2 Bars, 4 Bars | 1/4 |
+| LFO | Trigger (`lfoNTrigger`) | Free, Retrigger | Retrigger |
+
+As listas de forma e divisão também são fechadas: nunca reordenar nem remover opções.
+
 **Comportamentos obrigatórios**
 
 - RF1: cada nota MIDI recebida toca na frequência calculada pelo motor de afinação.
@@ -94,7 +106,12 @@ Todos os parâmetros abaixo são expostos ao host, então podem ser automatizado
   - A modulação soma `fonte × quantidade` ao valor normalizado (0 a 1) do destino, com limite nas pontas; vários slots no mesmo destino se somam. No Pitch, 100 % = 24 passos da EDO.
   - Mod Wheel e Aftertouch são suavizados (20 ms) para não estalar.
   - Interface: aba **Matrix** com alças arrastáveis das fontes, o Mod Env (knobs + gráfico com ponto) e a lista dos 8 slots. Soltar uma fonte num knob de destino ocupa o primeiro slot livre (com os 8 ocupados, aparece um aviso). Knobs modulados mostram um anel com o alcance da modulação; arrastar o anel ajusta a quantidade do primeiro slot ligado àquele knob.
-- RF11 (v0.5): 3 LFOs (fontes LFO 1–3 da matriz), com forma de onda, rate livre ou sincronizado ao tempo do host e modo por nota ou livre. Detalhes no card do LFO.
+- RF11 (v0.5): 3 LFOs, fontes bipolares (-1 a +1) LFO 1–3 da matriz.
+  - Formas: Sine, Triangle, Saw Up, Saw Down, Square, Sample & Hold (valor aleatório novo a cada ciclo).
+  - Rate livre em Hz ou, com `Sync`, uma divisão do tempo do host (sem tempo disponível, usa 120 BPM).
+  - Trigger **Free**: todas as vozes compartilham a mesma fase; com Sync e o Live tocando, a fase segue a posição da música (o LFO cai no tempo). Trigger **Retrigger**: cada nota reinicia o LFO da sua voz na fase 0.
+  - Interface: aba **LFOs** com os 3 LFOs; com Sync ligado, o knob Rate é desabilitado e a divisão é habilitada. LFO 1–3 entram nas alças arrastáveis do cabeçalho.
+  - Para a modulação rápida do LFO não ser abafada, a modulação do cutoff e do volume dos osciladores é interpolada a cada recálculo da matriz (32 amostras), separada da suavização de 20 ms dos knobs.
 
 ## Modelo de afinação
 

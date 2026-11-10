@@ -92,6 +92,21 @@ private:
         std::atomic<float>* amount = nullptr;
     };
     std::array<ModSlotParamPointers, ParamIDs::numModSlots> modSlotParams;
+    // LFOs (RF11)
+    struct LfoParamPointers
+    {
+        std::atomic<float>* shape    = nullptr;
+        std::atomic<float>* rate     = nullptr;
+        std::atomic<float>* sync     = nullptr;
+        std::atomic<float>* division = nullptr;
+        std::atomic<float>* trigger  = nullptr;
+    };
+    std::array<LfoParamPointers, ParamIDs::numLfos> lfoParams;
+
+    // Relógio dos LFOs no modo Free (um por LFO) e a frequência efetiva deste bloco.
+    std::array<Lfo, ParamIDs::numLfos> freeLfos;
+    std::array<double, ParamIDs::numLfos> lfoRatesHz {};
+
     std::atomic<float>* modEnvAttackParam  = nullptr;
     std::atomic<float>* modEnvDecayParam   = nullptr;
     std::atomic<float>* modEnvSustainParam = nullptr;
@@ -111,6 +126,7 @@ private:
     void updateTuning();
     void updateVoices();
     void publishEnvelopeDisplay();
+    void updateLfoClock();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };

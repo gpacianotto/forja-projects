@@ -68,6 +68,7 @@ if(MICROSYNTH_BUILD_TESTS)
         tests/VoiceLogicTests.cpp
         tests/GraphMathTests.cpp
         tests/ModMatrixTests.cpp
+        tests/LfoTests.cpp
         src/TuningEngine.cpp
         src/Oscillator.cpp)
     target_include_directories(MicroSynthTests PRIVATE src)

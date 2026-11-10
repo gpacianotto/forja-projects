@@ -51,6 +51,14 @@ namespace ParamIDs
     inline constexpr std::array<const char*, numModSlots> modDest   { "mod1Dest", "mod2Dest", "mod3Dest", "mod4Dest", "mod5Dest", "mod6Dest", "mod7Dest", "mod8Dest" };
     inline constexpr std::array<const char*, numModSlots> modAmount { "mod1Amount", "mod2Amount", "mod3Amount", "mod4Amount", "mod5Amount", "mod6Amount", "mod7Amount", "mod8Amount" };
 
+    // LFOs (RF11). Índice 0..2 = LFO 1..3.
+    inline constexpr std::size_t numLfos = 3;
+    inline constexpr std::array<const char*, numLfos> lfoShape    { "lfo1Shape", "lfo2Shape", "lfo3Shape" };
+    inline constexpr std::array<const char*, numLfos> lfoRate     { "lfo1Rate", "lfo2Rate", "lfo3Rate" };
+    inline constexpr std::array<const char*, numLfos> lfoSync     { "lfo1Sync", "lfo2Sync", "lfo3Sync" };
+    inline constexpr std::array<const char*, numLfos> lfoDivision { "lfo1Division", "lfo2Division", "lfo3Division" };
+    inline constexpr std::array<const char*, numLfos> lfoTrigger  { "lfo1Trigger", "lfo2Trigger", "lfo3Trigger" }; // 0 = Free, 1 = Retrigger
+
     // Envelope de modulação (Mod Env), tempos em ms
     inline constexpr auto modEnvAttack  = "modEnvAttack";
     inline constexpr auto modEnvDecay   = "modEnvDecay";

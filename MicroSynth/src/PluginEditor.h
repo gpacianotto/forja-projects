@@ -40,6 +40,7 @@ private:
 //   Oscillators  — os 3 osciladores (RF6)
 //   Amp & Filter — modo de vozes (RF7), volume, envelope e filtro
 //   Matrix       — envelope de modulação e os 8 slots da matriz (RF10)
+//   LFOs         — os 3 LFOs (RF11)
 //   Tuning       — afinação, com trava contra mudanças acidentais
 //
 // As fontes de modulação ficam no cabeçalho, visíveis em todas as abas, para poderem ser
@@ -55,6 +56,7 @@ public:
 
 private:
     void setTuningLocked (bool locked);
+    void setLfoSynced (size_t lfoIndex, bool synced);
 
     // Precisa existir enquanto os componentes usarem; por isso é o primeiro membro
     // (construído primeiro, destruído por último).
@@ -74,8 +76,11 @@ private:
     ParameterGroup tuningGroup   { "Tuning" };
     ParameterGroup modEnvGroup   { "Mod Env" };
     ParameterGroup slotsGroup    { "Modulation Matrix" };
+    std::array<ParameterGroup, ParamIDs::numLfos> lfoGroups { ParameterGroup { "LFO 1" },
+                                                              ParameterGroup { "LFO 2" },
+                                                              ParameterGroup { "LFO 3" } };
 
-    TabPage oscillatorsPage, ampFilterPage, matrixPage, tuningPage;
+    TabPage oscillatorsPage, ampFilterPage, matrixPage, lfoPage, tuningPage;
 
     // Alças das fontes de modulação, no cabeçalho.
     std::vector<std::unique_ptr<SourceChip>> sourceChips;
@@ -91,6 +96,15 @@ private:
 
     // Liga o parâmetro tuningLock à interface; o callback roda sempre na thread da interface.
     std::unique_ptr<juce::ParameterAttachment> tuningLockAttachment;
+
+    // Com Sync ligado, o knob Rate fica desabilitado e a divisão habilitada (e vice-versa).
+    struct LfoSyncControls
+    {
+        juce::Component* rate = nullptr;
+        juce::Component* division = nullptr;
+        std::unique_ptr<juce::ParameterAttachment> syncAttachment;
+    };
+    std::array<LfoSyncControls, ParamIDs::numLfos> lfoSyncControls;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginEditor)
 };

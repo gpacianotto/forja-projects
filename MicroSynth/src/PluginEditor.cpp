@@ -146,9 +146,32 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
     matrixPage.addRow ({ &modEnvGroup });
     matrixPage.addRow ({ &slotsGroup });
 
-    // --- Fontes arrastáveis (cabeçalho) --- os LFOs entram no card do LFO (RF11).
+    // --- Aba LFOs (RF11) ---
+    for (size_t k = 0; k < lfoGroups.size(); ++k)
+    {
+        auto& group = lfoGroups[k];
+        auto& controls = lfoSyncControls[k];
+
+        group.add (std::make_unique<Choice> (apvts, ParamIDs::lfoShape[k], "Shape"));
+        controls.rate = &group.add (std::make_unique<Knob> (apvts, ParamIDs::lfoRate[k], "Rate"));
+        group.add (std::make_unique<Toggle> (apvts, ParamIDs::lfoSync[k], "Sync"));
+        controls.division = &group.add (std::make_unique<Choice> (apvts, ParamIDs::lfoDivision[k], "Division"));
+        group.add (std::make_unique<Choice> (apvts, ParamIDs::lfoTrigger[k], "Trigger"));
+
+        if (auto* syncParam = apvts.getParameter (ParamIDs::lfoSync[k]))
+        {
+            controls.syncAttachment = std::make_unique<juce::ParameterAttachment> (
+                *syncParam, [this, k] (float value) { setLfoSynced (k, value > 0.5f); });
+            controls.syncAttachment->sendInitialUpdate();
+        }
+
+        lfoPage.addRow ({ &group });
+    }
+
+    // --- Fontes arrastáveis (cabeçalho) ---
     for (auto source : { ModMatrix::Source::velocity, ModMatrix::Source::modWheel, ModMatrix::Source::aftertouch,
-                         ModMatrix::Source::keyTrack, ModMatrix::Source::modEnv })
+                         ModMatrix::Source::keyTrack, ModMatrix::Source::modEnv,
+                         ModMatrix::Source::lfo1, ModMatrix::Source::lfo2, ModMatrix::Source::lfo3 })
     {
         sourceChips.push_back (std::make_unique<SourceChip> (source));
         addAndMakeVisible (*sourceChips.back());
@@ -175,6 +198,7 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
     tabs.addTab ("Oscillators",  tabColour, &oscillatorsPage, false);
     tabs.addTab ("Amp & Filter", tabColour, &ampFilterPage,   false);
     tabs.addTab ("Matrix",       tabColour, &matrixPage,      false);
+    tabs.addTab ("LFOs",         tabColour, &lfoPage,         false);
     tabs.addTab ("Tuning",       tabColour, &tuningPage,      false);
     addAndMakeVisible (tabs);
 
@@ -207,6 +231,17 @@ void PluginEditor::setTuningLocked (bool locked)
     }
 }
 
+void PluginEditor::setLfoSynced (size_t lfoIndex, bool synced)
+{
+    auto& controls = lfoSyncControls[lfoIndex];
+
+    // Antes do primeiro sendInitialUpdate os ponteiros já existem (são preenchidos antes).
+    controls.rate->setEnabled (! synced);
+    controls.rate->setAlpha (synced ? 0.4f : 1.0f);
+    controls.division->setEnabled (synced);
+    controls.division->setAlpha (synced ? 1.0f : 0.4f);
+}
+
 void PluginEditor::paint (juce::Graphics& g)
 {
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
@@ -235,10 +270,10 @@ void PluginEditor::resized()
     chipsArea = chipsArea.withSizeKeepingCentre (chipsArea.getWidth(), 24);
 
     const int numChips = static_cast<int> (sourceChips.size());
-    const int chipWidth = juce::jmin (100, (chipsArea.getWidth() - 6 * (numChips - 1)) / numChips);
+    const int chipWidth = juce::jmin (90, (chipsArea.getWidth() - 4 * (numChips - 1)) / numChips);
     for (auto& chip : sourceChips)
     {
         chip->setBounds (chipsArea.removeFromLeft (chipWidth));
-        chipsArea.removeFromLeft (6);
+        chipsArea.removeFromLeft (4);
     }
 }

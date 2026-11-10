@@ -122,5 +122,5 @@ ctest --test-dir build -C Debug             # rodar testes
 
 | Pasta | Produto | Tipo | PLUGIN_CODE | Status |
 | --- | --- | --- | --- | --- |
-| MicroSynth | MicroSynth | VST3 instrumento | Mcsy | v0.1.0 validada; v0.2 (osciladores, Mono, abas) concluída; gráficos (RF9) concluídos; matriz de modulação (RF10) concluída; próximo: LFOs (RF11) |
+| MicroSynth | MicroSynth | VST3 instrumento | Mcsy | v0.1.0 validada; v0.2 (osciladores, Mono, abas) concluída; gráficos (RF9) concluídos; matriz de modulação (RF10) concluída; 3 LFOs (RF11) concluídos |
 | HelloGain | HelloGain | VST3 efeito | Hlgn | Teste do setup (descartável); v0.1.0 validada (pluginval nível 5) |

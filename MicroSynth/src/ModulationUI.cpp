@@ -275,9 +275,9 @@ void SourceChip::paint (juce::Graphics& g)
     g.setColour (colour);
     g.drawRoundedRectangle (bounds, bounds.getHeight() / 2.0f, 1.0f);
 
-    g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
-    g.drawFittedText (ModMatrix::sourceNames[ModMatrix::index (source)], getLocalBounds().reduced (6, 0),
-                      juce::Justification::centred, 1, 0.7f);
+    g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+    g.drawFittedText (ModMatrix::sourceNames[ModMatrix::index (source)], getLocalBounds().reduced (4, 0),
+                      juce::Justification::centred, 1, 0.6f);
 }
 
 void SourceChip::mouseDrag (const juce::MouseEvent&)

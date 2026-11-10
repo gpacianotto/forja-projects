@@ -7,6 +7,7 @@
 
 #include "Glide.h"
 #include "GraphMath.h"
+#include "Lfo.h"
 #include "ModMatrix.h"
 #include "Oscillator.h"
 #include "Parameters.h"
@@ -23,6 +24,15 @@ struct OscillatorParameters
     float    fineCents = 0.0f;
 };
 
+// Configuração de um LFO (RF11). rateHz já vem calculado pelo processador (Hz livre ou
+// convertido do tempo do host quando há Sync).
+struct LfoParameters
+{
+    LfoShape shape     = LfoShape::sine;
+    double   rateHz    = 2.0;
+    bool     retrigger = true; // false = Free (fase comum a todas as vozes)
+};
+
 // Valores dos parâmetros que as vozes usam. O processador preenche uma vez por bloco
 // e repassa a todas as vozes (struct simples, copiada sem alocar).
 struct VoiceParameters
@@ -34,6 +44,7 @@ struct VoiceParameters
     float resonance    = 0.7f;
     float glideSeconds = 0.0f;
     ModMatrix::Slots modSlots {};
+    std::array<LfoParameters, ParamIDs::numLfos> lfos {};
 };
 
 // Faixas normalizadas dos destinos com escala não linear. A matriz soma em valores
@@ -51,6 +62,14 @@ struct GlobalModState
 {
     float modWheel        = 0.0f; // CC 1, 0..1
     float channelPressure = 0.0f; // aftertouch de canal, 0..1
+
+    // Posição dos LFOs no modo Free no início do bloco atual (escrita pelo processador).
+    struct LfoPosition
+    {
+        double phase = 0.0;
+        std::int64_t cycle = 0;
+    };
+    std::array<LfoPosition, ParamIDs::numLfos> lfoPositions {};
 };
 
 // Uma voz do synth: 3 osciladores somados -> filtro passa-baixa -> envelope de amplitude (ADSR),
@@ -99,6 +118,7 @@ public:
 
 private:
     void updateModulation();
+    void restartLfos();
     void updateFrequencies();
     float clampCutoff (float hz) const;
     static void setEnvelopeParameters (juce::ADSR& envelope, const juce::ADSR::Parameters& newParams);
@@ -130,6 +150,17 @@ private:
     // Suaviza o cutoff (20 ms) para não estalar ao girar o knob, automatizar ou modular.
     // Multiplicativo: anda em proporção (oitavas), como o ouvido percebe frequência.
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> cutoffSmoothed;
+
+    // Parte da matriz no cutoff e no volume dos osciladores, interpolada só entre um recálculo
+    // e o próximo (32 amostras). Separada da suavização de 20 ms dos knobs para que um LFO
+    // rápido não seja "abafado" (RF11).
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Multiplicative> cutoffModRatio; // multiplica o cutoff
+    std::array<juce::SmoothedValue<float>, ParamIDs::numOscillators> oscLevelMods;        // soma ao volume
+
+    // LFOs desta voz. No modo Free, a fase é copiada da posição global a cada bloco.
+    std::array<Lfo, ParamIDs::numLfos> lfos;
+    std::array<std::uint64_t, ParamIDs::numLfos> noteSeeds {}; // Sample & Hold no modo Retrigger
+    juce::Random random; // sorteia as sementes a cada nota (não aloca)
 
     // Matriz de modulação: fontes suavizadas (MIDI chega em degraus de 1/127) e
     // deslocamento atual de cada destino.

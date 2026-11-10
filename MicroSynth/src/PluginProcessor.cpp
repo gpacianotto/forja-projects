@@ -42,6 +42,15 @@ PluginProcessor::PluginProcessor()
         modSlotParams[i].amount = apvts.getRawParameterValue (ParamIDs::modAmount[i]);
     }
 
+    for (size_t k = 0; k < lfoParams.size(); ++k)
+    {
+        lfoParams[k].shape    = apvts.getRawParameterValue (ParamIDs::lfoShape[k]);
+        lfoParams[k].rate     = apvts.getRawParameterValue (ParamIDs::lfoRate[k]);
+        lfoParams[k].sync     = apvts.getRawParameterValue (ParamIDs::lfoSync[k]);
+        lfoParams[k].division = apvts.getRawParameterValue (ParamIDs::lfoDivision[k]);
+        lfoParams[k].trigger  = apvts.getRawParameterValue (ParamIDs::lfoTrigger[k]);
+    }
+
     modEnvAttackParam  = apvts.getRawParameterValue (ParamIDs::modEnvAttack);
     modEnvDecayParam   = apvts.getRawParameterValue (ParamIDs::modEnvDecay);
     modEnvSustainParam = apvts.getRawParameterValue (ParamIDs::modEnvSustain);
@@ -194,6 +203,36 @@ juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParam
             juce::AudioParameterFloatAttributes().withLabel ("%")));
     }
 
+    // --- LFOs (RF11) --- listas fechadas (ver Lfo.h)
+    juce::StringArray shapeNames, divisionNames;
+    for (auto* name : lfoShapeNames)    shapeNames.add (name);
+    for (auto* name : lfoDivisionNames) divisionNames.add (name);
+
+    juce::NormalisableRange<float> lfoRateRange (0.02f, 40.0f, 0.001f);
+    lfoRateRange.setSkewForCentre (2.0f);
+
+    for (size_t k = 0; k < ParamIDs::numLfos; ++k)
+    {
+        const juce::String prefix = "LFO " + juce::String (k + 1) + " ";
+
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { ParamIDs::lfoShape[k], 1 }, prefix + "Shape", shapeNames, 0));
+
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ParamIDs::lfoRate[k], 1 }, prefix + "Rate", lfoRateRange, 2.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("Hz")));
+
+        layout.add (std::make_unique<juce::AudioParameterBool> (
+            juce::ParameterID { ParamIDs::lfoSync[k], 1 }, prefix + "Sync", false));
+
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { ParamIDs::lfoDivision[k], 1 }, prefix + "Division", divisionNames, lfoDefaultDivision));
+
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { ParamIDs::lfoTrigger[k], 1 }, prefix + "Trigger",
+            juce::StringArray { "Free", "Retrigger" }, 1));
+    }
+
     // --- Envelope de modulação ---
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { ParamIDs::modEnvAttack, 1 }, "Mod Env Attack", timeRange (5000.0f, 200.0f), 5.0f, msAttributes));
@@ -238,6 +277,14 @@ void PluginProcessor::updateVoices()
     params.modEnv.decay   = modEnvDecayParam->load() / 1000.0f;
     params.modEnv.sustain = modEnvSustainParam->load();
     params.modEnv.release = modEnvReleaseParam->load() / 1000.0f;
+
+    for (size_t k = 0; k < lfoParams.size(); ++k)
+    {
+        auto& lfo = params.lfos[k];
+        lfo.shape     = static_cast<LfoShape> (static_cast<int> (lfoParams[k].shape->load()));
+        lfo.rateHz    = lfoRatesHz[k]; // calculado em updateLfoClock
+        lfo.retrigger = lfoParams[k].trigger->load() > 0.5f;
+    }
 
     for (size_t i = 0; i < modSlotParams.size(); ++i)
     {
@@ -289,6 +336,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     // RF3: a afinação nova vale para as próximas notas; notas presas mantêm a frequência.
     updateTuning();
 
+    // Tempo do host e posição dos LFOs no modo Free para este bloco (RF11).
+    updateLfoClock();
+
     // Osciladores, envelope e filtro valem em tempo real, inclusive para notas presas.
     updateVoices();
 
@@ -299,6 +349,10 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     synth.renderNextBlock (buffer, midi, 0, numSamples);
     publishEnvelopeDisplay();
 
+    // O relógio dos LFOs no modo Free anda o tamanho do bloco.
+    for (size_t k = 0; k < freeLfos.size(); ++k)
+        freeLfos[k].advance (getSampleRate() > 0.0 ? lfoRatesHz[k] * numSamples / getSampleRate() : 0.0);
+
     // Volume de saída, suavizado amostra a amostra para não estalar.
     gainSmoothed.setTargetValue (juce::Decibels::decibelsToGain (gainParam->load()));
 
@@ -308,6 +362,43 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
         for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
             buffer.getWritePointer (ch)[s] *= g;
+    }
+}
+
+void PluginProcessor::updateLfoClock()
+{
+    // Tempo e posição da música vêm do host (o Ableton). getPosition não aloca: pode ser
+    // chamado na thread de áudio. juce::Optional ~ Optional do Java: pode não ter valor.
+    double bpm = 120.0;
+    juce::Optional<double> ppq; // posição em semínimas, só com a música tocando
+
+    if (auto* hostPlayHead = getPlayHead())
+    {
+        if (auto position = hostPlayHead->getPosition())
+        {
+            if (auto hostBpm = position->getBpm())
+                bpm = *hostBpm;
+
+            if (position->getIsPlaying())
+                ppq = position->getPpqPosition();
+        }
+    }
+
+    for (size_t k = 0; k < lfoParams.size(); ++k)
+    {
+        const bool sync = lfoParams[k].sync->load() > 0.5f;
+        const int division = juce::jlimit (0, static_cast<int> (lfoDivisionBeats.size()) - 1,
+                                           static_cast<int> (lfoParams[k].division->load()));
+        const double beats = lfoDivisionBeats[static_cast<size_t> (division)];
+
+        lfoRatesHz[k] = sync ? Lfo::syncedHz (bpm, beats) : static_cast<double> (lfoParams[k].rate->load());
+
+        // Free + Sync com a música tocando: a fase segue a posição na música, então o LFO
+        // cai sempre no mesmo ponto do compasso.
+        if (sync && ppq.hasValue())
+            freeLfos[k].setPosition (*ppq / beats, 0);
+
+        globalMod.lfoPositions[k] = { freeLfos[k].getPhase(), freeLfos[k].getCycle() };
     }
 }
 

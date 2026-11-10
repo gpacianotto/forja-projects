@@ -27,6 +27,16 @@ void MicroVoice::prepare (double sampleRate, int maxBlockSize)
 
     modWheelSmoothed.reset (sampleRate, 0.02);
     aftertouchSmoothed.reset (sampleRate, 0.02);
+
+    // Interpolação da modulação: anda até o novo valor em exatamente um intervalo de recálculo.
+    cutoffModRatio.reset (modUpdateInterval);
+    cutoffModRatio.setCurrentAndTargetValue (1.0f);
+
+    for (auto& levelMod : oscLevelMods)
+    {
+        levelMod.reset (modUpdateInterval);
+        levelMod.setCurrentAndTargetValue (0.0f);
+    }
 }
 
 float MicroVoice::clampCutoff (float hz) const
@@ -56,6 +66,9 @@ void MicroVoice::setParameters (const VoiceParameters& params)
 
     setEnvelopeParameters (adsr, params.adsr);
     setEnvelopeParameters (modEnv, params.modEnv);
+
+    for (size_t k = 0; k < lfos.size(); ++k)
+        lfos[k].setShape (params.lfos[k].shape);
     glide.setTime (params.glideSeconds, getSampleRate());
 
     // Knobs (e a matriz em cima deles) valem em tempo real, inclusive para notas presas.
@@ -88,6 +101,7 @@ void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesise
             level = velocity;
             adsr.noteOn();
             modEnv.noteOn();
+            restartLfos();
             samplesInStage = 0;
             released = false;
         }
@@ -110,16 +124,21 @@ void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesise
 
     modEnv.reset();
     modEnvValue = 0.0f;
+    restartLfos();
     updateModulation();
 
     // Volumes dos osciladores já no valor certo, sem fade-in.
-    for (auto& oscLevel : oscLevels)
-        oscLevel.setCurrentAndTargetValue (oscLevel.getTargetValue());
+    for (size_t o = 0; o < oscLevels.size(); ++o)
+    {
+        oscLevels[o].setCurrentAndTargetValue (oscLevels[o].getTargetValue());
+        oscLevelMods[o].setCurrentAndTargetValue (oscLevelMods[o].getTargetValue());
+    }
 
     // Nota nova começa com o filtro "limpo" e já no cutoff atual, sem deslizar.
     filter.reset();
     cutoffSmoothed.setCurrentAndTargetValue (cutoffSmoothed.getTargetValue());
-    filter.setCutoffFrequency (cutoffSmoothed.getCurrentValue());
+    cutoffModRatio.setCurrentAndTargetValue (cutoffModRatio.getTargetValue());
+    filter.setCutoffFrequency (clampCutoff (cutoffSmoothed.getCurrentValue() * cutoffModRatio.getCurrentValue()));
 
     adsr.noteOn();
     modEnv.noteOn();
@@ -148,6 +167,17 @@ void MicroVoice::stopNote (float, bool allowTailOff)
         adsr.reset();
         modEnv.reset();
         clearCurrentNote();
+    }
+}
+
+void MicroVoice::restartLfos()
+{
+    // Modo Retrigger: cada nota começa o LFO do zero e sorteia uma semente nova para o
+    // Sample & Hold. (No modo Free a posição é sobrescrita pela global no próximo bloco.)
+    for (size_t k = 0; k < lfos.size(); ++k)
+    {
+        lfos[k].reset();
+        noteSeeds[k] = static_cast<std::uint64_t> (random.nextInt64());
     }
 }
 
@@ -185,7 +215,9 @@ void MicroVoice::updateModulation()
     sources[ModMatrix::index (Source::aftertouch)] = juce::jmax (aftertouchSmoothed.getCurrentValue(), polyAftertouch);
     sources[ModMatrix::index (Source::keyTrack)]   = ModMatrix::keyTrack (currentMidiNote);
     sources[ModMatrix::index (Source::modEnv)]     = modEnvValue;
-    // LFO 1-3 ficam em 0 até o RF11.
+    sources[ModMatrix::index (Source::lfo1)]       = lfos[0].value();
+    sources[ModMatrix::index (Source::lfo2)]       = lfos[1].value();
+    sources[ModMatrix::index (Source::lfo3)]       = lfos[2].value();
 
     // 2. Deslocamento de cada destino.
     ModMatrix::computeOffsets (parameters.modSlots, sources, modOffsets);
@@ -200,7 +232,11 @@ void MicroVoice::updateModulation()
         return range.convertFrom0to1 (ModMatrix::applyNormalized (range.convertTo0to1 (base), offset));
     };
 
-    cutoffSmoothed.setTargetValue (clampCutoff (modulate (ranges.cutoff, parameters.cutoffHz, Dest::cutoff)));
+    // Cutoff = valor do knob (suavizado em 20 ms) × razão da modulação (interpolada em 32 amostras).
+    const float baseCutoff = clampCutoff (parameters.cutoffHz);
+    const float modulatedCutoff = clampCutoff (modulate (ranges.cutoff, parameters.cutoffHz, Dest::cutoff));
+    cutoffSmoothed.setTargetValue (baseCutoff);
+    cutoffModRatio.setTargetValue (modulatedCutoff / baseCutoff);
     filter.setResonance (modulate (ranges.resonance, parameters.resonance, Dest::resonance));
 
     // 4. Osciladores (volume, altura e fine).
@@ -235,8 +271,10 @@ void MicroVoice::updateFrequencies()
         oscillators[i].setFrequency (hz, sampleRate);
 
         // RF6 + RF4: oscilador transposto para fora da faixa tocável fica mudo.
+        // Volume = valor do knob (suavizado em 20 ms) + parte da matriz (interpolada em 32 amostras).
         const bool audible = osc.enabled && TuningEngine::isPlayable (hz, sampleRate);
-        oscLevels[i].setTargetValue (audible ? oscLevel : 0.0f);
+        oscLevels[i].setTargetValue (audible ? osc.level : 0.0f);
+        oscLevelMods[i].setTargetValue (audible ? oscLevel - osc.level : 0.0f);
     }
 }
 
@@ -249,6 +287,29 @@ void MicroVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSam
 
     modWheelSmoothed.setTargetValue (globalMod.modWheel);
     aftertouchSmoothed.setTargetValue (globalMod.channelPressure);
+
+    // LFOs: quanto cada um anda por amostra e, no modo Free, a posição global do bloco
+    // (mais as amostras antes de startSample, porque o bloco pode chegar em pedaços).
+    const double sampleRate = getSampleRate();
+    std::array<double, ParamIDs::numLfos> lfoIncrements {};
+
+    for (size_t k = 0; k < lfos.size(); ++k)
+    {
+        const auto& lfoParams = parameters.lfos[k];
+        lfoIncrements[k] = sampleRate > 0.0 ? lfoParams.rateHz / sampleRate : 0.0;
+
+        if (lfoParams.retrigger)
+        {
+            lfos[k].setSeed (noteSeeds[k]);
+        }
+        else
+        {
+            const auto& position = globalMod.lfoPositions[k];
+            lfos[k].setPosition (position.phase, position.cycle);
+            lfos[k].advance (startSample * lfoIncrements[k]);
+            lfos[k].setSeed (k + 1); // mesma semente em todas as vozes: mesmo Sample & Hold
+        }
+    }
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -273,14 +334,17 @@ void MicroVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSam
             updateFrequencies();
         }
 
-        if (cutoffSmoothed.isSmoothing())
-            filter.setCutoffFrequency (cutoffSmoothed.getNextValue());
+        if (cutoffSmoothed.isSmoothing() || cutoffModRatio.isSmoothing())
+            filter.setCutoffFrequency (clampCutoff (cutoffSmoothed.getNextValue() * cutoffModRatio.getNextValue()));
+
+        for (size_t k = 0; k < lfos.size(); ++k)
+            lfos[k].advance (lfoIncrements[k]);
 
         float raw = 0.0f;
 
         for (size_t o = 0; o < oscillators.size(); ++o)
         {
-            const float oscLevel = oscLevels[o].getNextValue();
+            const float oscLevel = juce::jmax (0.0f, oscLevels[o].getNextValue() + oscLevelMods[o].getNextValue());
 
             // Oscilador mudo e parado em 0: não gasta CPU calculando a onda.
             if (oscLevel > 0.0f)

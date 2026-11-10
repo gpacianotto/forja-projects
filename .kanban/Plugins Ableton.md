@@ -6,17 +6,6 @@ kanban-plugin: board
 
 ## Backlog
 
-- [ ] # Feat: LFO
-	
-	Adicionar **3 LFOs** como fontes de modulação da matriz (já reservados na lista de fontes: LFO 1, LFO 2, LFO 3).
-	
-	Implementar **depois** do card "Feat: matriz de modulação" (o LFO só tem efeito ligado a um destino).
-	
-	Proposta: formas de onda (seno, triângulo, serra, quadrada, sample & hold), rate em Hz ou sincronizado ao tempo do Ableton, e modo por nota (reinicia a cada nota) ou livre.
-	
-	Ver RF11 no Spec.
-	
-	#MicroSynth
 
 
 ## Em Andamento
@@ -29,6 +18,17 @@ kanban-plugin: board
 
 ## Concluído
 
+- [x] # Feat: LFO
+	
+	Adicionar **3 LFOs** como fontes de modulação da matriz (já reservados na lista de fontes: LFO 1, LFO 2, LFO 3).
+	
+	Implementar **depois** do card "Feat: matriz de modulação" (o LFO só tem efeito ligado a um destino).
+	
+	Formas: seno, triângulo, serra subindo e descendo, quadrada, sample & hold. Rate em Hz ou sincronizado ao tempo do Ableton (1/32 a 4 compassos, com tercinas e pontuadas). Trigger livre (fase comum, presa ao tempo da música com sync) ou por nota (reinicia a cada nota). Nova aba LFOs.
+	
+	Ver RF11 no Spec.
+	
+	#MicroSynth
 - [x] # Feat: matriz de modulação
 	
 	Permitir ligar fontes de modulação a parâmetros de destino, como a aba Matrix do Serum. Nome técnico: **matriz de modulação** (modulation matrix).
