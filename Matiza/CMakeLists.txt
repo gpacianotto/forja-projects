@@ -30,6 +30,7 @@ target_sources(Matiza PRIVATE
     src/ModulationUI.cpp
     src/EnvelopeTabs.cpp
     src/ShapeEditor.cpp
+    src/TuningStepsView.cpp
     src/Controls.cpp
     src/MatizaVoice.cpp
     src/Oscillator.cpp
@@ -78,6 +79,7 @@ if(MATIZA_BUILD_TESTS)
         tests/UnisonTests.cpp
         tests/WavetableTests.cpp
         tests/ShapeTests.cpp
+        tests/StepMathTests.cpp
         src/TuningEngine.cpp
         src/Oscillator.cpp
         src/Wavetables.cpp

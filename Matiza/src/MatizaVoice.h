@@ -123,6 +123,15 @@ public:
     // Fase atual de um LFO desta voz (para o ponto do editor no modo Retrigger, RF15).
     double getLfoPhase (std::size_t lfo) const noexcept { return lfos[lfo].getPhase(); }
 
+    // Altura que esta voz está tocando, para o gráfico dos steps (RF16).
+    struct PitchSnapshot
+    {
+        bool   held = false;          // nota segurada (tocando e ainda não solta)
+        int    midiNote = 0;          // nota tocada (no Mono, a nota de destino do glide)
+        double centsFromBase = 0.0;   // altura atual em cents a partir da Base Freq, com glide e pitch bend
+    };
+    PitchSnapshot getPitchSnapshot() const noexcept;
+
     bool canPlaySound (juce::SynthesiserSound*) override;
     void startNote (int midiNoteNumber, float velocity,
                     juce::SynthesiserSound*, int currentPitchWheelPosition) override;

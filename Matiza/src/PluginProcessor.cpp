@@ -384,6 +384,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     const int numSamples = buffer.getNumSamples();
     synth.renderNextBlock (buffer, midi, 0, numSamples);
     publishEnvelopeDisplay();
+    publishPitchDisplay();
 
     // O relógio dos LFOs no modo Free anda o tamanho do bloco.
     for (size_t k = 0; k < freeLfos.size(); ++k)
@@ -471,6 +472,25 @@ void PluginProcessor::publishEnvelopeDisplay()
     modEnvDisplay.stage.store (static_cast<int> (snapshot.stage));
     modEnvDisplay.secondsInStage.store (static_cast<float> (snapshot.secondsInStage));
     modEnvDisplay.level.store (snapshot.modLevel);
+}
+
+void PluginProcessor::publishPitchDisplay()
+{
+    // Uma entrada por voz, na ordem das vozes do synth (RF16). Custo: 3 escritas atômicas por
+    // voz por bloco.
+    const int count = juce::jmin (synth.getNumVoices(), numVoices);
+
+    for (int i = 0; i < count; ++i)
+    {
+        MatizaVoice::PitchSnapshot snapshot; // held = false se não for uma MatizaVoice
+        if (auto* voice = dynamic_cast<MatizaVoice*> (synth.getVoice (i)))
+            snapshot = voice->getPitchSnapshot();
+
+        auto& display = voicePitchDisplay[static_cast<size_t> (i)];
+        display.midiNote.store (snapshot.midiNote);
+        display.centsFromBase.store (static_cast<float> (snapshot.centsFromBase));
+        display.held.store (snapshot.held);
+    }
 }
 
 juce::AudioProcessorEditor* PluginProcessor::createEditor()

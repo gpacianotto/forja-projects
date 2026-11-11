@@ -2,6 +2,7 @@
 #include "PluginProcessor.h"
 #include "EnvelopeTabs.h"
 #include "Graphs.h"
+#include "TuningStepsView.h"
 
 namespace
 {
@@ -80,9 +81,9 @@ namespace
 
 // ----------------------------------------------------------------------------- TabPage
 
-void TabPage::addRow (std::initializer_list<ParameterGroup*> groups, int weight)
+void TabPage::addRow (std::initializer_list<ParameterGroup*> groups, int weight, int maxHeight)
 {
-    rows.push_back ({ groups, weight });
+    rows.push_back ({ groups, weight, maxHeight });
 
     for (auto* group : groups)
         addAndMakeVisible (*group);
@@ -102,6 +103,9 @@ void TabPage::resized()
 {
     auto area = getLocalBounds().reduced (margin);
 
+    if (noteHeight > 0)
+        note.setBounds (area.removeFromBottom (noteHeight));
+
     if (rows.empty())
         return;
 
@@ -113,13 +117,30 @@ void TabPage::resized()
     // Altura de uma linha de peso 1.
     const int unitHeight = (area.getHeight() - gap * (numRows - 1)) / totalWeight;
 
+    // Linhas com altura máxima própria liberam espaço para as linhas sem limite próprio.
+    int freedHeight = 0, uncappedWeight = 0;
     for (const auto& row : rows)
     {
-        layoutRow (area.removeFromTop (juce::jmin (maxRowHeight, unitHeight * row.weight)), row.groups);
+        if (row.maxHeight > 0)
+            freedHeight += juce::jmax (0, unitHeight * row.weight - row.maxHeight);
+        else
+            uncappedWeight += row.weight;
+    }
+
+    for (const auto& row : rows)
+    {
+        int height = unitHeight * row.weight;
+        if (row.maxHeight > 0)
+            height = juce::jmin (height, row.maxHeight);
+        else if (uncappedWeight > 0)
+            height += freedHeight * row.weight / uncappedWeight;
+
+        layoutRow (area.removeFromTop (juce::jmin (maxRowHeight, height)), row.groups);
         area.removeFromTop (gap);
     }
 
-    note.setBounds (area); // a nota ocupa o espaço que sobrar embaixo
+    if (noteHeight == 0)
+        note.setBounds (area); // a nota ocupa o espaço que sobrar embaixo
 }
 
 // ----------------------------------------------------------------------------- PluginEditor
@@ -230,8 +251,13 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
     tuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::refNote,   "Ref Note")));
     tuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::bendSteps, "Bend Range")));
 
-    tuningPage.addRow ({ &tuningGroup });
-    tuningPage.setMaxRowHeight (190);
+    // Gráfico dos steps da EDO (RF16): ocupa o grupo inteiro (sem controles próprios).
+    stepsGroup.setDisplay (std::make_unique<TuningStepsView> (processor), 1.0f, ParameterGroup::DisplayPlacement::left);
+    stepsGroup.setLayoutWeight (1); // sem controles, o peso seria 0 e o grupo ficaria sem largura
+
+    tuningPage.addRow ({ &tuningGroup }, 1, 170);
+    tuningPage.addRow ({ &stepsGroup }, 2);
+    tuningPage.setNoteHeight (36);
     tuningPage.setNote ("Lock protects the tuning knobs from accidental changes in this window. "
                         "Host automation still applies.\n"
                         "Tuning changes affect the next notes played; held notes keep their pitch.");

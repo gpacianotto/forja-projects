@@ -19,11 +19,17 @@ class TabPage final : public juce::Component
 {
 public:
     // weight: altura relativa da linha (2 = o dobro de uma linha com peso 1).
-    void addRow (std::initializer_list<ParameterGroup*> groups, int weight = 1);
+    // maxHeight > 0: altura máxima só desta linha; o que sobrar vai para as linhas sem limite
+    // próprio (ex.: na aba Tuning, os knobs ficam baixos e o gráfico dos steps cresce).
+    void addRow (std::initializer_list<ParameterGroup*> groups, int weight = 1, int maxHeight = 0);
 
     // Altura máxima de cada linha, para os knobs não ficarem gigantes numa aba com poucos controles.
     void setMaxRowHeight (int height) { maxRowHeight = height; }
     void setNote (const juce::String& text);
+
+    // Altura fixa reservada para a nota no rodapé. 0 (padrão) = a nota fica com o que sobrar
+    // embaixo das linhas.
+    void setNoteHeight (int height) { noteHeight = height; }
 
     void resized() override;
 
@@ -32,9 +38,11 @@ private:
     {
         std::vector<ParameterGroup*> groups;
         int weight = 1;
+        int maxHeight = 0; // 0 = sem limite próprio
     };
     std::vector<Row> rows;
     int maxRowHeight = 10000;
+    int noteHeight = 0;
     juce::Label note;
 };
 
@@ -84,6 +92,7 @@ private:
     ParameterGroup envelopeGroup { "Envelope" };
     ParameterGroup filterGroup   { "Filter" };
     ParameterGroup tuningGroup   { "Tuning" };
+    ParameterGroup stepsGroup    { "Steps" }; // gráfico dos steps da EDO (RF16)
     ParameterGroup slotsGroup    { "Modulation Matrix" };
     std::array<ParameterGroup, ParamIDs::numLfos> lfoGroups { ParameterGroup { "LFO 1" },
                                                               ParameterGroup { "LFO 2" },

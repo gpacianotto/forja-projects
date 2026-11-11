@@ -6,10 +6,64 @@ kanban-plugin: board
 
 ## Backlog
 
+- [ ] # Feat: afinação desenhada no gráfico dos steps
+	
+	Fase 2 do gráfico dos steps: arrastar as linhas com o mouse para criar uma afinação personalizada, nas duas visões (Circle e Line). Depende do card "Interface: gráfico dos steps da EDO na aba Tuning".
+	
+	Ver RF17 no Spec.
+	
+	**Decidido (11/11/2026)**
+	- Mudar o EDO por qualquer caminho (knob, automação do Ableton, preset) descarta a afinação desenhada e volta às linhas equidistantes com o novo número de linhas.
+	- O Lock da aba Tuning também trava o gráfico: sem alças, sem arrasto.
+	- Step 0 fixo em 0 ¢, oitava sempre 1200 ¢, linhas não se cruzam; botão Reset (equal).
+	- Salva no estado do plugin, não automatizável.
+	
+	**Esboço**
+	
+	![[Esboço — Tuning Steps — Fase 2 (arrastar).png]]
+	
+	> Tentar: importar e exportar arquivos Scala (.scl).
+	
+	#Matiza
 
 
 ## Em Andamento
 
+- [ ] # Interface: gráfico dos steps da EDO na aba Tuning
+	
+	Abaixo dos knobs da aba Tuning, um painel **Steps** que mostra onde caem os passos da EDO dentro da oitava, em duas sub-abas: **Circle** (radial, uma volta = uma oitava) e **Line** (a mesma oitava na horizontal). Ao tocar uma nota, a linha do step dela pulsa.
+	
+	Esta é a fase 1 (só visualização). A fase 2 (arrastar as linhas) é o card "Feat: afinação desenhada no gráfico dos steps".
+	
+	Ver RF16 no Spec.
+	
+	**Decidido (11/11/2026)**
+	- Espaçamento em cents (o que o ouvido percebe); Hz só no texto e na régua de cima da Line.
+	- Line mostra uma oitava só.
+	- Referência 12-TET opcional: botão **12-TET** no painel, desligado por padrão, salvo no estado (não é parâmetro).
+	- O ponto da nota acompanha pitch bend e glide, sempre ligado (custo de CPU desprezível: 8 escritas atômicas por bloco, então não precisa de botão). Modulação de pitch da matriz não entra, para o gráfico não tremer com vibrato.
+	
+	**Esboços**
+	
+	![[Esboço — Tuning Steps — Circle.png]]
+	
+	![[Esboço — Tuning Steps — Line.png]]
+	
+	**Etapas**
+	- [x] RF16 no Spec
+	- [x] `src/StepMath.h`: step, oitava e cents de uma nota (mod positivo abaixo da Ref Note), posições, números visíveis, brilho; 11 testes novos (89 no total, passando no Linux)
+	- [x] Processador publica por voz, em atômicos, se está segurada, a nota e a altura atual em cents (com glide e bend): `MatizaVoice::getPitchSnapshot`, `PluginProcessor::voicePitchDisplay`
+	- [x] `src/TuningStepsView`: sub-abas Circle/Line, linhas, números (um aceso esconde vizinhos por cima), step 0 em bronze, lista das notas seguradas
+	- [x] Notas acesas com brilho que se apaga (~300 ms) e ponto que anda com bend/glide (timer de 30 Hz)
+	- [x] Botão 12-TET e sub-aba salvos no estado do plugin (`stepsTwelveTet`, `stepsView`)
+	- [x] Aba Tuning: grupo Steps abaixo dos knobs (`TabPage::addRow` com altura máxima por linha; nota com altura fixa)
+	- [x] Pré-visualização renderizada com o JUCE no Linux (stub do processador): Circle e Line em 19 e 72 EDO
+	- [ ] Build Debug/Release no Windows sem warnings, ctest, pluginval nível 5
+	- [ ] Teste no Ableton: 12 e 19 EDO nas duas visões, acorde, pitch bend, glide no modo Mono, EDO 72, redimensionar a janela
+	
+	> Código escrito em 11/11/2026 pelo acesso remoto (sem MSVC): falta compilar no Windows.
+	
+	#Matiza
 
 
 ## Em Revisão

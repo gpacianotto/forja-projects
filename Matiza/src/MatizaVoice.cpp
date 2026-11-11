@@ -242,6 +242,24 @@ MatizaVoice::EnvelopeSnapshot MatizaVoice::getEnvelopeSnapshot() const noexcept
     return snapshot;
 }
 
+MatizaVoice::PitchSnapshot MatizaVoice::getPitchSnapshot() const noexcept
+{
+    PitchSnapshot snapshot;
+
+    if (! isVoiceActive())
+        return snapshot;
+
+    // Mesma conta do TuningEngine, mas em cents: usa a afinação copiada no note-on (RF3),
+    // então o ponto mostra a altura que está soando de verdade.
+    const auto& settings = noteTuning.getSettings();
+    const double steps = glide.getCurrent() - settings.refNote + bend * settings.bendSteps;
+
+    snapshot.held          = ! released;
+    snapshot.midiNote      = currentMidiNote;
+    snapshot.centsFromBase = 1200.0 * steps / juce::jmax (1, settings.edo);
+    return snapshot;
+}
+
 void MatizaVoice::pitchWheelMoved (int newPitchWheelValue)
 {
     bend = TuningEngine::pitchWheelToBend (newPitchWheelValue);

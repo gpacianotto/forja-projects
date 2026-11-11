@@ -65,6 +65,19 @@ public:
     // Retrigger. A thread de áudio escreve, a interface lê.
     std::array<std::atomic<float>, ParamIDs::numLfos> lfoDisplayPhase {};
 
+    static constexpr int numVoices = 8;
+
+    // Altura de cada voz para o gráfico dos steps (RF16). A thread de áudio escreve uma vez por
+    // bloco, a interface lê. Os três campos são atômicos separados: ler um campo "novo" e outro
+    // "velho" no mesmo quadro só desenharia um quadro errado, sem nenhum risco.
+    struct VoicePitchDisplay
+    {
+        std::atomic<bool>  held { false };
+        std::atomic<int>   midiNote { 0 };
+        std::atomic<float> centsFromBase { 0.0f };
+    };
+    std::array<VoicePitchDisplay, numVoices> voicePitchDisplay {};
+
 private:
     // Nomes das propriedades do estado onde os pontos são salvos (junto com os parâmetros).
     static juce::Identifier lfoPointsId (std::size_t lfo) { return "lfo" + juce::String (lfo + 1) + "Points"; }
@@ -73,8 +86,6 @@ private:
 
     // No heap: as tabelas ocupam ~1,6 MB (ver CustomShapes.h).
     std::unique_ptr<CustomShapes> customShapes = std::make_unique<CustomShapes>();
-
-    static constexpr int numVoices = 8;
 
     // Parâmetros lidos na thread de áudio (atômicos, donos são o apvts)
     std::atomic<float>* edoParam       = nullptr;
@@ -150,6 +161,7 @@ private:
     void updateTuning();
     void updateVoices();
     void publishEnvelopeDisplay();
+    void publishPitchDisplay();
     void updateLfoClock();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
