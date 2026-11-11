@@ -311,6 +311,8 @@ Depois que o MVP estiver em uso, a ordem abaixo prioriza o que mais diferencia o
 5. Wavetables, LFOs e um sistema de presets.
 6. Build para macOS (VST3 + AU), instalador, licenciamento e loja.
 
+- Wavetable nos osciladores: estudo de viabilidade concluído em 10/11/2026 (`.kanban/docs/Estudo — Wavetable nos osciladores.md`). Recomendação: trocar o motor PolyBLEP por wavetable com mipmaps, depois onda desenhada e importação de .wav. Plano aguardando decisão.
+
 **Questões em aberto**
 
 - [x] Nome definitivo do produto e códigos de fabricante e plugin → **Matiza**, fabricante **Forja Instruments**, códigos `Forj` e `Mtza` (10/11/2026).

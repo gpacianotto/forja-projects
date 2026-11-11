@@ -37,7 +37,24 @@ kanban-plugin: board
 
 ## Em Andamento
 
-- [ ] # Feat: editar a forma de onda dos osciladores (estudo de viabilidade)
+- [ ] # DSP: motor wavetable nos osciladores (etapa A)
+	
+	Trocar o oscilador PolyBLEP por wavetable com mipmaps (2 por oitava) nas 4 formas atuais (seno, serra, quadrada, triângulo). Mesmos parâmetros e IDs; a interface não muda.
+	
+	Objetivo: menos CPU (folga para o unison) e menos aliasing nas notas agudas. Ver [[Estudo — Wavetable nos osciladores]] e RF13 no Spec.
+	
+	Próximas etapas (cards próprios depois): B. onda desenhada (junto com o editor do LFO); C. .wav do Serum + Position.
+	
+	#Matiza
+
+
+## Em Revisão
+
+
+
+## Concluído
+
+- [x] # Feat: editar a forma de onda dos osciladores (estudo de viabilidade)
 	
 	Permitir que o usuário desenhe ou edite a onda de cada oscilador, como no editor de wavetable do Serum.
 	
@@ -49,15 +66,12 @@ kanban-plugin: board
 	
 	Resultado esperado do estudo: recomendação (fazer / não fazer / fazer versão simplificada) e, se sim, um plano em etapas no Spec.
 	
+	**Resultado (10/11/2026):** ver [[Estudo — Wavetable nos osciladores]].
+	- [x] Benchmark PolyBLEP × wavetable (`Matiza/bench/wavetable/`): wavetable gasta 4 a 5× menos CPU e tem 30 a 40 dB menos aliasing nas notas agudas
+	- [x] Recomendação: fazer, em 3 etapas (A. motor wavetable; B. onda desenhada; C. .wav do Serum + Position)
+	- [x] Decisão do Guilherme: aprovado, começar pela etapa A (10/11/2026)
+	
 	#Matiza
-
-
-## Em Revisão
-
-
-
-## Concluído
-
 - [x] # Feat: unison, detune e blend nos osciladores
 	
 	Adicionar a cada oscilador, como no Serum:
