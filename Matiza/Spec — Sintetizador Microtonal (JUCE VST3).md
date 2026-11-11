@@ -63,6 +63,10 @@ Todos os parâmetros abaixo são expostos ao host, então podem ser automatizado
 | Vozes | Legato (`legato`) | sim/não | sim |
 | Vozes | Glide (`glide`) | 0 a 2000 ms | 0 ms |
 | Afinação | Trava de afinação (`tuningLock`) | sim/não (não automatizável) | não |
+| Osciladores (RF12) | Unison (`osc1Unison`, `osc2Unison`, `osc3Unison`) | 1 a 8 cópias | 1 |
+| Osciladores (RF12) | Detune (`osc1Detune`, `osc2Detune`, `osc3Detune`) | 0 a 100 cents | 25 ct |
+| Osciladores (RF12) | Blend (`osc1Blend`, `osc2Blend`, `osc3Blend`) | 0 a 100 % | 50 % |
+| Osciladores (RF12) | Width (`osc1Width`, `osc2Width`, `osc3Width`) | 0 a 100 % | 100 % |
 
 **Parâmetros da matriz de modulação (v0.4)**
 
@@ -112,6 +116,16 @@ As listas de forma e divisão também são fechadas: nunca reordenar nem remover
   - Trigger **Free**: todas as vozes compartilham a mesma fase; com Sync e o Live tocando, a fase segue a posição da música (o LFO cai no tempo). Trigger **Retrigger**: cada nota reinicia o LFO da sua voz na fase 0.
   - Interface: aba **LFOs** com os 3 LFOs; com Sync ligado, o knob Rate é desabilitado e a divisão é habilitada. LFO 1–3 entram nas alças arrastáveis do cabeçalho.
   - Para a modulação rápida do LFO não ser abafada, a modulação do cutoff e do volume dos osciladores é interpolada a cada recálculo da matriz (32 amostras), separada da suavização de 20 ms dos knobs.
+
+- RF12 (v0.6): unison em cada oscilador, como no Serum.
+  - **Unison** (`osc1Unison`, `osc2Unison`, `osc3Unison`): 1 a 8 cópias da onda por nota. Com 1, o oscilador soa como antes (mesma fase inicial, centro, sem detune).
+  - **Detune** (`osc1Detune`…): 0 a 100 cents. As cópias ficam espalhadas por igual entre −detune e +detune em volta da nota (em cents absolutos, iguais em qualquer EDO).
+  - **Blend** (`osc1Blend`…): 0 a 100 %. Volume das cópias desafinadas em relação às centrais (a do meio, com número ímpar de cópias, ou as duas do meio, com número par). Com 0 %, só as centrais soam.
+  - **Width** (`osc1Width`…): 0 a 100 %. Abertura estéreo: as cópias vão da esquerda (as mais graves) para a direita (as mais agudas), com pan de potência constante. Com 0 %, tudo fica no centro.
+  - O volume do conjunto é normalizado pela potência (soma dos quadrados dos ganhos = 1): mudar o número de cópias ou o blend não muda muito o volume percebido.
+  - Com 2 ou mais cópias, cada uma começa numa fase aleatória a cada nota, para o ataque não soar como um flanger.
+  - A voz passa a ser estéreo: o filtro processa os dois canais.
+  - Interface: knobs Unison, Detune, Blend e Width em cada grupo de oscilador, na aba Oscillators.
 
 ## Modelo de afinação
 
@@ -260,6 +274,7 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 | 10. Gráficos | Curva do filtro e desenho do ADSR com ponto de posição (RF9) | Girar Cutoff/Resonance/ADSR ou automatizá-los move os gráficos; tocar uma nota faz o ponto percorrer o envelope |
 | 11. Matriz de modulação | 8 slots, Mod Env, aba Matrix, arrastar e soltar, anel nos knobs (RF10) | Velocity → Cutoff abre o filtro com notas fortes; arrastar Mod Env até o Cutoff cria o slot; o anel acompanha e ajusta a quantidade |
 | 12. LFOs | 3 LFOs como fontes (RF11) | LFO 1 → Pitch faz vibrato audível; com sync, acompanha o tempo do Live |
+| 13. Unison | Unison, detune, blend e largura estéreo em cada oscilador (RF12) | Serra com 7 cópias, detune 25 ct e width 100 % soa larga no estéreo; Unison 1 soa igual à versão anterior; 8 vozes × 3 osciladores × 8 cópias rodam no Live sem estalar |
 
 Uma sugestão de ritmo: as etapas 1 e 2 cabem numa primeira noite, e a etapa 3 é o marco que prova a ideia.
 

@@ -103,6 +103,12 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
         group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscFine[i],   "Fine"))
             .enableModulation (modulationModel, ModMatrix::oscFineDest (i));
 
+        // Unison (RF12)
+        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscUnison[i], "Unison"));
+        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscDetune[i], "Detune"));
+        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscBlend[i],  "Blend"));
+        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscWidth[i],  "Width"));
+
         oscillatorsPage.addRow ({ &group });
     }
 

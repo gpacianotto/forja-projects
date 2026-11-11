@@ -8,6 +8,11 @@ void Oscillator::setFrequency (double hz, double sampleRate) noexcept
     increment = sampleRate > 0.0 ? hz / sampleRate : 0.0;
 }
 
+void Oscillator::setPhase (double newPhase) noexcept
+{
+    phase = newPhase - std::floor (newPhase);
+}
+
 double Oscillator::polyBlep (double t, double dt) noexcept
 {
     if (dt <= 0.0)

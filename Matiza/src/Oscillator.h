@@ -22,6 +22,7 @@ public:
     void setWaveform (Waveform newWaveform) noexcept { waveform = newWaveform; }
     void setFrequency (double hz, double sampleRate) noexcept;
     void resetPhase() noexcept { phase = 0.0; }
+    void setPhase (double newPhase) noexcept; // 0..1 (valores fora são dobrados para dentro)
 
     // Devolve a amostra atual (entre -1 e 1, aprox.) e avança a fase.
     float nextSample() noexcept;

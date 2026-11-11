@@ -81,6 +81,10 @@ private:
         std::atomic<float>* octave = nullptr;
         std::atomic<float>* steps  = nullptr;
         std::atomic<float>* fine   = nullptr;
+        std::atomic<float>* unison = nullptr; // RF12
+        std::atomic<float>* detune = nullptr;
+        std::atomic<float>* blend  = nullptr;
+        std::atomic<float>* width  = nullptr;
     };
     std::array<OscillatorParamPointers, ParamIDs::numOscillators> oscParams;
 

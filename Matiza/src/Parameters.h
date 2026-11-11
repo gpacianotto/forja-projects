@@ -27,6 +27,12 @@ namespace ParamIDs
     inline constexpr std::array<const char*, numOscillators> oscSteps  { "osc1Steps",  "osc2Steps",  "osc3Steps" };
     inline constexpr std::array<const char*, numOscillators> oscFine   { "osc1Fine",   "osc2Fine",   "osc3Fine" };
 
+    // Unison (RF12)
+    inline constexpr std::array<const char*, numOscillators> oscUnison { "osc1Unison", "osc2Unison", "osc3Unison" };
+    inline constexpr std::array<const char*, numOscillators> oscDetune { "osc1Detune", "osc2Detune", "osc3Detune" };
+    inline constexpr std::array<const char*, numOscillators> oscBlend  { "osc1Blend",  "osc2Blend",  "osc3Blend" };
+    inline constexpr std::array<const char*, numOscillators> oscWidth  { "osc1Width",  "osc2Width",  "osc3Width" };
+
     // Vozes (RF7)
     inline constexpr auto voiceMode = "voiceMode"; // 0 = Poly, 1 = Mono
     inline constexpr auto legato    = "legato";

@@ -33,6 +33,10 @@ PluginProcessor::PluginProcessor()
         oscParams[i].octave = apvts.getRawParameterValue (ParamIDs::oscOctave[i]);
         oscParams[i].steps  = apvts.getRawParameterValue (ParamIDs::oscSteps[i]);
         oscParams[i].fine   = apvts.getRawParameterValue (ParamIDs::oscFine[i]);
+        oscParams[i].unison = apvts.getRawParameterValue (ParamIDs::oscUnison[i]);
+        oscParams[i].detune = apvts.getRawParameterValue (ParamIDs::oscDetune[i]);
+        oscParams[i].blend  = apvts.getRawParameterValue (ParamIDs::oscBlend[i]);
+        oscParams[i].width  = apvts.getRawParameterValue (ParamIDs::oscWidth[i]);
     }
 
     for (size_t i = 0; i < modSlotParams.size(); ++i)
@@ -125,6 +129,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParam
             juce::ParameterID { ParamIDs::oscFine[i], 1 }, prefix + "Fine",
             juce::NormalisableRange<float> (-100.0f, 100.0f, 0.1f), 0.0f,
             juce::AudioParameterFloatAttributes().withLabel ("ct")));
+
+        // Unison (RF12). Com 1 cópia (padrão), o oscilador soa como antes.
+        layout.add (std::make_unique<juce::AudioParameterInt> (
+            juce::ParameterID { ParamIDs::oscUnison[i], 1 }, prefix + "Unison", 1, Unison::maxVoices, 1,
+            juce::AudioParameterIntAttributes().withLabel ("voices")));
+
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ParamIDs::oscDetune[i], 1 }, prefix + "Detune",
+            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 25.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("ct")));
+
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ParamIDs::oscBlend[i], 1 }, prefix + "Blend",
+            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("%")));
+
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ParamIDs::oscWidth[i], 1 }, prefix + "Width",
+            juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("%")));
     }
 
     // --- Vozes (RF7) ---
@@ -269,6 +293,10 @@ void PluginProcessor::updateVoices()
         osc.octave    = static_cast<int> (oscParams[i].octave->load());
         osc.steps     = static_cast<int> (oscParams[i].steps->load());
         osc.fineCents = oscParams[i].fine->load();
+        osc.unison      = static_cast<int> (oscParams[i].unison->load());
+        osc.detuneCents = oscParams[i].detune->load();
+        osc.blend       = oscParams[i].blend->load() / 100.0f; // % -> 0..1
+        osc.width       = oscParams[i].width->load() / 100.0f;
     }
 
     params.glideSeconds = glideParam->load() / 1000.0f; // ms -> s

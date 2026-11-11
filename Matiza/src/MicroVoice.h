@@ -12,6 +12,7 @@
 #include "Oscillator.h"
 #include "Parameters.h"
 #include "TuningEngine.h"
+#include "Unison.h"
 
 // Configuração de um oscilador (RF6).
 struct OscillatorParameters
@@ -22,6 +23,12 @@ struct OscillatorParameters
     int      octave    = 0;
     int      steps     = 0;     // passos da EDO
     float    fineCents = 0.0f;
+
+    // Unison (RF12)
+    int   unison      = 1;
+    float detuneCents = 25.0f;
+    float blend       = 0.5f; // 0..1
+    float width       = 1.0f; // 0..1
 };
 
 // Configuração de um LFO (RF11). rateHz já vem calculado pelo processador (Hz livre ou
@@ -72,8 +79,9 @@ struct GlobalModState
     std::array<LfoPosition, ParamIDs::numLfos> lfoPositions {};
 };
 
-// Uma voz do synth: 3 osciladores somados -> filtro passa-baixa -> envelope de amplitude (ADSR),
-// com a matriz de modulação (RF10) recalculada a cada 32 amostras.
+// Uma voz do synth: 3 osciladores (cada um com até 8 cópias de unison, RF12) somados em estéreo
+// -> filtro passa-baixa -> envelope de amplitude (ADSR), com a matriz de modulação (RF10)
+// recalculada a cada 32 amostras.
 class MicroVoice final : public juce::SynthesiserVoice
 {
 public:
@@ -120,6 +128,7 @@ private:
     void updateModulation();
     void restartLfos();
     void updateFrequencies();
+    void updateUnisonLayouts();
     float clampCutoff (float hz) const;
     static void setEnvelopeParameters (juce::ADSR& envelope, const juce::ADSR::Parameters& newParams);
 
@@ -137,7 +146,16 @@ private:
     // Altura atual em notas MIDI/passos (fracionária durante o glide).
     Glide glide;
 
-    std::array<Oscillator, ParamIDs::numOscillators> oscillators;
+    // Cópias de unison de cada oscilador (RF12): oscillators[o][k] = cópia k do oscilador o.
+    // Todas existem desde o início (sem alocação); só as primeiras `count` tocam.
+    std::array<std::array<Oscillator, Unison::maxVoices>, ParamIDs::numOscillators> oscillators;
+    std::array<Unison::Layout, ParamIDs::numOscillators> unisonLayouts {};
+
+    // Cópia fora da faixa tocável (RF4) fica muda; as outras do mesmo oscilador continuam.
+    std::array<std::array<bool, Unison::maxVoices>, ParamIDs::numOscillators> copyAudible {};
+
+    // Blend e Width suavizados (20 ms): girar o knob muda o volume e o pan das cópias sem estalar.
+    std::array<juce::SmoothedValue<float>, ParamIDs::numOscillators> blendSmoothed, widthSmoothed;
 
     // Volume de cada oscilador, suavizado (20 ms): ligar, desligar ou girar o knob não estala.
     // O alvo é 0 quando o oscilador está desligado ou fora da faixa tocável (RF4).

@@ -71,6 +71,7 @@ if(MATIZA_BUILD_TESTS)
         tests/GraphMathTests.cpp
         tests/ModMatrixTests.cpp
         tests/LfoTests.cpp
+        tests/UnisonTests.cpp
         src/TuningEngine.cpp
         src/Oscillator.cpp)
     target_include_directories(MatizaTests PRIVATE src)

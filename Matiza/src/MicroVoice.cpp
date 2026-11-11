@@ -1,6 +1,7 @@
 #include "MicroVoice.h"
 #include "MicroSound.h"
 
+#include <cmath>
 #include <utility>
 
 using ModMatrix::Dest;
@@ -11,8 +12,9 @@ void MicroVoice::prepare (double sampleRate, int maxBlockSize)
     adsr.setSampleRate (sampleRate);
     modEnv.setSampleRate (sampleRate);
 
-    // Uma voz gera um sinal mono; ele é copiado para os canais no renderNextBlock.
-    filter.prepare ({ sampleRate, static_cast<juce::uint32> (maxBlockSize), 1 });
+    // Voz estéreo (RF12): o unison espalha as cópias entre esquerda e direita, então o filtro
+    // processa dois canais (cada um guarda seu próprio estado interno).
+    filter.prepare ({ sampleRate, static_cast<juce::uint32> (maxBlockSize), 2 });
     filter.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
 
     cutoffSmoothed.reset (sampleRate, 0.02);
@@ -27,6 +29,14 @@ void MicroVoice::prepare (double sampleRate, int maxBlockSize)
 
     modWheelSmoothed.reset (sampleRate, 0.02);
     aftertouchSmoothed.reset (sampleRate, 0.02);
+
+    for (size_t o = 0; o < blendSmoothed.size(); ++o)
+    {
+        blendSmoothed[o].reset (sampleRate, 0.02);
+        widthSmoothed[o].reset (sampleRate, 0.02);
+        blendSmoothed[o].setCurrentAndTargetValue (parameters.oscillators[o].blend);
+        widthSmoothed[o].setCurrentAndTargetValue (parameters.oscillators[o].width);
+    }
 
     // Interpolação da modulação: anda até o novo valor em exatamente um intervalo de recálculo.
     cutoffModRatio.reset (modUpdateInterval);
@@ -61,8 +71,16 @@ void MicroVoice::setParameters (const VoiceParameters& params)
 {
     parameters = params;
 
-    for (size_t i = 0; i < oscillators.size(); ++i)
-        oscillators[i].setWaveform (params.oscillators[i].waveform);
+    for (size_t o = 0; o < oscillators.size(); ++o)
+    {
+        for (auto& copy : oscillators[o])
+            copy.setWaveform (params.oscillators[o].waveform);
+
+        blendSmoothed[o].setTargetValue (params.oscillators[o].blend);
+        widthSmoothed[o].setTargetValue (params.oscillators[o].width);
+    }
+
+    updateUnisonLayouts();
 
     setEnvelopeParameters (adsr, params.adsr);
     setEnvelopeParameters (modEnv, params.modEnv);
@@ -119,8 +137,26 @@ void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesise
     modWheelSmoothed.setCurrentAndTargetValue (globalMod.modWheel);
     aftertouchSmoothed.setCurrentAndTargetValue (globalMod.channelPressure);
 
-    for (auto& oscillator : oscillators)
-        oscillator.resetPhase();
+    // Fase inicial (RF12): com uma cópia, começa do zero, como antes do unison. Com várias,
+    // cada uma começa num ponto aleatório do ciclo; se todas começassem juntas, o ataque soaria
+    // como um "flanger" até as cópias se separarem.
+    for (size_t o = 0; o < oscillators.size(); ++o)
+    {
+        const bool spread = parameters.oscillators[o].unison > 1;
+
+        for (auto& copy : oscillators[o])
+        {
+            if (spread)
+                copy.setPhase (random.nextDouble());
+            else
+                copy.resetPhase();
+        }
+
+        blendSmoothed[o].setCurrentAndTargetValue (parameters.oscillators[o].blend);
+        widthSmoothed[o].setCurrentAndTargetValue (parameters.oscillators[o].width);
+    }
+
+    updateUnisonLayouts();
 
     modEnv.reset();
     modEnvValue = 0.0f;
@@ -244,6 +280,18 @@ void MicroVoice::updateModulation()
         updateFrequencies();
 }
 
+void MicroVoice::updateUnisonLayouts()
+{
+    // Desvio, volume e pan de cada cópia (RF12). Blend e Width vêm suavizados.
+    for (size_t o = 0; o < unisonLayouts.size(); ++o)
+    {
+        const auto& osc = parameters.oscillators[o];
+        unisonLayouts[o] = Unison::computeLayout (osc.unison, osc.detuneCents,
+                                                  blendSmoothed[o].getCurrentValue(),
+                                                  widthSmoothed[o].getCurrentValue());
+    }
+}
+
 void MicroVoice::updateFrequencies()
 {
     const double sampleRate = getSampleRate();
@@ -268,11 +316,25 @@ void MicroVoice::updateFrequencies()
         const float oscLevel = ModMatrix::applyNormalized (osc.level, modOffsets[ModMatrix::index (ModMatrix::oscLevelDest (i))]);
 
         const double hz = noteHz * TuningEngine::transposeRatio (edo, osc.octave, steps, fineCents);
-        oscillators[i].setFrequency (hz, sampleRate);
+
+        // Unison (RF12): cada cópia desvia alguns cents da frequência do oscilador.
+        // Cópia que passaria de Nyquist (RF4) fica muda; as outras continuam.
+        const auto& unisonLayout = unisonLayouts[i];
+        bool anyCopyPlayable = false;
+
+        for (int k = 0; k < unisonLayout.count; ++k)
+        {
+            const double copyHz = hz * std::pow (2.0, unisonLayout.detuneCents[k] / 1200.0);
+            const bool playable = TuningEngine::isPlayable (copyHz, sampleRate);
+
+            oscillators[i][k].setFrequency (copyHz, sampleRate);
+            copyAudible[i][k] = playable;
+            anyCopyPlayable = anyCopyPlayable || playable;
+        }
 
         // RF6 + RF4: oscilador transposto para fora da faixa tocável fica mudo.
         // Volume = valor do knob (suavizado em 20 ms) + parte da matriz (interpolada em 32 amostras).
-        const bool audible = osc.enabled && TuningEngine::isPlayable (hz, sampleRate);
+        const bool audible = osc.enabled && anyCopyPlayable;
         oscLevels[i].setTargetValue (audible ? osc.level : 0.0f);
         oscLevelMods[i].setTargetValue (audible ? oscLevel - osc.level : 0.0f);
     }
@@ -326,6 +388,15 @@ void MicroVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSam
 
         if (--samplesUntilModUpdate <= 0)
         {
+            // Blend e Width andam um intervalo inteiro de uma vez; o volume e o pan das cópias
+            // mudam em passos de 32 amostras (~0,7 ms), pequenos demais para estalar.
+            for (size_t o = 0; o < blendSmoothed.size(); ++o)
+            {
+                blendSmoothed[o].skip (modUpdateInterval);
+                widthSmoothed[o].skip (modUpdateInterval);
+            }
+
+            updateUnisonLayouts();
             updateModulation(); // inclui updateFrequencies
             samplesUntilModUpdate = modUpdateInterval;
         }
@@ -340,25 +411,49 @@ void MicroVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSam
         for (size_t k = 0; k < lfos.size(); ++k)
             lfos[k].advance (lfoIncrements[k]);
 
-        float raw = 0.0f;
+        float rawLeft = 0.0f, rawRight = 0.0f;
 
         for (size_t o = 0; o < oscillators.size(); ++o)
         {
             const float oscLevel = juce::jmax (0.0f, oscLevels[o].getNextValue() + oscLevelMods[o].getNextValue());
 
             // Oscilador mudo e parado em 0: não gasta CPU calculando a onda.
-            if (oscLevel > 0.0f)
-                raw += oscillators[o].nextSample() * oscLevel;
+            if (oscLevel <= 0.0f)
+                continue;
+
+            const auto& unisonLayout = unisonLayouts[o];
+            float left = 0.0f, right = 0.0f;
+
+            for (int k = 0; k < unisonLayout.count; ++k)
+            {
+                if (! copyAudible[o][k])
+                    continue;
+
+                const float copySample = oscillators[o][k].nextSample();
+                left  += copySample * unisonLayout.gainLeft[k];
+                right += copySample * unisonLayout.gainRight[k];
+            }
+
+            rawLeft  += left * oscLevel;
+            rawRight += right * oscLevel;
         }
 
-        const float filtered = filter.processSample (0, raw);
-        lastEnvelopeLevel    = adsr.getNextSample();
-        const float sample   = filtered * lastEnvelopeLevel * level;
+        const float filteredLeft  = filter.processSample (0, rawLeft);
+        const float filteredRight = filter.processSample (1, rawRight);
+        lastEnvelopeLevel = adsr.getNextSample();
+        const float gain  = lastEnvelopeLevel * level;
         ++samplesInStage;
 
         // Somar, não sobrescrever: as outras vozes escrevem no mesmo buffer.
-        for (int ch = 0; ch < numChannels; ++ch)
-            output.addSample (ch, startSample + i, sample);
+        if (numChannels == 1)
+        {
+            output.addSample (0, startSample + i, 0.5f * (filteredLeft + filteredRight) * gain);
+        }
+        else
+        {
+            output.addSample (0, startSample + i, filteredLeft * gain);
+            output.addSample (1, startSample + i, filteredRight * gain);
+        }
 
         if (! adsr.isActive())
         {

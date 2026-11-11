@@ -33,6 +33,10 @@ kanban-plugin: board
 	[a definir] número máximo de pontos, tipos de curva, grade/snap.
 	
 	#Matiza
+
+
+## Em Andamento
+
 - [ ] # Feat: editar a forma de onda dos osciladores (estudo de viabilidade)
 	
 	Permitir que o usuário desenhe ou edite a onda de cada oscilador, como no editor de wavetable do Serum.
@@ -46,7 +50,15 @@ kanban-plugin: board
 	Resultado esperado do estudo: recomendação (fazer / não fazer / fazer versão simplificada) e, se sim, um plano em etapas no Spec.
 	
 	#Matiza
-- [ ] # Feat: unison, detune e blend nos osciladores
+
+
+## Em Revisão
+
+
+
+## Concluído
+
+- [x] # Feat: unison, detune e blend nos osciladores
 	
 	Adicionar a cada oscilador, como no Serum:
 	- **Unison:** número de cópias da onda por nota (1 a 8, por exemplo).
@@ -57,21 +69,19 @@ kanban-plugin: board
 	
 	Atenção à CPU: 8 vozes × 3 osciladores × 8 cópias = 192 osciladores. Medir no Live; talvez limitar o unison máximo.
 	
-	[a definir] número máximo de cópias, curva do detune (em cents ou relativo à EDO), controle de largura estéreo.
+	Decidido (10/11/2026): até 8 cópias; detune em cents (0 a 100), espalhado de forma simétrica; blend 0 a 100 %; knob Width (0 a 100 %) por oscilador.
+	
+	Ver RF12 no Spec.
+	
+	**Etapas**
+	- [x] RF12 no Spec (parâmetros, normalização de volume, fase aleatória, voz estéreo)
+	- [x] `src/Unison.h`: desvio, volume e pan de cada cópia, com 7 testes
+	- [x] Voz estéreo: 8 cópias por oscilador, filtro em 2 canais, Blend/Width suavizados
+	- [x] Parâmetros `oscNUnison`, `oscNDetune`, `oscNBlend`, `oscNWidth` e 4 knobs por oscilador
+	- [x] Build Debug/Release sem warnings, 63 testes, pluginval nível 5
+	- [x] Teste no Ableton: som, estéreo e CPU com 8 vozes × 3 osciladores × 8 cópias
 	
 	#Matiza
-
-
-## Em Andamento
-
-
-
-## Em Revisão
-
-
-
-## Concluído
-
 - [x] # Rebranding: MicroSynth → Matiza (Forja Instruments)
 	
 	O synth passa a se chamar **Matiza**, e a marca guarda-chuva é **Forja Instruments**. Ver [[Plano de produto — Matiza, by Forja Instruments]] (em `.kanban/docs/`, seção "Lacunas", item "Nome e códigos definitivos").
@@ -231,6 +241,6 @@ kanban-plugin: board
 
 %% kanban:settings
 ```
-{"kanban-plugin":"board","list-collapse":[false,false,false,false],"show-checkboxes":true,"new-line-trigger":"enter","hide-card-count":false,"full-list-lane-width":true,"lane-width":350,"new-note-template":"Projetos de Software/Untitled Kanban.md","tag-sort":[{"tag":"#MicroSynth"}],"tag-colors":[{"tagKey":"#MicroSynth","color":"rgba(255, 0, 0, 1)","backgroundColor":"rgba(255, 255, 255, 1)"}],"move-tags":true,"tag-action":"kanban"}
+{"kanban-plugin":"board","list-collapse":[false,false,false,false],"show-checkboxes":true,"new-line-trigger":"enter","hide-card-count":false,"full-list-lane-width":true,"lane-width":350,"new-note-template":"Projetos de Software/Untitled Kanban.md","tag-sort":[{"tag":"#MicroSynth"}],"tag-colors":[{"tagKey":"#Matiza","color":"rgba(255, 0, 0, 1)","backgroundColor":"rgba(255, 255, 255, 1)"}],"move-tags":true,"tag-action":"kanban"}
 ```
 %%
