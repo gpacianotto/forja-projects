@@ -6,6 +6,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "ModMatrix.h"
+#include "Palette.h"
 #include "Parameters.h"
 
 // Interface da matriz de modulação (RF10).
@@ -48,7 +49,7 @@ public:
     static ModMatrix::Source parseDragDescription (const juce::var& description);
 
     // Cor de destaque da modulação (anel, alças, contorno de "solte aqui").
-    static juce::Colour accentColour() { return juce::Colour (0xffffa94d); }
+    static juce::Colour accentColour() { return Palette::modulation; }
 
 private:
     static void setParameter (juce::RangedAudioParameter& param, float value);

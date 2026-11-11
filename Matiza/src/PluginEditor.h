@@ -7,6 +7,7 @@
 
 #include "Controls.h"
 #include "ModulationUI.h"
+#include "Palette.h"
 #include "Parameters.h"
 
 class PluginProcessor;
@@ -36,7 +37,7 @@ private:
     juce::Label note;
 };
 
-// Interface própria do MicroSynth, organizada em abas (RF8):
+// Interface própria do Matiza, organizada em abas (RF8):
 //   Oscillators  — os 3 osciladores (RF6)
 //   Amp & Filter — modo de vozes (RF7), volume, envelopes (Amp Env / Mod Env) e filtro
 //   Matrix       — os 8 slots da matriz de modulação (RF10)
@@ -60,7 +61,7 @@ private:
 
     // Precisa existir enquanto os componentes usarem; por isso é o primeiro membro
     // (construído primeiro, destruído por último).
-    juce::LookAndFeel_V4 lookAndFeel { juce::LookAndFeel_V4::getMidnightColourScheme() };
+    juce::LookAndFeel_V4 lookAndFeel { Palette::colourScheme() }; // paleta Têmpera (Palette.h)
 
     // Usado pelos knobs (que guardam um ponteiro para ele): declarado antes dos grupos,
     // é destruído depois deles.

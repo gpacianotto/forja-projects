@@ -18,10 +18,10 @@
 // 3. Fontes globais da matriz (RF10): guarda mod wheel e aftertouch de canal mesmo sem
 //    nota tocando (o juce::Synthesiser só repassa CC às vozes ativas), para a próxima
 //    nota já começar com o valor certo.
-class MicroSynthesiser final : public juce::Synthesiser
+class MatizaSynthesiser final : public juce::Synthesiser
 {
 public:
-    MicroSynthesiser (const TuningEngine& tuningEngine, GlobalModState& globalModState)
+    MatizaSynthesiser (const TuningEngine& tuningEngine, GlobalModState& globalModState)
         : tuning (tuningEngine), globalMod (globalModState) {}
 
     void handleController (int midiChannel, int controllerNumber, int controllerValue) override

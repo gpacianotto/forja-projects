@@ -56,7 +56,7 @@ struct ModRanges
     juce::NormalisableRange<float> resonance;
 };
 
-// Fontes de modulação globais (não dependem da nota). Escritas pelo MicroSynthesiser ao
+// Fontes de modulação globais (não dependem da nota). Escritas pelo MatizaSynthesiser ao
 // receber MIDI e lidas pelas vozes, as duas coisas na thread de áudio.
 struct GlobalModState
 {
@@ -87,7 +87,7 @@ public:
     // Chamado a cada bloco, na thread de áudio. Não aloca.
     void setParameters (const VoiceParameters& params);
 
-    // Modo Mono (RF7): o MicroSynthesiser avisa, logo antes de trocar a nota desta voz, que é
+    // Modo Mono (RF7): o MatizaSynthesiser avisa, logo antes de trocar a nota desta voz, que é
     // uma troca de nota e não uma nota nova. Assim a voz ignora o "corte" que o
     // juce::Synthesiser faz antes de cada nota e desliza (glide) em vez de recomeçar do zero.
     // retriggerEnvelope = false é o legato: o envelope segue sem redisparar.

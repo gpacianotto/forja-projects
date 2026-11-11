@@ -1,4 +1,4 @@
-# MicroSynth
+# Matiza
 
 Sintetizador VST3 microtonal: toca em qualquer divisão igual da oitava (EDO), com frequência base
 e nota de referência ajustáveis.
@@ -18,7 +18,7 @@ Testes unitários (Catch2, baixado pelo CMake no primeiro `cmake -B build`):
 ctest --test-dir build -C Debug
 ```
 
-O app Standalone sai em `build/MicroSynth_artefacts/Debug/Standalone/MicroSynth.exe`.
+O app Standalone sai em `build/Matiza_artefacts/Debug/Standalone/Matiza.exe`.
 
 ## Progresso
 
@@ -39,3 +39,4 @@ O app Standalone sai em `build/MicroSynth_artefacts/Debug/Standalone/MicroSynth.
 | --- | --- | --- | --- |
 | 0.1.0 (etapa 5) | 2026-11-07 | 1.0.4, nível 5, Release | Passou (o validador VST3 da Steinberg não estava configurado e foi pulado) |
 | 0.1.0 (etapa 6) | 2026-11-07 | 1.0.4, nível 5, Release | Passou, com a interface própria (validador VST3 da Steinberg pulado) |
+| 0.1.0 (rebranding Matiza) | 2026-11-10 | 1.0.4, nível 5, Release | Passou como "Forja Instruments: Matiza" (códigos `Forj`/`Mtza`), com a paleta Têmpera |

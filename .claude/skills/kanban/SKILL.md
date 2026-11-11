@@ -14,6 +14,9 @@ Obsidian e código do plugin). O Guilherme pode estar com o quadro aberto no Obs
 arquivo de novo imediatamente antes de editar, e edite com `Edit` (troca pontual), nunca reescrevendo
 o arquivo inteiro.
 
+Documentos de referência (planos de produto, pesquisas) ficam em `.kanban/docs/`, dentro do vault,
+e são citados nos cards com link do Obsidian: `[[Nome do documento]]` (sem `.md`).
+
 ## Formato do arquivo (não quebrar)
 
 ```
@@ -29,7 +32,7 @@ kanban-plugin: board
 	
 	Descrição.
 	
-	#MicroSynth
+	#Matiza
 
 
 ## Em Andamento
@@ -74,7 +77,7 @@ Regras:
   `Docs` (Spec, README) quando fizer sentido.
 - **Descrição:** o que fazer e por quê, em português. Ideias incertas vão como `> Tentar: ...`.
   Pontos em aberto como `[a definir]`.
-- **Tag do projeto:** última linha do card, `#<PastaDoProjeto>` (ex.: `#MicroSynth`). Todo card tem
+- **Tag do projeto:** última linha do card, `#<PastaDoProjeto>` (ex.: `#Matiza`). Todo card tem
   exatamente uma tag de projeto; tarefas do workspace inteiro usam `#Workspace`.
   Ao usar uma tag de projeto nova, avise o Guilherme que ele pode dar uma cor a ela nas configurações
   do quadro no Obsidian (não edite o JSON por conta própria).

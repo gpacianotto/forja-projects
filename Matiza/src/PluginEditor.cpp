@@ -9,7 +9,7 @@ namespace
     constexpr int margin       = 12;
     constexpr int gap          = 10;
     constexpr int tabBarDepth  = 30;
-    constexpr int titleWidth   = 140; // espaço do nome "MicroSynth" no cabeçalho
+    constexpr int titleWidth   = 140; // espaço do nome "Matiza" no cabeçalho
     constexpr int versionWidth = 60;
 
     // Tamanho inicial e limites da janela redimensionável.
@@ -237,7 +237,7 @@ void PluginEditor::paint (juce::Graphics& g)
 
     g.setColour (getLookAndFeel().findColour (juce::Label::textColourId));
     g.setFont (juce::FontOptions (22.0f, juce::Font::bold));
-    g.drawText ("MicroSynth", header, juce::Justification::centredLeft);
+    g.drawText ("Matiza", header, juce::Justification::centredLeft);
 
     g.setColour (getLookAndFeel().findColour (juce::Label::textColourId).withAlpha (0.5f));
     g.setFont (juce::FontOptions (13.0f));

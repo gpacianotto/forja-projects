@@ -1,6 +1,7 @@
 #include "Graphs.h"
 #include "GraphMath.h"
 #include "Oscillator.h"
+#include "Palette.h"
 #include "Parameters.h"
 
 namespace
@@ -20,10 +21,10 @@ namespace
         return bounds.reduced (6.0f, 6.0f);
     }
 
-    // Cor de destaque das curvas (ciano), bem visível sobre o fundo escuro do tema Midnight.
+    // Cor de destaque das curvas: a cor principal da paleta (palha escura da Têmpera).
     juce::Colour curveColour (const juce::Component&)
     {
-        return juce::Colour (0xff5ec8e5);
+        return Palette::primary;
     }
 
     juce::Colour gridColour (const juce::Component& c)
@@ -265,7 +266,7 @@ void EnvelopeGraph::paint (juce::Graphics& g)
         const double x = GraphMath::envelopePlayheadX (layout, stage, envelopeDisplay.secondsInStage.load(), a, d, r);
         const auto dot = toPoint (x, envelopeDisplay.level.load());
 
-        g.setColour (juce::Colours::white);
+        g.setColour (Palette::text);
         g.fillEllipse (juce::Rectangle<float> (8.0f, 8.0f).withCentre (dot));
     }
 }

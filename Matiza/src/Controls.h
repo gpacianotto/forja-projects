@@ -7,7 +7,7 @@
 class ModulationModel;
 class ModRingOverlay;
 
-// Componentes da interface do MicroSynth. Cada controle se liga a um parâmetro do APVTS por um
+// Componentes da interface do Matiza. Cada controle se liga a um parâmetro do APVTS por um
 // "Attachment", que sincroniza os dois lados (mexer no knob muda o parâmetro; automação no
 // Ableton move o knob).
 //

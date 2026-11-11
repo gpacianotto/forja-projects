@@ -1,5 +1,6 @@
 #include "Controls.h"
 #include "ModulationUI.h"
+#include "Palette.h"
 
 namespace
 {
@@ -163,10 +164,10 @@ void ParameterGroup::paint (juce::Graphics& g)
     const auto bounds = getLocalBounds().toFloat().reduced (1.0f);
     const auto& lf = getLookAndFeel();
 
-    g.setColour (lf.findColour (juce::ResizableWindow::backgroundColourId).brighter (0.08f));
+    g.setColour (Palette::panel);
     g.fillRoundedRectangle (bounds, 8.0f);
 
-    g.setColour (lf.findColour (juce::Slider::rotarySliderFillColourId).withAlpha (0.5f));
+    g.setColour (Palette::outline);
     g.drawRoundedRectangle (bounds, 8.0f, 1.0f);
 
     g.setColour (lf.findColour (juce::Label::textColourId));

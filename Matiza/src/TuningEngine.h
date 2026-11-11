@@ -1,6 +1,6 @@
 #pragma once
 
-// Motor de afinação do MicroSynth: converte nota MIDI em frequência para qualquer EDO
+// Motor de afinação do Matiza: converte nota MIDI em frequência para qualquer EDO
 // (divisão igual da oitava).
 //
 //     f(n) = baseHz * 2^((n - refNote + bend * bendSteps) / edo)

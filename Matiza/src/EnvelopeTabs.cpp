@@ -1,4 +1,5 @@
 #include "EnvelopeTabs.h"
+#include "Palette.h"
 
 // ----------------------------------------------------------------------------- EnvelopePanel
 
@@ -52,7 +53,7 @@ EnvelopeTabs::EnvelopeTabs (juce::AudioProcessorValueTreeState& apvts,
 void EnvelopeTabs::updateColours()
 {
     // Mesma cor de fundo do ParameterGroup, para as abas parecerem parte do grupo.
-    const auto background = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId).brighter (0.08f);
+    const auto background = Palette::panel;
 
     for (int i = 0; i < tabs.getNumTabs(); ++i)
         tabs.setTabBackgroundColour (i, background);

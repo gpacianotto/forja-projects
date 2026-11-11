@@ -4,11 +4,11 @@
 
 #include <array>
 
-#include "MicroSynthesiser.h"
+#include "MatizaSynthesiser.h"
 #include "Parameters.h"
 #include "TuningEngine.h"
 
-// Processador do MicroSynth: recebe MIDI do host e devolve áudio estéreo.
+// Processador do Matiza: recebe MIDI do host e devolve áudio estéreo.
 class PluginProcessor final : public juce::AudioProcessor
 {
 public:
@@ -119,7 +119,7 @@ private:
     GlobalModState globalMod; // mod wheel e aftertouch de canal (RF10)
     ModRanges modRanges;      // faixas do cutoff e da ressonância, para a matriz
 
-    MicroSynthesiser synth { tuning, globalMod }; // distribui as notas MIDI entre as vozes (RF4, RF7)
+    MatizaSynthesiser synth { tuning, globalMod }; // distribui as notas MIDI entre as vozes (RF4, RF7)
 
     juce::SmoothedValue<float> gainSmoothed; // volume de saída, com rampa de 20 ms
 

@@ -325,7 +325,7 @@ namespace
     class BipolarBarLookAndFeel final : public juce::LookAndFeel_V4
     {
     public:
-        BipolarBarLookAndFeel() : juce::LookAndFeel_V4 (juce::LookAndFeel_V4::getMidnightColourScheme()) {}
+        BipolarBarLookAndFeel() : juce::LookAndFeel_V4 (Palette::colourScheme()) {}
 
         void drawLinearSlider (juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
                                float minSliderPos, float maxSliderPos, juce::Slider::SliderStyle style,
@@ -425,7 +425,7 @@ ModSlotList::ModSlotList (juce::AudioProcessorValueTreeState& apvts, ModulationM
     {
         header->setFont (juce::FontOptions (12.0f));
         header->setJustificationType (juce::Justification::centredLeft);
-        header->setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.6f));
+        header->setColour (juce::Label::textColourId, Palette::textMuted);
         addAndMakeVisible (*header);
     }
 

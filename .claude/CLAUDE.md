@@ -20,7 +20,7 @@ Plugins Ableton/
 ├── _tools/
 │   ├── juce-build/     build do AudioPluginHost
 │   └── pluginval/      pluginval.exe
-└── <Projeto>/          uma pasta por plugin, com o nome do produto (ex.: MicroSynth)
+└── <Projeto>/          uma pasta por plugin, com o nome do produto (ex.: Matiza)
 ```
 
 Regra: pastas que começam com `_` ou `.` são compartilhadas; qualquer outra pasta na raiz é um projeto.
@@ -29,7 +29,7 @@ Regra: pastas que começam com `_` ou `.` são compartilhadas; qualquer outra pa
 
 As tarefas de todos os projetos ficam no quadro `.kanban/Plugins Ableton.md` (plugin Kanban do
 Obsidian; o Guilherme abre `.kanban/` como vault). Colunas: Backlog → Em Andamento → Em Revisão →
-Concluído. Cada card tem título `# <Tipo>: <resumo>` e a tag do projeto (`#MicroSynth`).
+Concluído. Cada card tem título `# <Tipo>: <resumo>` e a tag do projeto (`#Matiza`).
 Para ler ou editar cards, use a skill `kanban` (o formato é sensível: indentação com TAB e bloco de
 configuração no fim). Nunca edite `.kanban/.obsidian/`. Card só vai para Concluído com aprovação do
 Guilherme.
@@ -72,9 +72,10 @@ A especificação de cada projeto é o arquivo `Spec*.md` na raiz da pasta do pr
 
 ## Convenções
 
-- Nome da pasta do projeto = nome do produto em PascalCase (`MicroSynth`).
-- `PLUGIN_MANUFACTURER_CODE`: `Gmsy` (provisório, igual para todos os plugins).
-- `PLUGIN_CODE`: 4 caracteres únicos por plugin, com ao menos uma maiúscula (ex.: `Mcsy`). Registrar na tabela de projetos abaixo.
+- Nome da pasta do projeto = nome do produto em PascalCase (`Matiza`).
+- `COMPANY_NAME`: `"Forja Instruments"`; `PLUGIN_MANUFACTURER_CODE`: `Forj` (iguais para todos os plugins da marca).
+- `BUNDLE_ID`: `com.forjainstruments.<produto em minúsculas>` (ex.: `com.forjainstruments.matiza`).
+- `PLUGIN_CODE`: 4 caracteres únicos por plugin, com ao menos uma maiúscula (ex.: `Mtza`). Registrar na tabela de projetos abaixo.
 - IDs de parâmetros: camelCase e estáveis para sempre (mudar quebra sets já salvos no Ableton).
 - Build em `<Projeto>/build/` (fora do git). Plugins de desenvolvimento vão para `C:\Program Files\Common Files\VST3\Dev`.
 - Commits pequenos, mensagem em português, no formato `<Projeto>: <o que mudou>`.
@@ -122,5 +123,5 @@ ctest --test-dir build -C Debug             # rodar testes
 
 | Pasta | Produto | Tipo | PLUGIN_CODE | Status |
 | --- | --- | --- | --- | --- |
-| MicroSynth | MicroSynth | VST3 instrumento | Mcsy | v0.1.0 validada; v0.2 (osciladores, Mono, abas) concluída; gráficos (RF9) concluídos; matriz de modulação (RF10) concluída; 3 LFOs (RF11) concluídos; abas de envelope e gráficos dos osciladores concluídos; próximo: cards de melhoria no Backlog |
+| Matiza | Matiza (Forja Instruments) | VST3 instrumento | Mtza | Rebranding do antigo MicroSynth (nome, códigos Forj/Mtza, paleta Têmpera) concluído e testado no Ableton em 10/11/2026; v0.1.0 validada; v0.2 (osciladores, Mono, abas) concluída; gráficos (RF9) concluídos; matriz de modulação (RF10) concluída; 3 LFOs (RF11) concluídos; abas de envelope e gráficos dos osciladores concluídos; próximo: cards de melhoria no Backlog |
 | HelloGain | HelloGain | VST3 efeito | Hlgn | Teste do setup (descartável); v0.1.0 validada (pluginval nível 5) |

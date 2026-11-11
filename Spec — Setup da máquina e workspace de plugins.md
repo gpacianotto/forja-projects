@@ -6,7 +6,7 @@ Nov 6, 2026 · @Guilherme
 
 Ao fim deste setup, o Windows 11 compila um plugin VST3 de teste, o Ableton o carrega, e o Claude Code entende o workspace inteiro por meio da pasta `.claude` na raiz.
 
-- **Workspace:** uma única pasta (`C:\Users\Pichau\Desktop\Projetos de Software\Plugins Ableton`), com uma subpasta por plugin nomeada com o nome do produto (ex.: `MicroSynth`).
+- **Workspace:** uma única pasta (`C:\Users\Pichau\Desktop\Projetos de Software\Plugins Ableton`), com uma subpasta por plugin nomeada com o nome do produto (ex.: `Matiza`).
 - **Compartilhado entre projetos:** a pasta `.claude` (convenções, skills e template), uma única cópia do JUCE e as ferramentas de validação.
 - **Dois tipos de projeto:** VST3 em C++/JUCE e devices Max for Live (patch + JavaScript v8).
 - **Tempo estimado:** de 1 a 2 horas, a maior parte em downloads.
@@ -34,7 +34,7 @@ Plugins Ableton\
 ├── _tools\
 │   └── pluginval\              (validador de plugins)
 ├── .gitignore
-├── MicroSynth\                 (projeto VST3: sintetizador microtonal, com o Spec dentro)
+├── Matiza\                     (projeto VST3: sintetizador microtonal, com o Spec dentro)
 └── <ProximoPlugin>\            (cada plugin, sua pasta)
 ```
 
@@ -153,7 +153,7 @@ O setup está pronto quando os cinco testes abaixo passarem.
 
 Se você tiver o Max for Live: crie um "Max MIDI Effect" vazio no Live, adicione um objeto `v8` com `post("ok")` e confira a mensagem no console do Max.
 
-O `hello-gain` pode ser apagado depois; ele serve só para provar a cadeia inteira antes de começar o MicroSynth.
+O `hello-gain` pode ser apagado depois; ele serve só para provar a cadeia inteira antes de começar o MicroSynth (hoje Matiza).
 
 ## Questões em aberto
 

@@ -6,7 +6,7 @@ Nov 6, 2026 · @Guilherme
 
 Vamos construir um sintetizador VST3 em C++/JUCE que toca em qualquer divisão igual da oitava (EDO) e com frequência de referência ajustável. O synth calcula a frequência de cada nota por conta própria, sem depender de pitch bend, MPE ou do Tuning System do Live.
 
-- **Nome provisório:** MicroSynth (a definir).
+- **Nome:** Matiza, da marca Forja Instruments (definido em 10/11/2026; ver `.kanban/docs/Plano de produto — Matiza, by Forja Instruments.md`).
 - **Plataforma do MVP:** Windows 11, formato VST3 e app Standalone, testado no Ableton Live 12.
 - **Uso inicial:** próprio. A comercialização vem depois que o MVP se provar no dia a dia.
 - **Diferencial:** funciona com qualquer EDO (24, 21, 31, 52…) e qualquer frequência base, com a afinação automatizável como parâmetro do plugin.
@@ -160,7 +160,7 @@ O Live manda o MIDI ao PluginProcessor; cada voz consulta o TuningEngine no note
 | `TuningEngine` | nenhuma (C++ puro) | `noteToHz(note, bend)` a partir de `edo`, `baseHz`, `refNote`, `bendSteps`; sem alocação, segura para a thread de áudio |
 | `MicroVoice` | `juce::SynthesiserVoice` | Uma voz: oscilador, ADSR e filtro; pede a frequência ao `TuningEngine` no note-on |
 | `MicroSound` | `juce::SynthesiserSound` | Marcador exigido pelo `Synthesiser` (aceita todas as notas e canais) |
-| `MicroSynthesiser` | `juce::Synthesiser` | Guarda do RF4 e modo Mono (RF7): pilha de notas pressionadas e troca de nota na voz 0 |
+| `MatizaSynthesiser` | `juce::Synthesiser` | Guarda do RF4 e modo Mono (RF7): pilha de notas pressionadas e troca de nota na voz 0 |
 | `Oscillator` | nenhuma (C++ puro) | Oscilador com PolyBLEP; cada voz tem 3 (RF6) |
 | `Glide` | nenhuma (C++ puro) | Rampa linear da altura (em notas/passos) para o portamento |
 | `NoteStack` | nenhuma (C++ puro) | Pilha de tamanho fixo das notas pressionadas no modo Mono, sem alocação |
@@ -168,7 +168,7 @@ O Live manda o MIDI ao PluginProcessor; cada voz consulta o TuningEngine no note
 **Estrutura de pastas**
 
 ```
-microsynth/
+matiza/
 ├── CMakeLists.txt
 ├── libs/
 │   └── JUCE/              (submódulo git, JUCE 8)
@@ -187,24 +187,25 @@ microsynth/
 
 ```cmake
 cmake_minimum_required(VERSION 3.22)
-project(MicroSynth VERSION 0.1.0)
+project(Matiza VERSION 0.1.0)
 
 add_subdirectory(libs/JUCE)
 
-juce_add_plugin(MicroSynth
-    COMPANY_NAME "Guilherme"
-    PLUGIN_MANUFACTURER_CODE Gmsy
-    PLUGIN_CODE Mcsy
+juce_add_plugin(Matiza
+    COMPANY_NAME "Forja Instruments"
+    PLUGIN_MANUFACTURER_CODE Forj
+    PLUGIN_CODE Mtza
     FORMATS VST3 Standalone
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
-    PRODUCT_NAME "MicroSynth")
+    BUNDLE_ID com.forjainstruments.matiza
+    PRODUCT_NAME "Matiza")
 
-target_sources(MicroSynth PRIVATE
+target_sources(Matiza PRIVATE
     src/PluginProcessor.cpp src/PluginEditor.cpp
     src/TuningEngine.cpp src/MicroVoice.cpp)
 
-target_link_libraries(MicroSynth PRIVATE
+target_link_libraries(Matiza PRIVATE
     juce::juce_audio_utils juce::juce_dsp
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)
@@ -222,7 +223,7 @@ O setup leva por volta de uma hora, e a maior parte é o download do Visual Stud
 
 - [ ] Instalar o **Visual Studio Community** (versão mais recente) com o workload "Desenvolvimento para desktop com C++"
 - [ ] Instalar o **Git** e o **CMake** (3.22 ou superior; o do Visual Studio também serve)
-- [ ] Criar o repositório `microsynth` e adicionar o JUCE como submódulo: `git submodule add https://github.com/juce-framework/JUCE libs/JUCE`
+- [ ] Criar o repositório `matiza` e adicionar o JUCE como submódulo: `git submodule add https://github.com/juce-framework/JUCE libs/JUCE`
 - [ ] Baixar o **pluginval** (Tracktion) para validar o plugin
 - [ ] Compilar o **AudioPluginHost** do JUCE (em `libs/JUCE/extras`) para testes rápidos fora do Ableton
 - [ ] No Ableton: Preferências → Plug-Ins → ativar "Use VST3 Plug-in System Folders"
@@ -234,7 +235,7 @@ cmake -B build -G "Visual Studio 17 2022"
 cmake --build build --config Debug
 ```
 
-O gerador deve corresponder à versão do Visual Studio instalada. O arquivo `MicroSynth.vst3` sai em `build/MicroSynth_artefacts/Debug/VST3/`. Com `COPY_PLUGIN_AFTER_BUILD TRUE` no `juce_add_plugin`, o JUCE copia o plugin para `C:\Program Files\Common Files\VST3`, o que exige rodar o build como administrador. A alternativa é apontar uma pasta personalizada de VST3 no Ableton.
+O gerador deve corresponder à versão do Visual Studio instalada. O arquivo `Matiza.vst3` sai em `build/Matiza_artefacts/Debug/VST3/`. Com `COPY_PLUGIN_AFTER_BUILD TRUE` no `juce_add_plugin`, o JUCE copia o plugin para `C:\Program Files\Common Files\VST3`, o que exige rodar o build como administrador. A alternativa é apontar uma pasta personalizada de VST3 no Ableton.
 
 ## Plano de implementação
 
@@ -242,7 +243,7 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 
 | Etapa | Entrega | Critério de aceite |
 | --- | --- | --- |
-| 1. Esqueleto | Projeto CMake + JUCE compilando um plugin VST3 vazio | O Ableton lista e carrega o MicroSynth numa track MIDI sem crash |
+| 1. Esqueleto | Projeto CMake + JUCE compilando um plugin VST3 vazio | O Ableton lista e carrega o Matiza numa track MIDI sem crash |
 | 2. Som básico | `Synthesiser` com 8 vozes, oscilador senoidal e ADSR fixo, afinação padrão do JUCE | Tocar o teclado no Live produz som com polifonia, sem estalos no note-off |
 | 3. Motor de afinação | `TuningEngine` + parâmetros `edo`, `baseHz`, `refNote`; testes unitários passando | Com 24 EDO, a nota 70 mede cerca de 452,9 Hz no Tuner do Live |
 | 4. Synth completo | Formas de onda com PolyBLEP, filtro passa-baixa, parâmetros de ADSR, ganho e pitch bend | Todos os parâmetros aparecem na automação do Live e respondem em tempo real |
@@ -275,7 +276,7 @@ A afinação é verificada por código e de ouvido; a estabilidade é verificada
 
 **Testes manuais no Ableton**
 
-- Colocar o Tuner do Live depois do MicroSynth e conferir a tabela de exemplos do modelo de afinação.
+- Colocar o Tuner do Live depois do Matiza e conferir a tabela de exemplos do modelo de afinação.
 - Gravar automação de `edo` e `baseHz` e conferir que as notas seguintes mudam.
 - Carregar 4 instâncias com 8 vozes cada e acompanhar a CPU no medidor do Live.
 - Salvar o set, fechar, reabrir e conferir os parâmetros.
@@ -297,7 +298,7 @@ Depois que o MVP estiver em uso, a ordem abaixo prioriza o que mais diferencia o
 
 **Questões em aberto**
 
-- [ ] Nome definitivo do produto e códigos de fabricante e plugin (`Gmsy`/`Mcsy` são provisórios).
+- [x] Nome definitivo do produto e códigos de fabricante e plugin → **Matiza**, fabricante **Forja Instruments**, códigos `Forj` e `Mtza` (10/11/2026).
 - [ ] Faixa máxima de EDO: 72 é suficiente, ou vale ir até 128 ou mais?
 - [ ] Unidade do pitch bend: passos da EDO (proposto) ou cents?
 - [x] Qual biblioteca de testes usar: Catch2 ou `juce::UnitTest`? → **Catch2 v3** (07/11/2026), testa o `TuningEngine` sem JUCE.

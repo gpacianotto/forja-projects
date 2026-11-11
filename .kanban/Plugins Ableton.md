@@ -19,7 +19,7 @@ kanban-plugin: board
 	
 	[a definir] qual opção (ou combinação) seguir.
 	
-	#MicroSynth
+	#Matiza
 - [ ] # Interface: gráfico do LFO com edição manual da onda
 	
 	Mostrar a forma de cada LFO num gráfico de linhas, com ponto da fase atual.
@@ -32,7 +32,7 @@ kanban-plugin: board
 	
 	[a definir] número máximo de pontos, tipos de curva, grade/snap.
 	
-	#MicroSynth
+	#Matiza
 - [ ] # Feat: editar a forma de onda dos osciladores (estudo de viabilidade)
 	
 	Permitir que o usuário desenhe ou edite a onda de cada oscilador, como no editor de wavetable do Serum.
@@ -45,7 +45,7 @@ kanban-plugin: board
 	
 	Resultado esperado do estudo: recomendação (fazer / não fazer / fazer versão simplificada) e, se sim, um plano em etapas no Spec.
 	
-	#MicroSynth
+	#Matiza
 - [ ] # Feat: unison, detune e blend nos osciladores
 	
 	Adicionar a cada oscilador, como no Serum:
@@ -59,7 +59,7 @@ kanban-plugin: board
 	
 	[a definir] número máximo de cópias, curva do detune (em cents ou relativo à EDO), controle de largura estéreo.
 	
-	#MicroSynth
+	#Matiza
 
 
 ## Em Andamento
@@ -72,6 +72,65 @@ kanban-plugin: board
 
 ## Concluído
 
+- [x] # Rebranding: MicroSynth → Matiza (Forja Instruments)
+	
+	O synth passa a se chamar **Matiza**, e a marca guarda-chuva é **Forja Instruments**. Ver [[Plano de produto — Matiza, by Forja Instruments]] (em `.kanban/docs/`, seção "Lacunas", item "Nome e códigos definitivos").
+	
+	Precisa acontecer **antes da versão alpha**.
+	
+	> Atenção: sets salvos com o plugin antigo não vão carregar o novo (os códigos de fabricante e de plugin mudam). Aceitável porque a alpha ainda não foi distribuída.
+	
+	**CMake (`CMakeLists.txt`)**
+	- [x] `project(MicroSynth …)` → `project(Matiza …)`
+	- [x] Target `juce_add_plugin(MicroSynth` → `Matiza` (e `target_sources`, `target_include_directories`, `target_compile_definitions`, `target_link_libraries`)
+	- [x] `PRODUCT_NAME "Matiza"`
+	- [x] `COMPANY_NAME "Forja Instruments"` (hoje `"Guilherme"`)
+	- [x] `PLUGIN_MANUFACTURER_CODE Forj` (hoje `Gmsy`)
+	- [x] `PLUGIN_CODE Mtza` (hoje `Mcsy`)
+	- [x] Adicionar `BUNDLE_ID com.forjainstruments.matiza` (hoje não existe; o JUCE usa o padrão `com.yourcompany.…`)
+	- [x] Opção `MICROSYNTH_BUILD_TESTS` → `MATIZA_BUILD_TESTS`
+	- [x] Target de testes `MicroSynthTests` → `MatizaTests` (`add_executable`, `target_*`, `catch_discover_tests`)
+	
+	**Código (`src/`)**
+	- [x] Classe `MicroSynthesiser` → `MatizaSynthesiser`, arquivo `src/MicroSynthesiser.h` → `MatizaSynthesiser.h` (`git mv`); atualizar o `#include` e o membro em `PluginProcessor.h`
+	- [x] Título no cabeçalho da interface: `g.drawText ("MicroSynth", …)` e comentário do `titleWidth` em `PluginEditor.cpp` (conferir se 140 px ainda cabe "Matiza")
+	- [x] Comentários com o nome antigo: `Controls.h`, `Lfo.h`, `MicroSound.h`, `MicroVoice.h`, `PluginEditor.h`, `PluginProcessor.h`, `TuningEngine.h`
+	- [ ] [a definir] renomear também `MicroVoice` e `MicroSound` (prefixo "Micro", não é o nome do produto) para manter a coerência
+	- [ ] Tela "sobre" e logo: não existem hoje (o nome aparece só como texto no cabeçalho). [a definir] se entram neste card ou em card próprio de identidade visual
+	- [x] Estado/presets: o estado é salvo com a tag neutra `PARAMS` e não há arquivos de preset com o nome; só conferir após o build
+	
+	**Pasta e workspace**
+	- [x] Apagar `MicroSynth/build/` e então `git mv MicroSynth Matiza`
+	- [x] `.claude/CLAUDE.md`: tabela "Projetos" (pasta, produto, `PLUGIN_CODE Mtza`), exemplos de nome de pasta e de tag (`MicroSynth`, `#MicroSynth`), e convenção `PLUGIN_MANUFACTURER_CODE` (`Gmsy` provisório → `Forj`)
+	- [x] `.claude/templates/juce-plugin/CMakeLists.txt`: `COMPANY_NAME "Forja Instruments"`, `PLUGIN_MANUFACTURER_CODE Forj`
+	- [x] `.claude/skills/kanban/SKILL.md`: exemplos `#MicroSynth` → `#Matiza`
+	- [x] Kanban: trocar a tag `#MicroSynth` → `#Matiza` nos cards (13 hoje); a cor da tag (`tag-colors` nas configurações do quadro) também cita `#MicroSynth` — ajustar pelo Obsidian
+	- [x] `Spec — Setup da máquina e workspace de plugins.md` (raiz): árvore de pastas (linha 37) e menção na linha 156
+	- [ ] [a definir] `HelloGain` (CMakeLists com `Guilherme`/`Gmsy`, e o Spec dele cita o MicroSynth): atualizar ou deixar como está, já que é descartável
+	
+	**Identidade visual**
+	- [x] Nova paleta de cores da Matiza: **Têmpera** (cores do aço aquecido na forja), escolhida em 10/11/2026
+	- [x] Aplicar a paleta: `src/Palette.h` centraliza as cores e substitui o esquema Midnight do JUCE, o laranja da modulação e o ciano dos gráficos
+	- [x] Conferir o visual no Ableton (contraste dos knobs, abas, matriz e gráficos)
+	- [ ] [a definir] cores por fonte de modulação (card do Backlog) usando os tons da têmpera
+	
+	**Spec e README**
+	- [x] `Spec — Sintetizador Microtonal (JUCE VST3).md`: "Nome provisório" → nome definitivo; tabela de classes (`MicroSynthesiser`); árvore `microsynth/`; bloco do CMake de exemplo; caminhos `MicroSynth.vst3` / `MicroSynth_artefacts`; plano de etapas e testes; marcar como resolvida a pendência "Nome definitivo do produto e códigos"
+	- [x] `README.md`: título e caminho do Standalone (`build/Matiza_artefacts/Debug/Standalone/Matiza.exe`)
+	
+	**Build e validação**
+	- [x] Build limpo: `cmake -B build` + Debug e Release
+	- [x] Testes (`ctest`) passando
+	- [x] pluginval nível 5 (skill `build-e-validar`)
+	- [x] Remover `MicroSynth.vst3` antigo de `C:\Program Files\Common Files\VST3\Dev`
+	- [x] Rescan dos plug-ins no Ableton
+	
+	**Critério de aceite**
+	- [x] O Ableton lista "Matiza" do fabricante "Forja Instruments"
+	- [x] Nenhuma ocorrência de `MicroSynth`/`Microsynth`/`microsynth`/`Gmsy`/`Mcsy` no código (exceto histórico do git e o próprio plano); "Guilherme" só como autor, não como `COMPANY_NAME`
+	- [x] Testes passam
+	
+	#Matiza
 - [x] # Interface: Mod Env em aba dentro do grupo Envelope (UX)
 	
 	Tirar o Mod Env da aba Matrix e colocá-lo no espaço do grupo Envelope (aba Amp & Filter), com abas internas: **Amp Env** | **Mod Env**.
@@ -80,7 +139,7 @@ kanban-plugin: board
 	
 	A aba Matrix fica só com a lista dos 8 slots (sobra espaço para ela).
 	
-	#MicroSynth
+	#Matiza
 - [x] # Interface: gráfico das ondas dos osciladores
 	
 	Mostrar em cada grupo de oscilador (aba Oscillators) um pequeno gráfico com um ciclo da forma de onda escolhida.
@@ -89,7 +148,7 @@ kanban-plugin: board
 	
 	Base visual para os cards de edição de onda e de unison.
 	
-	#MicroSynth
+	#Matiza
 - [x] # Feat: LFO
 	
 	Adicionar **3 LFOs** como fontes de modulação da matriz (já reservados na lista de fontes: LFO 1, LFO 2, LFO 3).
@@ -100,7 +159,7 @@ kanban-plugin: board
 	
 	Ver RF11 no Spec.
 	
-	#MicroSynth
+	#Matiza
 - [x] # Feat: matriz de modulação
 	
 	Permitir ligar fontes de modulação a parâmetros de destino, como a aba Matrix do Serum. Nome técnico: **matriz de modulação** (modulation matrix).
@@ -123,7 +182,7 @@ kanban-plugin: board
 	
 	Base para o card do LFO.
 	
-	#MicroSynth
+	#Matiza
 - [x] # Interface: gráfico visual do filtro e do envelope
 	
 	Mostrar na aba Amp & Filter:
@@ -136,7 +195,7 @@ kanban-plugin: board
 	
 	Ver RF9 no Spec.
 	
-	#MicroSynth
+	#Matiza
 - [x] # Feat: Modo Mono (monofônico × polifônico)
 	
 	Adicionar seletor de modo de vozes: **Poly** (8 vozes, comportamento atual) ou **Mono** (uma nota por vez).
@@ -145,7 +204,7 @@ kanban-plugin: board
 	
 	Ver RF7 no Spec.
 	
-	#MicroSynth
+	#Matiza
 - [x] # Feat: Múltiplos Osciladores
 	
 	3 osciladores fixos por voz. Cada um com: liga/desliga, forma de onda, volume, oitava, transposição em passos da EDO e desafinação fina (cents).
@@ -156,7 +215,7 @@ kanban-plugin: board
 	
 	Ver RF6 no Spec.
 	
-	#MicroSynth
+	#Matiza
 - [x] # Interface: criar mecanismo de abas no vst
 	
 	Criar abas no vst para o usuário navegar. Afinação fica numa aba separada.
@@ -165,7 +224,7 @@ kanban-plugin: board
 	
 	Ver RF8 no Spec.
 	
-	#MicroSynth
+	#Matiza
 
 
 

@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <numbers>
 
-// LFO (oscilador de baixa frequência) do MicroSynth (RF11). C++ puro, sem JUCE, sem alocação:
+// LFO (oscilador de baixa frequência) do Matiza (RF11). C++ puro, sem JUCE, sem alocação:
 // seguro na thread de áudio e testável sozinho.
 //
 // Diferente do oscilador de áudio, o LFO não toca som: ele gera uma curva lenta (de -1 a +1)
