@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include <juce_gui_basics/juce_gui_basics.h>
 
 // Paleta "Têmpera" da Matiza (Forja Instruments): as cores que o aço ganha ao ser aquecido na
@@ -24,6 +26,20 @@ namespace Palette
     inline const juce::Colour primary    { 0xffd9a441 }; // palha escura: valor dos knobs, curvas
     inline const juce::Colour secondary  { 0xffb8733a }; // bronze: ponteiro dos sliders
     inline const juce::Colour modulation { 0xff4f7fc4 }; // azul de têmpera: tudo que é modulação
+
+    // Cor de cada fonte de modulação (RF14), na ordem de ModMatrix::Source a partir de Velocity:
+    // Velocity, Mod Wheel, Aftertouch, Key Track, Mod Env, LFO 1, LFO 2, LFO 3.
+    // Os tons por que o aço passa na têmpera, mais o vermelho da brasa e o verde da pátina.
+    inline const std::array<juce::Colour, 8> modSources {
+        juce::Colour (0xffe8d27a), // palha clara
+        juce::Colour (0xffc9783e), // bronze
+        juce::Colour (0xffd0573f), // brasa
+        juce::Colour (0xff9b5a99), // púrpura
+        juce::Colour (0xffa77bd1), // violeta
+        juce::Colour (0xff4f7fc4), // azul
+        juce::Colour (0xff6fb0d8), // azul claro
+        juce::Colour (0xff5fa89a)  // pátina
+    };
 
     // Esquema de cores do LookAndFeel_V4 do JUCE (substitui o tema Midnight). A ordem dos
     // campos é a do construtor de juce::LookAndFeel_V4::ColourScheme.

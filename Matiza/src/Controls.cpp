@@ -15,6 +15,32 @@ namespace
     }
 }
 
+// ----------------------------------------------------------------------------- KnobSlider
+
+void KnobSlider::mouseDown (const juce::MouseEvent& e)
+{
+    popupGesture = e.mods.isPopupMenu() && onPopupMenu != nullptr;
+
+    if (popupGesture)
+        onPopupMenu();
+    else
+        juce::Slider::mouseDown (e);
+}
+
+void KnobSlider::mouseDrag (const juce::MouseEvent& e)
+{
+    if (! popupGesture)
+        juce::Slider::mouseDrag (e);
+}
+
+void KnobSlider::mouseUp (const juce::MouseEvent& e)
+{
+    if (! popupGesture)
+        juce::Slider::mouseUp (e);
+
+    popupGesture = false;
+}
+
 // ----------------------------------------------------------------------------- Knob
 
 Knob::Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& paramID, const juce::String& labelText)
@@ -48,17 +74,93 @@ void Knob::enableModulation (ModulationModel& model, ModMatrix::Dest dest, float
     modulationModel = &model;
     modDest = dest;
     ring = std::make_unique<ModRingOverlay> (model, dest, slider, ringScale);
-    addAndMakeVisible (*ring); // por cima do slider: só captura o mouse sobre o anel
+    addAndMakeVisible (*ring); // por cima do slider: só captura o mouse sobre os anéis
+
+    ring->onRingCountChanged = [this] { resized(); };
+    ring->onPopupMenu        = [this] { showModulationMenu(); };
+    slider.onPopupMenu       = [this] { showModulationMenu(); };
+}
+
+void Knob::showModulationMenu()
+{
+    if (modulationModel == nullptr)
+        return;
+
+    auto& model = *modulationModel;
+    const auto slots = model.slotsFor (modDest);
+
+    // IDs dos itens: slot × 10 + ação (0 não pode ser usado: é "menu fechado sem escolha").
+    enum Action { invert = 1, zero = 2, remove = 3 };
+
+    juce::PopupMenu menu;
+    menu.addSectionHeader ("Modulation");
+
+    if (slots.isEmpty())
+        menu.addItem (juce::PopupMenu::Item ("Drag a source from the header onto this knob").setEnabled (false));
+
+    for (int slotIndex : slots)
+    {
+        const auto slot = model.getSlot (static_cast<std::size_t> (slotIndex));
+        const float percent = model.getAmountPercent (static_cast<std::size_t> (slotIndex));
+        const int base = (slotIndex + 1) * 10;
+
+        juce::PopupMenu actions;
+        actions.addItem (base + invert, "Invert");
+        actions.addItem (base + zero,   "Set amount to 0 %");
+        actions.addSeparator();
+        actions.addItem (base + remove, "Remove");
+
+        juce::PopupMenu::Item item (juce::String (ModMatrix::sourceNames[ModMatrix::index (slot.source)])
+                                    + ": " + (percent > 0.0f ? "+" : "") + juce::String (percent, 0) + " %");
+        item.subMenu = std::make_unique<juce::PopupMenu> (std::move (actions));
+        item.colour  = ModulationModel::sourceColour (slot.source);
+        menu.addItem (std::move (item));
+    }
+
+    // O menu é assíncrono: o knob pode ser destruído (janela fechada) antes da escolha.
+    // SafePointer vira nulo nesse caso, como uma WeakReference em Java.
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&slider),
+                        [safeThis = juce::Component::SafePointer<Knob> (this)] (int result)
+                        {
+                            if (safeThis == nullptr || safeThis->modulationModel == nullptr || result <= 0)
+                                return;
+
+                            auto& m = *safeThis->modulationModel;
+                            const auto slotIndex = static_cast<std::size_t> (result / 10 - 1);
+                            const int action = result % 10;
+
+                            if (action == remove)
+                            {
+                                m.clearSlot (slotIndex);
+                                return;
+                            }
+
+                            const float newPercent = action == invert ? -m.getAmountPercent (slotIndex) : 0.0f;
+                            m.beginAmountGesture (slotIndex);
+                            m.setAmountPercent (slotIndex, newPercent);
+                            m.endAmountGesture (slotIndex);
+                        });
 }
 
 void Knob::resized()
 {
     auto area = getLocalBounds();
     label.setBounds (area.removeFromTop (labelHeight));
-    slider.setBounds (area);
 
-    if (ring != nullptr)
-        ring->setBounds (slider.getBounds());
+    if (ring == nullptr)
+    {
+        slider.setBounds (area);
+        return;
+    }
+
+    // RF14: com N anéis, o slider encolhe (N - 1) passos de cada lado para abrir espaço; os
+    // anéis ficam na área original. Sem deixar o knob menor que ~40 px.
+    const int extraRings = juce::jmax (0, ring->getNumRings() - 1);
+    const int maxInset = juce::jmax (0, (juce::jmin (area.getWidth(), area.getHeight() - labelHeight) - 40) / 2);
+    const int inset = juce::jmin (maxInset, juce::roundToInt (extraRings * ModRingOverlay::ringStep));
+
+    ring->setBounds (area);
+    slider.setBounds (area.reduced (inset));
 }
 
 void Knob::paintOverChildren (juce::Graphics& g)

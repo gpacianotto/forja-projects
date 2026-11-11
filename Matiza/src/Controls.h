@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "ModMatrix.h"
@@ -13,6 +15,21 @@ class ModRingOverlay;
 //
 // Ordem dos membros importa: o Attachment é declarado DEPOIS do controle, então é construído
 // depois e destruído antes dele (C++ destrói membros na ordem inversa da declaração).
+
+// Slider que repassa o clique direito para quem quiser tratar (RF14: menu de modulação), em
+// vez de começar um arrasto. Sem onPopupMenu, funciona como um juce::Slider normal.
+class KnobSlider final : public juce::Slider
+{
+public:
+    std::function<void()> onPopupMenu;
+
+    void mouseDown (const juce::MouseEvent& e) override;
+    void mouseDrag (const juce::MouseEvent& e) override;
+    void mouseUp (const juce::MouseEvent& e) override;
+
+private:
+    bool popupGesture = false; // clique direito em andamento: ignora o arrasto e o soltar
+};
 
 // Knob giratório com nome em cima e valor embaixo.
 //
@@ -32,6 +49,9 @@ public:
     void resized() override;
     void paintOverChildren (juce::Graphics&) override;
 
+    // Menu do clique direito com os slots ligados a este knob (RF14).
+    void showModulationMenu();
+
     bool isInterestedInDragSource (const SourceDetails&) override;
     void itemDragEnter (const SourceDetails&) override;
     void itemDragExit (const SourceDetails&) override;
@@ -39,7 +59,7 @@ public:
 
 private:
     juce::Label label;
-    juce::Slider slider;
+    KnobSlider slider;
     juce::AudioProcessorValueTreeState::SliderAttachment attachment;
 
     ModulationModel* modulationModel = nullptr;

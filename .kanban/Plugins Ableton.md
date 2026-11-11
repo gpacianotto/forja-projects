@@ -6,20 +6,6 @@ kanban-plugin: board
 
 ## Backlog
 
-- [ ] # Interface: controlar várias modulações no mesmo knob (UX)
-	
-	Hoje, com mais de um slot no mesmo knob, o anel laranja mostra o alcance somado e arrastar ajusta só o primeiro slot.
-	
-	Melhorar para controlar cada modulação separadamente. Opções a avaliar:
-	- Um anel por slot, em raios diferentes (concêntricos), cada um com a cor da sua fonte.
-	- Seletor no knob (ex.: pequenos pontos/abas por fonte) que escolhe qual slot o anel ajusta.
-	- Clique direito no knob abre um menu com a quantidade de cada slot ligado a ele.
-	
-	Dar cores diferentes às fontes (alças e anéis) ajuda em qualquer opção.
-	
-	[a definir] qual opção (ou combinação) seguir.
-	
-	#Matiza
 - [ ] # Interface: gráfico do LFO com edição manual da onda
 	
 	Mostrar a forma de cada LFO num gráfico de linhas, com ponto da fase atual.
@@ -45,6 +31,30 @@ kanban-plugin: board
 
 ## Concluído
 
+- [x] # Interface: controlar várias modulações no mesmo knob (UX)
+	
+	Hoje, com mais de um slot no mesmo knob, o anel laranja mostra o alcance somado e arrastar ajusta só o primeiro slot.
+	
+	Melhorar para controlar cada modulação separadamente. Opções a avaliar:
+	- Um anel por slot, em raios diferentes (concêntricos), cada um com a cor da sua fonte.
+	- Seletor no knob (ex.: pequenos pontos/abas por fonte) que escolhe qual slot o anel ajusta.
+	- Clique direito no knob abre um menu com a quantidade de cada slot ligado a ele.
+	
+	Dar cores diferentes às fontes (alças e anéis) ajuda em qualquer opção.
+	
+	Decidido (10/11/2026): um anel por slot (concêntricos, na cor da fonte) + menu no clique direito com cada slot (inverter, zerar, remover). Cores das fontes nos tons da Têmpera.
+	
+	Ver RF14 no Spec.
+	
+	**Etapas**
+	- [x] RF14 no Spec
+	- [x] Cores das 8 fontes na paleta (`Palette::modSources`), usadas nas alças do cabeçalho e nos anéis
+	- [x] Um anel por slot, concêntricos; o knob encolhe para caber; arrastar um anel muda só o seu slot
+	- [x] Clique direito no knob ou num anel: menu com cada slot (Invert, Set amount to 0 %, Remove)
+	- [x] Build Debug/Release sem warnings, 69 testes, pluginval nível 5
+	- [x] Teste no Ableton: aparência dos anéis e das cores, arrastar cada anel, menu
+	
+	#Matiza
 - [x] # DSP: motor wavetable nos osciladores (etapa A)
 	
 	Trocar o oscilador PolyBLEP por wavetable com mipmaps (2 por oitava) nas 4 formas atuais (seno, serra, quadrada, triângulo). Mesmos parâmetros e IDs; a interface não muda.

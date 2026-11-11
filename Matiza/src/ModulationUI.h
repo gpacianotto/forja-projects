@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <memory>
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -29,8 +30,8 @@ public:
 
     void clearSlot (std::size_t slotIndex);
 
-    // Primeiro slot que modula o destino (é o que o anel do knob ajusta), ou -1.
-    int firstSlotFor (ModMatrix::Dest dest) const;
+    // Slots que modulam o destino, em ordem de número (RF14: um anel para cada).
+    juce::Array<int> slotsFor (ModMatrix::Dest dest) const;
 
     // Quantidade em % (-100 a +100). Gestos: begin/end avisam o host do início e do fim de um
     // arrasto, para a automação gravada e o desfazer do Ableton tratarem como um movimento só.
@@ -39,17 +40,20 @@ public:
     void setAmountPercent (std::size_t slotIndex, float percent);
     void endAmountGesture (std::size_t slotIndex);
 
-    // Alcance somado de todos os slots ativos do destino, em unidades normalizadas
-    // (-1 a +1): fonte unipolar empurra para um lado; bipolar, para os dois.
-    struct Range { float low = 0.0f; float high = 0.0f; bool active = false; };
-    Range getRange (ModMatrix::Dest dest) const;
+    // Alcance de um slot em unidades normalizadas (-1 a +1): fonte unipolar empurra para um
+    // lado; bipolar, para os dois.
+    struct Range { float low = 0.0f; float high = 0.0f; };
+    Range getSlotRange (std::size_t slotIndex) const;
 
     // Texto que viaja com o arrasto de uma fonte ("modSource:5") e o caminho de volta.
     static juce::var makeDragDescription (ModMatrix::Source source);
     static ModMatrix::Source parseDragDescription (const juce::var& description);
 
-    // Cor de destaque da modulação (anel, alças, contorno de "solte aqui").
+    // Cor de destaque da modulação (contorno de "solte aqui", barras da lista de slots).
     static juce::Colour accentColour() { return Palette::modulation; }
+
+    // Cor de cada fonte (RF14): alças do cabeçalho e anéis dos knobs.
+    static juce::Colour sourceColour (ModMatrix::Source source);
 
 private:
     static void setParameter (juce::RangedAudioParameter& param, float value);
@@ -59,13 +63,23 @@ private:
     std::array<juce::RangedAudioParameter*, ParamIDs::numModSlots> amountParams {};
 };
 
-// Anel desenhado em volta de um knob modulado. Fica por cima do slider, mas só captura o mouse
-// sobre o próprio anel (hitTest); o resto do knob continua funcionando normalmente.
+// Anéis desenhados em volta de um knob modulado: um por slot (RF14), concêntricos, na cor da
+// fonte. Fica por cima do slider, mas só captura o mouse sobre os anéis (hitTest); o resto do
+// knob continua funcionando normalmente.
 class ModRingOverlay final : public juce::Component, private juce::Timer
 {
 public:
     ModRingOverlay (ModulationModel& model, ModMatrix::Dest dest, juce::Slider& slider, float ringScale);
     ~ModRingOverlay() override { stopTimer(); }
+
+    // Distância entre um anel e o próximo. O Knob encolhe o slider (número de anéis - 1) × isto.
+    static constexpr float ringStep = 4.0f;
+
+    int getNumRings() const noexcept { return drawnSlots.size(); }
+
+    // Avisos para o Knob: o número de anéis mudou (refazer o layout) e clique direito num anel.
+    std::function<void()> onRingCountChanged;
+    std::function<void()> onPopupMenu;
 
     void paint (juce::Graphics&) override;
     bool hitTest (int x, int y) override;
@@ -76,8 +90,12 @@ public:
 private:
     void timerCallback() override;
 
-    struct Geometry { juce::Point<float> centre; float radius = 0.0f; float startAngle = 0.0f; float endAngle = 0.0f; };
+    // radius = raio do anel de dentro; step = distância entre anéis.
+    struct Geometry { juce::Point<float> centre; float radius = 0.0f; float step = ringStep; float startAngle = 0.0f; float endAngle = 0.0f; };
     Geometry getGeometry() const;
+
+    // Anel (posição na lista drawnSlots) sob o ponto, ou -1.
+    int ringAt (juce::Point<float> point) const;
 
     ModulationModel& model;
     ModMatrix::Dest dest;
@@ -89,7 +107,9 @@ private:
 
     // Último estado desenhado, para só redesenhar quando algo mudar.
     double drawnProportion = -1.0;
-    ModulationModel::Range drawnRange;
+    juce::Array<int> drawnSlots;
+    std::array<float, ParamIDs::numModSlots> drawnAmounts {};
+    std::array<int, ParamIDs::numModSlots> drawnSources {};
 };
 
 // Alça de uma fonte de modulação: arraste até um knob para criar a ligação.

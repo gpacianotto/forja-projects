@@ -109,7 +109,7 @@ As listas de forma e divisão também são fechadas: nunca reordenar nem remover
   - Fontes unipolares (0 a 1): Velocity, Mod Wheel, Aftertouch, Mod Env. Bipolares (-1 a +1): Key Track (−1 na nota MIDI 0, +1 na 127) e LFOs. LFOs valem 0 até o RF11.
   - A modulação soma `fonte × quantidade` ao valor normalizado (0 a 1) do destino, com limite nas pontas; vários slots no mesmo destino se somam. No Pitch, 100 % = 24 passos da EDO.
   - Mod Wheel e Aftertouch são suavizados (20 ms) para não estalar.
-  - Interface: aba **Matrix** com alças arrastáveis das fontes, o Mod Env (knobs + gráfico com ponto) e a lista dos 8 slots. Soltar uma fonte num knob de destino ocupa o primeiro slot livre (com os 8 ocupados, aparece um aviso). Knobs modulados mostram um anel com o alcance da modulação; arrastar o anel ajusta a quantidade do primeiro slot ligado àquele knob.
+  - Interface: aba **Matrix** com alças arrastáveis das fontes, o Mod Env (knobs + gráfico com ponto) e a lista dos 8 slots. Soltar uma fonte num knob de destino ocupa o primeiro slot livre (com os 8 ocupados, aparece um aviso). Knobs modulados mostram um anel com o alcance da modulação; arrastar o anel ajusta a quantidade do primeiro slot ligado àquele knob (mudou no RF14: um anel por slot).
 - RF11 (v0.5): 3 LFOs, fontes bipolares (-1 a +1) LFO 1–3 da matriz.
   - Formas: Sine, Triangle, Saw Up, Saw Down, Square, Sample & Hold (valor aleatório novo a cada ciclo).
   - Rate livre em Hz ou, com `Sync`, uma divisão do tempo do host (sem tempo disponível, usa 120 BPM).
@@ -133,6 +133,12 @@ As listas de forma e divisão também são fechadas: nunca reordenar nem remover
   - Leitura com interpolação linear entre amostras vizinhas.
   - Formas e fases iguais às do PolyBLEP (serra subindo de −1 a +1, quadrada começando em +1, triângulo começando em 0 e descendo). Por serem limitadas em banda, a serra e a quadrada têm um pequeno sobressinal perto do salto (fenômeno de Gibbs, até ~18 %); numa nota muito aguda, a quadrada vira uma senoide de pico 4/π ≈ 1,27.
   - Parâmetros, IDs e interface não mudam.
+
+- RF14 (v0.7): várias modulações no mesmo knob, cada uma controlável separadamente.
+  - Cada fonte de modulação tem uma cor própria, nos tons da paleta Têmpera, usada nas alças do cabeçalho e nos anéis.
+  - Um knob modulado mostra **um anel por slot**, concêntricos, na ordem dos slots (o slot de número menor fica por dentro), cada um na cor da sua fonte e com o alcance só daquele slot. Com mais de um anel, o knob encolhe um pouco para abrir espaço.
+  - Arrastar um anel ajusta a quantidade do slot daquele anel (antes: sempre o primeiro slot do destino).
+  - Clique direito no knob (ou num anel) abre um menu com cada slot ligado a ele ("LFO 1: +35 %"), com as ações **Invert**, **Set amount to 0 %** e **Remove**.
 
 ## Modelo de afinação
 
@@ -283,6 +289,7 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 | 12. LFOs | 3 LFOs como fontes (RF11) | LFO 1 → Pitch faz vibrato audível; com sync, acompanha o tempo do Live |
 | 13. Unison | Unison, detune, blend e largura estéreo em cada oscilador (RF12) | Serra com 7 cópias, detune 25 ct e width 100 % soa larga no estéreo; Unison 1 soa igual à versão anterior; 8 vozes × 3 osciladores × 8 cópias rodam no Live sem estalar |
 | 14. Motor wavetable | Osciladores leem tabelas com mipmaps (RF13) | Mesmo som nas notas graves; notas agudas sem "notas fantasmas"; CPU menor com unison no máximo |
+| 15. Várias modulações no knob | Cores por fonte, um anel por slot e menu do clique direito (RF14) | LFO 1 e Velocity no Cutoff mostram dois anéis de cores diferentes; arrastar cada um muda só o seu slot; o menu inverte e remove |
 
 Uma sugestão de ritmo: as etapas 1 e 2 cabem numa primeira noite, e a etapa 3 é o marco que prova a ideia.
 

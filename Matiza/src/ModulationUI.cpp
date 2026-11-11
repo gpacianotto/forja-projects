@@ -71,16 +71,27 @@ void ModulationModel::clearSlot (std::size_t i)
     amountParams[i]->endChangeGesture();
 }
 
-int ModulationModel::firstSlotFor (Dest dest) const
+juce::Array<int> ModulationModel::slotsFor (Dest dest) const
 {
+    juce::Array<int> slots;
+
     for (std::size_t i = 0; i < ParamIDs::numModSlots; ++i)
     {
         const auto slot = getSlot (i);
         if (slot.dest == dest && slot.source != Source::none)
-            return static_cast<int> (i);
+            slots.add (static_cast<int> (i));
     }
 
-    return -1;
+    return slots;
+}
+
+juce::Colour ModulationModel::sourceColour (Source source)
+{
+    const auto index = ModMatrix::index (source);
+    if (index == 0 || index > Palette::modSources.size())
+        return accentColour(); // None e vagas reservadas
+
+    return Palette::modSources[index - 1];
 }
 
 float ModulationModel::getAmountPercent (std::size_t i) const
@@ -96,31 +107,14 @@ void ModulationModel::setAmountPercent (std::size_t i, float percent)
     setParameter (*amountParams[i], juce::jlimit (-100.0f, 100.0f, percent));
 }
 
-ModulationModel::Range ModulationModel::getRange (Dest dest) const
+ModulationModel::Range ModulationModel::getSlotRange (std::size_t slotIndex) const
 {
-    Range range;
+    const auto slot = getSlot (slotIndex);
 
-    for (std::size_t i = 0; i < ParamIDs::numModSlots; ++i)
-    {
-        const auto slot = getSlot (i);
-        if (slot.dest != dest || slot.source == Source::none)
-            continue;
+    if (ModMatrix::isBipolar (slot.source))
+        return { -std::abs (slot.amount), std::abs (slot.amount) };
 
-        range.active = true; // mesmo com quantidade 0 o anel aparece, para poder ser arrastado
-
-        if (ModMatrix::isBipolar (slot.source))
-        {
-            range.low  -= std::abs (slot.amount);
-            range.high += std::abs (slot.amount);
-        }
-        else
-        {
-            range.low  += juce::jmin (0.0f, slot.amount);
-            range.high += juce::jmax (0.0f, slot.amount);
-        }
-    }
-
-    return range;
+    return { juce::jmin (0.0f, slot.amount), juce::jmax (0.0f, slot.amount) };
 }
 
 juce::var ModulationModel::makeDragDescription (Source source)
@@ -146,8 +140,8 @@ Source ModulationModel::parseDragDescription (const juce::var& description)
 namespace
 {
     constexpr float ringThickness = 3.0f;
-    constexpr float ringGap       = 5.0f;  // distância entre o arco do knob e o anel
-    constexpr float ringHitSlop   = 5.0f;  // tolerância do clique em volta do anel
+    constexpr float ringGap       = 5.0f;  // distância entre o arco do knob e o primeiro anel
+    constexpr float ringHitSlop   = 5.0f;  // tolerância do clique em volta de um anel sozinho
 }
 
 ModRingOverlay::ModRingOverlay (ModulationModel& m, Dest d, juce::Slider& s, float ringScale)
@@ -163,6 +157,10 @@ ModRingOverlay::Geometry ModRingOverlay::getGeometry() const
     if (auto* methods = dynamic_cast<juce::Slider::LookAndFeelMethods*> (&slider.getLookAndFeel()))
         sliderBounds = methods->getSliderLayout (slider).sliderBounds;
 
+    // O slider pode estar menor que este componente (o Knob o encolhe para caber os anéis):
+    // passa as coordenadas do slider para as deste componente.
+    sliderBounds += slider.getPosition() - getPosition();
+
     const auto bounds = sliderBounds.toFloat().reduced (10.0f);
     const auto rotary = slider.getRotaryParameters();
 
@@ -171,15 +169,44 @@ ModRingOverlay::Geometry ModRingOverlay::getGeometry() const
     geometry.radius     = juce::jmin (bounds.getWidth(), bounds.getHeight()) / 2.0f + ringGap;
     geometry.startAngle = rotary.startAngleRadians;
     geometry.endAngle   = rotary.endAngleRadians;
+
+    // Espaço até a borda mais próxima deste componente; se o Knob não conseguiu encolher o
+    // slider o bastante (knob muito pequeno), os anéis ficam mais juntos para caber.
+    const int numRings = drawnSlots.size();
+    if (numRings > 1)
+    {
+        const auto local = getLocalBounds().toFloat();
+        const float room = juce::jmin (geometry.centre.x - local.getX(), local.getRight() - geometry.centre.x,
+                                       geometry.centre.y - local.getY(), local.getBottom() - geometry.centre.y)
+                         - geometry.radius - ringThickness / 2.0f;
+        geometry.step = juce::jlimit (1.5f, ringStep, room / static_cast<float> (numRings - 1));
+    }
+
     return geometry;
+}
+
+int ModRingOverlay::ringAt (juce::Point<float> point) const
+{
+    const int numRings = drawnSlots.size();
+    if (numRings == 0)
+        return -1;
+
+    const auto geo = getGeometry();
+    const float distance = geo.centre.getDistanceFrom (point);
+
+    // Anel mais próximo; com vários, a tolerância é metade da distância entre eles.
+    const int nearest = juce::jlimit (0, numRings - 1, juce::roundToInt ((distance - geo.radius) / geo.step));
+    const float slop = numRings > 1 ? juce::jmax (geo.step / 2.0f, 2.0f) : ringHitSlop;
+    const float ringRadius = geo.radius + static_cast<float> (nearest) * geo.step;
+
+    return std::abs (distance - ringRadius) <= slop ? nearest : -1;
 }
 
 void ModRingOverlay::paint (juce::Graphics& g)
 {
     drawnProportion = slider.valueToProportionOfLength (slider.getValue());
-    drawnRange      = model.getRange (dest);
 
-    if (! drawnRange.active)
+    if (drawnSlots.isEmpty())
         return;
 
     const auto geo = getGeometry();
@@ -191,35 +218,53 @@ void ModRingOverlay::paint (juce::Graphics& g)
         return geo.startAngle + static_cast<float> (juce::jlimit (0.0, 1.0, proportion)) * (geo.endAngle - geo.startAngle);
     };
 
-    // Trilho fraco: mostra que o knob é modulado e onde dá para pegar o anel.
-    juce::Path track;
-    track.addCentredArc (geo.centre.x, geo.centre.y, geo.radius, geo.radius, 0.0f, geo.startAngle, geo.endAngle, true);
-    g.setColour (ModulationModel::accentColour().withAlpha (0.2f));
-    g.strokePath (track, juce::PathStrokeType (ringThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    // Com vários anéis juntos, cada um fica um pouco mais fino para não encostar no vizinho.
+    const float thickness = drawnSlots.size() > 1 ? juce::jlimit (1.0f, ringThickness, geo.step - 1.0f)
+                                                  : ringThickness;
+    const juce::PathStrokeType stroke (thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
 
-    // Alcance da modulação, a partir da posição atual do knob.
-    const double from = drawnProportion + drawnRange.low * scale;
-    const double to   = drawnProportion + drawnRange.high * scale;
+    for (int k = 0; k < drawnSlots.size(); ++k)
+    {
+        const auto slotIndex = static_cast<std::size_t> (drawnSlots[k]);
+        const auto colour = ModulationModel::sourceColour (model.getSlot (slotIndex).source);
+        const auto range  = model.getSlotRange (slotIndex);
+        const float radius = geo.radius + static_cast<float> (k) * geo.step;
 
-    juce::Path arc;
-    arc.addCentredArc (geo.centre.x, geo.centre.y, geo.radius, geo.radius, 0.0f, angleFor (from), angleFor (to), true);
-    g.setColour (ModulationModel::accentColour());
-    g.strokePath (arc, juce::PathStrokeType (ringThickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        // Trilho fraco: mostra que o knob é modulado e onde dá para pegar o anel.
+        juce::Path track;
+        track.addCentredArc (geo.centre.x, geo.centre.y, radius, radius, 0.0f, geo.startAngle, geo.endAngle, true);
+        g.setColour (colour.withAlpha (0.2f));
+        g.strokePath (track, stroke);
+
+        // Alcance deste slot, a partir da posição atual do knob.
+        const double from = drawnProportion + range.low * scale;
+        const double to   = drawnProportion + range.high * scale;
+
+        juce::Path arc;
+        arc.addCentredArc (geo.centre.x, geo.centre.y, radius, radius, 0.0f, angleFor (from), angleFor (to), true);
+        g.setColour (colour);
+        g.strokePath (arc, stroke);
+    }
 }
 
 bool ModRingOverlay::hitTest (int x, int y)
 {
-    if (! model.getRange (dest).active)
-        return false; // sem modulação: o mouse vai direto para o slider
-
-    const auto geo = getGeometry();
-    const float distance = geo.centre.getDistanceFrom ({ static_cast<float> (x), static_cast<float> (y) });
-    return std::abs (distance - geo.radius) <= ringHitSlop;
+    // Sem modulação, ou fora dos anéis: o mouse vai direto para o slider.
+    return ringAt ({ static_cast<float> (x), static_cast<float> (y) }) >= 0;
 }
 
-void ModRingOverlay::mouseDown (const juce::MouseEvent&)
+void ModRingOverlay::mouseDown (const juce::MouseEvent& e)
 {
-    draggingSlot = model.firstSlotFor (dest);
+    if (e.mods.isPopupMenu())
+    {
+        draggingSlot = -1;
+        if (onPopupMenu != nullptr)
+            onPopupMenu();
+        return;
+    }
+
+    const int ring = ringAt (e.position);
+    draggingSlot = ring >= 0 ? drawnSlots[ring] : -1;
     if (draggingSlot < 0)
         return;
 
@@ -249,12 +294,33 @@ void ModRingOverlay::mouseUp (const juce::MouseEvent&)
 
 void ModRingOverlay::timerCallback()
 {
-    const auto range = model.getRange (dest);
+    const auto slots = model.slotsFor (dest);
     const double proportion = slider.valueToProportionOfLength (slider.getValue());
 
-    if (proportion != drawnProportion || range.active != drawnRange.active
-        || range.low != drawnRange.low || range.high != drawnRange.high)
-        repaint();
+    bool changed = proportion != drawnProportion || slots != drawnSlots;
+    for (int k = 0; k < slots.size() && ! changed; ++k)
+    {
+        const auto slot = model.getSlot (static_cast<std::size_t> (slots[k]));
+        changed = slot.amount != drawnAmounts[static_cast<std::size_t> (k)]
+               || static_cast<int> (slot.source) != drawnSources[static_cast<std::size_t> (k)];
+    }
+
+    if (! changed)
+        return;
+
+    const bool countChanged = slots.size() != drawnSlots.size();
+    drawnSlots = slots;
+    for (int k = 0; k < slots.size(); ++k)
+    {
+        const auto slot = model.getSlot (static_cast<std::size_t> (slots[k]));
+        drawnAmounts[static_cast<std::size_t> (k)] = slot.amount;
+        drawnSources[static_cast<std::size_t> (k)] = static_cast<int> (slot.source);
+    }
+
+    if (countChanged && onRingCountChanged != nullptr)
+        onRingCountChanged(); // o Knob refaz o layout (o slider encolhe ou cresce)
+
+    repaint();
 }
 
 // ----------------------------------------------------------------------------- SourceChip
@@ -268,7 +334,7 @@ SourceChip::SourceChip (Source s) : source (s)
 void SourceChip::paint (juce::Graphics& g)
 {
     const auto bounds = getLocalBounds().toFloat().reduced (1.0f);
-    const auto colour = ModulationModel::accentColour();
+    const auto colour = ModulationModel::sourceColour (source);
 
     g.setColour (colour.withAlpha (0.15f));
     g.fillRoundedRectangle (bounds, bounds.getHeight() / 2.0f);
