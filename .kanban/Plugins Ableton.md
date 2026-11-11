@@ -37,15 +37,6 @@ kanban-plugin: board
 
 ## Em Andamento
 
-- [ ] # DSP: motor wavetable nos osciladores (etapa A)
-	
-	Trocar o oscilador PolyBLEP por wavetable com mipmaps (2 por oitava) nas 4 formas atuais (seno, serra, quadrada, triângulo). Mesmos parâmetros e IDs; a interface não muda.
-	
-	Objetivo: menos CPU (folga para o unison) e menos aliasing nas notas agudas. Ver [[Estudo — Wavetable nos osciladores]] e RF13 no Spec.
-	
-	Próximas etapas (cards próprios depois): B. onda desenhada (junto com o editor do LFO); C. .wav do Serum + Position.
-	
-	#Matiza
 
 
 ## Em Revisão
@@ -54,6 +45,23 @@ kanban-plugin: board
 
 ## Concluído
 
+- [x] # DSP: motor wavetable nos osciladores (etapa A)
+	
+	Trocar o oscilador PolyBLEP por wavetable com mipmaps (2 por oitava) nas 4 formas atuais (seno, serra, quadrada, triângulo). Mesmos parâmetros e IDs; a interface não muda.
+	
+	Objetivo: menos CPU (folga para o unison) e menos aliasing nas notas agudas. Ver [[Estudo — Wavetable nos osciladores]] e RF13 no Spec.
+	
+	Próximas etapas (cards próprios depois): B. onda desenhada (junto com o editor do LFO); C. .wav do Serum + Position.
+	
+	**Etapas**
+	- [x] RF13 no Spec
+	- [x] `src/Wavetables.h/.cpp`: 4 formas × 21 mipmaps (2 por oitava), montados uma vez fora do áudio, com 5 testes
+	- [x] `Oscillator` lê as tabelas com interpolação linear; mesma interface, voz e gráfico sem mudança
+	- [x] CPU medida (192 osciladores): 1,4 % de um núcleo, contra 5 % a 10 % do PolyBLEP; aliasing da serra em 3520 Hz: −61 dB contra −24 dB
+	- [x] Build Debug/Release sem warnings, 69 testes, pluginval nível 5
+	- [x] Teste no Ableton: notas graves soam iguais; agudas sem "notas fantasmas"; CPU com unison no máximo
+	
+	#Matiza
 - [x] # Feat: editar a forma de onda dos osciladores (estudo de viabilidade)
 	
 	Permitir que o usuário desenhe ou edite a onda de cada oscilador, como no editor de wavetable do Serum.

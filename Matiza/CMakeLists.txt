@@ -32,6 +32,7 @@ target_sources(Matiza PRIVATE
     src/Controls.cpp
     src/MicroVoice.cpp
     src/Oscillator.cpp
+    src/Wavetables.cpp
     src/TuningEngine.cpp)
 
 target_include_directories(Matiza PRIVATE src)
@@ -72,8 +73,10 @@ if(MATIZA_BUILD_TESTS)
         tests/ModMatrixTests.cpp
         tests/LfoTests.cpp
         tests/UnisonTests.cpp
+        tests/WavetableTests.cpp
         src/TuningEngine.cpp
-        src/Oscillator.cpp)
+        src/Oscillator.cpp
+        src/Wavetables.cpp)
     target_include_directories(MatizaTests PRIVATE src)
     target_link_libraries(MatizaTests PRIVATE Catch2::Catch2WithMain)
 

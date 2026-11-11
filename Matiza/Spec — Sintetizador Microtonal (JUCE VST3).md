@@ -127,6 +127,13 @@ As listas de forma e divisão também são fechadas: nunca reordenar nem remover
   - A voz passa a ser estéreo: o filtro processa os dois canais.
   - Interface: knobs Unison, Detune, Blend e Width em cada grupo de oscilador, na aba Oscillators.
 
+- RF13 (v0.7): os osciladores leem **wavetables** em vez de calcular a onda com PolyBLEP (etapa A do estudo de wavetable).
+  - Cada forma de onda (seno, serra, quadrada, triângulo) é uma tabela de 2048 amostras com um ciclo, montada por soma de harmônicos no carregamento do plugin (fora da thread de áudio).
+  - **Mipmaps:** 21 versões de cada tabela, duas por oitava, com 1023 harmônicos na primeira e 1 na última. O oscilador escolhe a versão com mais harmônicos que ainda fiquem abaixo de Nyquist para a frequência atual (pelo incremento de fase, então vale em qualquer taxa de amostragem e qualquer EDO).
+  - Leitura com interpolação linear entre amostras vizinhas.
+  - Formas e fases iguais às do PolyBLEP (serra subindo de −1 a +1, quadrada começando em +1, triângulo começando em 0 e descendo). Por serem limitadas em banda, a serra e a quadrada têm um pequeno sobressinal perto do salto (fenômeno de Gibbs, até ~18 %); numa nota muito aguda, a quadrada vira uma senoide de pico 4/π ≈ 1,27.
+  - Parâmetros, IDs e interface não mudam.
+
 ## Modelo de afinação
 
 Cada tecla MIDI vira um passo da EDO, contado a partir da nota de referência, que soa na frequência base.
@@ -275,6 +282,7 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 | 11. Matriz de modulação | 8 slots, Mod Env, aba Matrix, arrastar e soltar, anel nos knobs (RF10) | Velocity → Cutoff abre o filtro com notas fortes; arrastar Mod Env até o Cutoff cria o slot; o anel acompanha e ajusta a quantidade |
 | 12. LFOs | 3 LFOs como fontes (RF11) | LFO 1 → Pitch faz vibrato audível; com sync, acompanha o tempo do Live |
 | 13. Unison | Unison, detune, blend e largura estéreo em cada oscilador (RF12) | Serra com 7 cópias, detune 25 ct e width 100 % soa larga no estéreo; Unison 1 soa igual à versão anterior; 8 vozes × 3 osciladores × 8 cópias rodam no Live sem estalar |
+| 14. Motor wavetable | Osciladores leem tabelas com mipmaps (RF13) | Mesmo som nas notas graves; notas agudas sem "notas fantasmas"; CPU menor com unison no máximo |
 
 Uma sugestão de ritmo: as etapas 1 e 2 cabem numa primeira noite, e a etapa 3 é o marco que prova a ideia.
 

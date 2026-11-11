@@ -1,4 +1,5 @@
-// Benchmark do estudo de wavetable: PolyBLEP (oscilador atual do Matiza) x wavetable com mipmaps.
+// Benchmark do estudo de wavetable: oscilador do Matiza x protótipo de wavetable com mipmaps.
+// (No estudo, o oscilador do Matiza ainda era PolyBLEP; desde o RF13 ele também é wavetable.)
 // Mede CPU (192 osciladores = 8 vozes x 3 osc x 8 cópias) e aliasing (energia fora dos harmônicos).
 #include "Oscillator.h"
 
@@ -169,11 +170,11 @@ int main()
     };
 
     std::printf ("CPU: 192 osciladores, %d s de audio a 48 kHz (%% de um nucleo)\n", seconds);
-    std::printf ("  PolyBLEP sine     : %6.1f %%\n", 100.0 * benchPolyBlep (Waveform::sine) / seconds);
-    std::printf ("  PolyBLEP saw      : %6.1f %%\n", 100.0 * benchPolyBlep (Waveform::saw) / seconds);
-    std::printf ("  PolyBLEP square   : %6.1f %%\n", 100.0 * benchPolyBlep (Waveform::square) / seconds);
-    std::printf ("  Wavetable (saw)   : %6.1f %%\n", 100.0 * benchTable (sawTable) / seconds);
-    std::printf ("  Wavetable (sine)  : %6.1f %%\n", 100.0 * benchTable (sineTable) / seconds);
+    std::printf ("  Matiza sine       : %6.1f %%\n", 100.0 * benchPolyBlep (Waveform::sine) / seconds);
+    std::printf ("  Matiza saw        : %6.1f %%\n", 100.0 * benchPolyBlep (Waveform::saw) / seconds);
+    std::printf ("  Matiza square     : %6.1f %%\n", 100.0 * benchPolyBlep (Waveform::square) / seconds);
+    std::printf ("  Prototipo (saw)   : %6.1f %%\n", 100.0 * benchTable (sawTable) / seconds);
+    std::printf ("  Prototipo (sine)  : %6.1f %%\n", 100.0 * benchTable (sineTable) / seconds);
 
     const std::size_t tableBytes = Wavetable::numLevels * (Wavetable::size + 1) * sizeof (float);
     std::printf ("\nMemoria por forma de onda com mipmaps: %.1f KB\n", tableBytes / 1024.0);
@@ -188,7 +189,7 @@ int main()
         const double a = aliasingDb ([&] { return pb.nextSample(); }, hz);
         const double b = aliasingDb ([&] { return wt.next(); }, hz);
         const double c = aliasingDb ([&] { const double v = 2.0 * ph - 1.0; ph += hz / sampleRate; ph -= std::floor (ph); return v; }, hz);
-        std::printf ("  %6.0f Hz: ingenua %6.1f dB | PolyBLEP %6.1f dB | wavetable %6.1f dB\n", hz, c, a, b);
+        std::printf ("  %6.0f Hz: ingenua %6.1f dB | Matiza %6.1f dB | prototipo %6.1f dB\n", hz, c, a, b);
     }
     return 0;
 }

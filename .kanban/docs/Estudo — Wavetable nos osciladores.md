@@ -68,6 +68,10 @@ O PolyBLEP já melhora muito em relação à serra sem correção, mas nas notas
 
 A etapa A sozinha já vale a pena: menos CPU (o que dá folga para o unison) e menos aliasing, sem mudar nada na interface. B e C podem esperar a alpha.
 
+## Resultado da etapa A (10/11/2026)
+
+Implementada como RF13. Com 2 mipmaps por oitava e o `nextSample` inline, o oscilador do Matiza mede **1,4 %** de um núcleo para 192 osciladores (o PolyBLEP media 5 % a 10 %), e a serra em 3520 Hz tem **−61 dB** de aliasing (o PolyBLEP tinha −24 dB). Duas lições da implementação: o `std::floor` a cada amostra dobrava o custo, e o `nextSample` em outro `.cpp` (sem inline) dobrava de novo.
+
 ## Fontes e referências
 
 - Benchmark: `Matiza/bench/wavetable/WavetableBench.cpp`.

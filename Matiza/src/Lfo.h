@@ -11,7 +11,8 @@
 //
 // Diferente do oscilador de áudio, o LFO não toca som: ele gera uma curva lenta (de -1 a +1)
 // que a matriz de modulação usa para mexer em outros parâmetros (vibrato, wah, tremolo...).
-// Por ser lento, não precisa de PolyBLEP: o aliasing só importa em frequências audíveis.
+// Por ser lento, não precisa de anti-aliasing (wavetable com mipmaps, como os osciladores):
+// o aliasing só importa em frequências audíveis.
 
 // ATENÇÃO: a ordem é o valor salvo nos sets. Nunca reordenar nem remover.
 enum class LfoShape

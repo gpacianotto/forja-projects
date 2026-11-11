@@ -8,5 +8,5 @@ project(WavetableBench CXX)
 set(CMAKE_CXX_STANDARD 20)
 
 set(MATIZA_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../src")
-add_executable(WavetableBench WavetableBench.cpp "${MATIZA_SRC}/Oscillator.cpp")
+add_executable(WavetableBench WavetableBench.cpp "${MATIZA_SRC}/Oscillator.cpp" "${MATIZA_SRC}/Wavetables.cpp")
 target_include_directories(WavetableBench PRIVATE "${MATIZA_SRC}")
