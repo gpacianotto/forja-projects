@@ -99,7 +99,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParam
         juce::AudioParameterBoolAttributes().withAutomatable (false)));
 
     // --- Osciladores (RF6) --- (a ordem das opções de onda = enum Waveform)
-    const juce::StringArray waveforms { "Sine", "Saw", "Square", "Triangle" };
+    // Custom (RF15) no fim: as outras opções mantêm o índice.
+    const juce::StringArray waveforms { "Sine", "Saw", "Square", "Triangle", "Custom" };
 
     for (size_t i = 0; i < ParamIDs::numOscillators; ++i)
     {
@@ -314,6 +315,13 @@ void PluginProcessor::updateVoices()
         lfo.retrigger = lfoParams[k].trigger->load() > 0.5f;
     }
 
+    // Formas desenhadas (RF15): a tabela publicada mais recente de cada uma. Sem lock nem
+    // alocação; os ponteiros valem até o próximo bloco.
+    for (size_t k = 0; k < params.lfoCustomTables.size(); ++k)
+        params.lfoCustomTables[k] = customShapes->readLfoTable (k);
+    for (size_t i = 0; i < params.oscCustomTables.size(); ++i)
+        params.oscCustomTables[i] = customShapes->readOscTables (i);
+
     for (size_t i = 0; i < modSlotParams.size(); ++i)
     {
         auto& slot = params.modSlots[i];
@@ -444,6 +452,18 @@ void PluginProcessor::publishEnvelopeDisplay()
     if (newest != nullptr)
         snapshot = newest->getEnvelopeSnapshot();
 
+    // Ponto do editor do LFO (RF15): no modo Free, a fase comum; no Retrigger, a da última nota.
+    for (size_t k = 0; k < lfoDisplayPhase.size(); ++k)
+    {
+        const bool retrigger = lfoParams[k].trigger->load() > 0.5f;
+        float phase = -1.0f;
+        if (! retrigger)
+            phase = static_cast<float> (freeLfos[k].getPhase());
+        else if (newest != nullptr)
+            phase = static_cast<float> (newest->getLfoPhase (k));
+        lfoDisplayPhase[k].store (phase);
+    }
+
     envelopeDisplay.stage.store (static_cast<int> (snapshot.stage));
     envelopeDisplay.secondsInStage.store (static_cast<float> (snapshot.secondsInStage));
     envelopeDisplay.level.store (snapshot.level);
@@ -469,8 +489,38 @@ void PluginProcessor::getStateInformation (juce::MemoryBlock& destData)
 void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
+    {
         if (xml->hasTagName (apvts.state.getType()))
+        {
             apvts.replaceState (juce::ValueTree::fromXml (*xml));
+            loadShapesFromState();
+        }
+    }
+}
+
+void PluginProcessor::setLfoPoints (std::size_t lfo, const ShapePoints& points)
+{
+    customShapes->setLfoPoints (lfo, points);
+    // Guarda no estado: vai junto com o set quando o Ableton salvar.
+    apvts.state.setProperty (lfoPointsId (lfo), juce::String (points.toString()), nullptr);
+}
+
+void PluginProcessor::setOscPoints (std::size_t osc, const ShapePoints& points)
+{
+    customShapes->setOscPoints (osc, points);
+    apvts.state.setProperty (oscPointsId (osc), juce::String (points.toString()), nullptr);
+}
+
+void PluginProcessor::loadShapesFromState()
+{
+    // Set salvo antes do RF15 não tem as propriedades: os pontos iniciais continuam.
+    for (std::size_t k = 0; k < ParamIDs::numLfos; ++k)
+        if (auto points = ShapePoints::fromString (apvts.state.getProperty (lfoPointsId (k)).toString().toStdString()))
+            customShapes->setLfoPoints (k, *points);
+
+    for (std::size_t i = 0; i < ParamIDs::numOscillators; ++i)
+        if (auto points = ShapePoints::fromString (apvts.state.getProperty (oscPointsId (i)).toString().toStdString()))
+            customShapes->setOscPoints (i, *points);
 }
 
 // Ponto de entrada que o host chama para criar o plugin

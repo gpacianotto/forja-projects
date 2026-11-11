@@ -2,7 +2,10 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include <functional>
+
 #include "PluginProcessor.h"
+#include "ShapePoints.h"
 
 // Gráficos da aba Amp & Filter (RF9).
 //
@@ -28,14 +31,18 @@ private:
 };
 
 // Um ciclo da forma de onda de um oscilador (card "gráfico das ondas dos osciladores").
-// A altura acompanha o Level; oscilador desligado aparece apagado.
-class OscillatorGraph final : public juce::Component, private juce::Timer
+// A altura acompanha o Level; oscilador desligado aparece apagado. Com a forma Custom, desenha
+// os pontos (RF15). Clicar abre o editor de pontos (openEditor, ligado pelo editor do plugin).
+class OscillatorGraph final : public juce::Component, public juce::SettableTooltipClient, private juce::Timer
 {
 public:
-    OscillatorGraph (juce::AudioProcessorValueTreeState& apvts, std::size_t oscIndex);
+    OscillatorGraph (juce::AudioProcessorValueTreeState& apvts, std::size_t oscIndex,
+                     std::function<ShapePoints()> customPoints,
+                     std::function<void (juce::Component&)> openEditor);
     ~OscillatorGraph() override { stopTimer(); }
 
     void paint (juce::Graphics&) override;
+    void mouseUp (const juce::MouseEvent&) override;
 
 private:
     void timerCallback() override;
@@ -44,6 +51,10 @@ private:
     std::atomic<float>* waveParam  = nullptr;
     std::atomic<float>* levelParam = nullptr;
     float drawnOn = -1.0f, drawnWave = -1.0f, drawnLevel = -1.0f;
+
+    std::function<ShapePoints()> customPoints;
+    std::function<void (juce::Component&)> openEditor;
+    ShapePoints drawnPoints;
 };
 
 // Desenho do ADSR, com um ponto na posição atual do envelope da última nota tocada.

@@ -115,7 +115,7 @@ TEST_CASE ("LFO: frequencia sincronizada ao tempo")
 TEST_CASE ("LFO: listas fechadas nao mudam de ordem")
 {
     CHECK (static_cast<int> (LfoShape::sampleHold) == 5);
-    CHECK (lfoShapeNames.size() == 6);
+    CHECK (lfoShapeNames.size() == 7); // + Custom (RF15)
     CHECK (lfoDivisionNames.size() == lfoDivisionBeats.size());
     CHECK (std::string (lfoDivisionNames[lfoDefaultDivision]) == "1/4");
     CHECK (lfoDivisionBeats[lfoDefaultDivision] == 1.0);

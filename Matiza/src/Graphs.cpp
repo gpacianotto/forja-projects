@@ -136,18 +136,32 @@ void FilterGraph::paint (juce::Graphics& g)
 
 // ----------------------------------------------------------------------------- OscillatorGraph
 
-OscillatorGraph::OscillatorGraph (juce::AudioProcessorValueTreeState& apvts, std::size_t oscIndex)
+OscillatorGraph::OscillatorGraph (juce::AudioProcessorValueTreeState& apvts, std::size_t oscIndex,
+                                  std::function<ShapePoints()> custom,
+                                  std::function<void (juce::Component&)> open)
+    : customPoints (std::move (custom)), openEditor (std::move (open))
 {
     onParam    = apvts.getRawParameterValue (ParamIDs::oscOn[oscIndex]);
     waveParam  = apvts.getRawParameterValue (ParamIDs::oscWave[oscIndex]);
     levelParam = apvts.getRawParameterValue (ParamIDs::oscLevel[oscIndex]);
+    setTooltip ("Click to draw the waveform");
+    setMouseCursor (juce::MouseCursor::PointingHandCursor);
     startTimerHz (refreshHz);
 }
 
 void OscillatorGraph::timerCallback()
 {
-    if (onParam->load() != drawnOn || waveParam->load() != drawnWave || levelParam->load() != drawnLevel)
+    const bool isCustom = juce::roundToInt (waveParam->load()) == static_cast<int> (Waveform::custom);
+    const bool pointsChanged = isCustom && customPoints != nullptr && ! (customPoints() == drawnPoints);
+
+    if (pointsChanged || onParam->load() != drawnOn || waveParam->load() != drawnWave || levelParam->load() != drawnLevel)
         repaint();
+}
+
+void OscillatorGraph::mouseUp (const juce::MouseEvent& e)
+{
+    if (e.mouseWasClicked() && openEditor != nullptr)
+        openEditor (*this);
 }
 
 void OscillatorGraph::paint (juce::Graphics& g)
@@ -168,10 +182,20 @@ void OscillatorGraph::paint (juce::Graphics& g)
 
     // Um ciclo gerado pelo próprio Oscillator do synth (a mesma onda que soa), com uma
     // amostra por pixel: frequência 1 Hz numa "taxa de amostragem" igual à largura.
+    // Com Custom, desenha os pontos (a forma como foi desenhada).
+    const bool isCustom = juce::roundToInt (drawnWave) == static_cast<int> (Waveform::custom);
+    if (isCustom && customPoints != nullptr)
+        drawnPoints = customPoints();
+
     Oscillator oscillator;
     oscillator.setWaveform (static_cast<Waveform> (juce::roundToInt (drawnWave)));
     const int numPoints = juce::jmax (2, juce::roundToInt (area.getWidth()));
     oscillator.setFrequency (1.0, numPoints);
+
+    auto nextValue = [&] (int i)
+    {
+        return isCustom ? drawnPoints.evaluate (static_cast<double> (i) / numPoints) : oscillator.nextSample();
+    };
 
     const float amplitude = juce::jlimit (0.0f, 1.0f, drawnLevel / 100.0f) * area.getHeight() / 2.0f;
 
@@ -179,7 +203,7 @@ void OscillatorGraph::paint (juce::Graphics& g)
     for (int i = 0; i <= numPoints; ++i)
     {
         const float x = area.getX() + area.getWidth() * static_cast<float> (i) / static_cast<float> (numPoints);
-        const float y = area.getCentreY() - oscillator.nextSample() * amplitude;
+        const float y = area.getCentreY() - nextValue (i) * amplitude;
 
         if (i == 0)
             wave.startNewSubPath (x, y);

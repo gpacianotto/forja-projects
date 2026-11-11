@@ -9,6 +9,7 @@
 #include "ModulationUI.h"
 #include "Palette.h"
 #include "Parameters.h"
+#include "ShapeEditor.h"
 
 class PluginProcessor;
 
@@ -57,6 +58,14 @@ public:
 
 private:
     void setTuningLocked (bool locked);
+
+    // Editores de forma desenhada (RF15), ligados aos pontos do processador e ao parâmetro
+    // de forma (a primeira edição muda a forma para Custom).
+    std::unique_ptr<ShapeEditor> makeLfoShapeEditor (std::size_t lfo);
+    std::unique_ptr<ShapeEditor> makeOscShapeEditor (std::size_t osc);
+    void openOscShapeEditor (std::size_t osc, juce::Component& target);
+
+    PluginProcessor& pluginProcessor;
     void setLfoSynced (size_t lfoIndex, bool synced);
 
     // Precisa existir enquanto os componentes usarem; por isso é o primeiro membro

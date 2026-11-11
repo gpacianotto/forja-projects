@@ -6,19 +6,6 @@ kanban-plugin: board
 
 ## Backlog
 
-- [ ] # Interface: gráfico do LFO com edição manual da onda
-	
-	Mostrar a forma de cada LFO num gráfico de linhas, com ponto da fase atual.
-	
-	Permitir desenhar a onda à mão, como no Serum: pontos que o usuário adiciona, arrasta e apaga, ligados por retas ou curvas (arrastar o meio do segmento curva a linha).
-	
-	As formas prontas (Sine, Triangle, Saw, Square, S&H) continuam como presets: escolher uma carrega os pontos dela, que podem ser editados depois.
-	
-	Atenção: a forma desenhada não cabe num parâmetro do host. Ela é salva no estado do plugin (junto com o set), mas não é automatizável. Manter o parâmetro `lfoNShape` para compatibilidade.
-	
-	[a definir] número máximo de pontos, tipos de curva, grade/snap.
-	
-	#Matiza
 
 
 ## Em Andamento
@@ -31,6 +18,31 @@ kanban-plugin: board
 
 ## Concluído
 
+- [x] # Interface: gráfico do LFO com edição manual da onda
+	
+	Mostrar a forma de cada LFO num gráfico de linhas, com ponto da fase atual.
+	
+	Permitir desenhar a onda à mão, como no Serum: pontos que o usuário adiciona, arrasta e apaga, ligados por retas ou curvas (arrastar o meio do segmento curva a linha).
+	
+	As formas prontas (Sine, Triangle, Saw, Square, S&H) continuam como presets: escolher uma carrega os pontos dela, que podem ser editados depois.
+	
+	Atenção: a forma desenhada não cabe num parâmetro do host. Ela é salva no estado do plugin (junto com o set), mas não é automatizável. Manter o parâmetro `lfoNShape` para compatibilidade.
+	
+	Decidido (10/11/2026): até 32 pontos; segmentos retos ou curvos (arrastar o meio); grade 1/4, 1/8, 1/16 com snap opcional; formas prontas carregam pontos editáveis. Feito junto com a etapa B do wavetable (onda desenhada nos osciladores), com o mesmo editor.
+	
+	Ver RF15 no Spec.
+	
+	**Etapas**
+	- [x] RF15 no Spec
+	- [x] `ShapePoints`: até 32 pontos, curvas, formas prontas como pontos, texto do estado
+	- [x] `TripleBuffer` + `CustomShapes`: tabelas montadas na interface e entregues ao áudio sem lock
+	- [x] Mipmaps de formas desenhadas com FFT (sem DC); opção Custom no LFO e nos osciladores
+	- [x] `ShapeEditor`: pontos, curvas, grade e snap; à esquerda dos controles nos LFOs (com ponto da fase), balão nos osciladores
+	- [x] Pontos salvos no estado do plugin
+	- [x] Build Debug/Release sem warnings, 78 testes (9 novos), pluginval nível 5
+	- [x] Teste no Ableton: desenhar no LFO e no oscilador, salvar e reabrir o set
+	
+	#Matiza
 - [x] # Interface: controlar várias modulações no mesmo knob (UX)
 	
 	Hoje, com mais de um slot no mesmo knob, o anel laranja mostra o alcance somado e arrastar ajusta só o primeiro slot.

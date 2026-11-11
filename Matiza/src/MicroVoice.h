@@ -52,6 +52,11 @@ struct VoiceParameters
     float glideSeconds = 0.0f;
     ModMatrix::Slots modSlots {};
     std::array<LfoParameters, ParamIDs::numLfos> lfos {};
+
+    // Formas desenhadas (RF15), lidas pelo processador no começo do bloco. Válidas até o
+    // próximo bloco.
+    std::array<const float*, ParamIDs::numOscillators> oscCustomTables {};
+    std::array<const float*, ParamIDs::numLfos> lfoCustomTables {};
 };
 
 // Faixas normalizadas dos destinos com escala não linear. A matriz soma em valores
@@ -114,6 +119,9 @@ public:
         float  modLevel = 0.0f; // envelope de modulação, 0..1
     };
     EnvelopeSnapshot getEnvelopeSnapshot() const noexcept;
+
+    // Fase atual de um LFO desta voz (para o ponto do editor no modo Retrigger, RF15).
+    double getLfoPhase (std::size_t lfo) const noexcept { return lfos[lfo].getPhase(); }
 
     bool canPlaySound (juce::SynthesiserSound*) override;
     void startNote (int midiNoteNumber, float velocity,

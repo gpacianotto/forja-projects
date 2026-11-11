@@ -140,6 +140,16 @@ As listas de forma e divisão também são fechadas: nunca reordenar nem remover
   - Arrastar um anel ajusta a quantidade do slot daquele anel (antes: sempre o primeiro slot do destino).
   - Clique direito no knob (ou num anel) abre um menu com cada slot ligado a ele ("LFO 1: +35 %"), com as ações **Invert**, **Set amount to 0 %** e **Remove**.
 
+- RF15 (v0.8): formas desenhadas à mão nos LFOs e nos osciladores (etapa B do estudo de wavetable), com o mesmo editor de pontos.
+  - Nova opção **Custom** no fim da lista de formas de cada LFO (`lfoNShape`) e de cada oscilador (`wave`, `osc2Wave`, `osc3Wave`). As formas prontas continuam exatas e automatizáveis; com Custom, toca a forma desenhada.
+  - **Editor de pontos:** até 32 pontos ligados por segmentos. O primeiro ponto fica em x = 0 e o último em x = 1 (só a altura muda). Duplo clique num espaço vazio cria um ponto; duplo clique ou clique direito num ponto o apaga; arrastar move. Cada segmento tem uma alça no meio: arrastar para cima ou para baixo curva o segmento, duplo clique volta a reta.
+  - **Grade:** Off, 1/4, 1/8 ou 1/16, com **Snap** opcional (x na grade, altura em passos de 1/4). Grade e Snap são da interface, não do som.
+  - **Formas prontas como ponto de partida:** com uma forma pronta escolhida, o editor mostra os pontos dela (o seno é aproximado por curvas). A primeira edição muda a forma para Custom, partindo desses pontos. Sample & Hold não é editável.
+  - Os pontos são salvos no estado do plugin (junto com o set), não são automatizáveis.
+  - **Áudio:** a forma do LFO vira uma tabela de 2048 amostras; a do oscilador vira um wavetable com os mesmos 21 mipmaps do RF13 (montados com FFT, sem DC). As tabelas são montadas na thread da interface e entregues ao áudio por um buffer triplo com índices atômicos, sem lock e sem alocação no áudio.
+  - Interface: na aba LFOs, cada LFO mostra o editor acima dos controles, com um ponto na fase atual. Na aba Oscillators, clicar no gráfico da onda abre o editor numa janela flutuante.
+  - Compatibilidade: acrescentar Custom no fim das listas não muda os valores salvos no estado, mas muda a escala normalizada das escolhas, então automações gravadas das formas mudariam. Aceitável: a alpha ainda não foi distribuída.
+
 ## Modelo de afinação
 
 Cada tecla MIDI vira um passo da EDO, contado a partir da nota de referência, que soa na frequência base.
@@ -290,6 +300,7 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 | 13. Unison | Unison, detune, blend e largura estéreo em cada oscilador (RF12) | Serra com 7 cópias, detune 25 ct e width 100 % soa larga no estéreo; Unison 1 soa igual à versão anterior; 8 vozes × 3 osciladores × 8 cópias rodam no Live sem estalar |
 | 14. Motor wavetable | Osciladores leem tabelas com mipmaps (RF13) | Mesmo som nas notas graves; notas agudas sem "notas fantasmas"; CPU menor com unison no máximo |
 | 15. Várias modulações no knob | Cores por fonte, um anel por slot e menu do clique direito (RF14) | LFO 1 e Velocity no Cutoff mostram dois anéis de cores diferentes; arrastar cada um muda só o seu slot; o menu inverte e remove |
+| 16. Formas desenhadas | Editor de pontos no LFO e nos osciladores, opção Custom (RF15) | Desenhar uma rampa no LFO 1 ligado ao Cutoff muda o filtro como desenhado; desenhar uma onda no Osc 1 muda o timbre sem estalo nem aliasing; reabrir o set mantém as formas |
 
 Uma sugestão de ritmo: as etapas 1 e 2 cabem numa primeira noite, e a etapa 3 é o marco que prova a ideia.
 

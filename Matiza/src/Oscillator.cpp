@@ -12,6 +12,16 @@ void Oscillator::setWaveform (Waveform newWaveform) noexcept
     updateTable();
 }
 
+void Oscillator::setCustomTables (const float* levels) noexcept
+{
+    if (levels == customLevels)
+        return;
+
+    customLevels = levels;
+    if (waveform == Waveform::custom)
+        updateTable();
+}
+
 void Oscillator::setFrequency (double hz, double sampleRate) noexcept
 {
     increment = sampleRate > 0.0 ? hz / sampleRate : 0.0;
@@ -25,5 +35,10 @@ void Oscillator::setPhase (double newPhase) noexcept
 
 void Oscillator::updateTable() noexcept
 {
-    table = Wavetables::table (waveform, Wavetables::levelFor (increment));
+    const int level = Wavetables::levelFor (increment);
+
+    if (waveform == Waveform::custom && customLevels != nullptr)
+        table = customLevels + level * Wavetables::levelStride;
+    else
+        table = Wavetables::table (waveform, level); // Custom sem tabela ainda: serra
 }

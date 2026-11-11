@@ -285,11 +285,24 @@ void ParameterGroup::resized()
     auto area = getLocalBounds().reduced (6);
     area.removeFromTop (titleHeight - 6);
 
-    // Com gráfico: ele fica com a parte de cima, e os controles com o resto.
+    // Com gráfico: ele fica com a parte de cima (ou da esquerda), e os controles com o resto.
     if (display != nullptr)
     {
-        display->setBounds (area.removeFromTop (juce::roundToInt (area.getHeight() * displayFraction)).reduced (2, 0));
-        area.removeFromTop (4);
+        if (displayPlacement == DisplayPlacement::left)
+        {
+            display->setBounds (area.removeFromLeft (juce::roundToInt (area.getWidth() * displayFraction)).reduced (2, 0));
+            area.removeFromLeft (8);
+        }
+        else
+        {
+            // Os controles nunca ficam com menos de ~100 px: abaixo disso, o nome e a caixa de
+            // valor ocupam quase tudo e o knob some.
+            constexpr int minControlsHeight = 100;
+            const int displayHeight = juce::jmin (juce::roundToInt (area.getHeight() * displayFraction),
+                                                  area.getHeight() - minControlsHeight);
+            display->setBounds (area.removeFromTop (juce::jmax (0, displayHeight)).reduced (2, 0));
+            area.removeFromTop (4);
+        }
     }
 
     // FlexBox: como o flexbox do CSS. Cada controle ocupa uma fatia igual da largura.

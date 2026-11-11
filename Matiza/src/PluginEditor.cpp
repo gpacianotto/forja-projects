@@ -31,6 +31,51 @@ namespace
 
         row.performLayout (area.expanded (gap / 2, 0));
     }
+
+    // Muda um parâmetro de escolha para o índice dado, avisando o host (gesto completo).
+    void setChoiceIndex (juce::AudioProcessorValueTreeState& apvts, const char* paramID, int index)
+    {
+        auto* param = apvts.getParameter (paramID);
+        if (param == nullptr || juce::roundToInt (param->convertFrom0to1 (param->getValue())) == index)
+            return;
+
+        param->beginChangeGesture();
+        param->setValueNotifyingHost (param->convertTo0to1 (static_cast<float> (index)));
+        param->endChangeGesture();
+    }
+
+    int choiceIndex (juce::AudioProcessorValueTreeState& apvts, const char* paramID)
+    {
+        return juce::roundToInt (apvts.getRawParameterValue (paramID)->load());
+    }
+
+    // Pontos das formas prontas, usados como ponto de partida no editor (RF15).
+    ShapePoints lfoPresetPoints (LfoShape shape)
+    {
+        using P = ShapePoints::Preset;
+        switch (shape)
+        {
+            case LfoShape::sine:     return ShapePoints::preset (P::sine);
+            case LfoShape::triangle: return ShapePoints::preset (P::triangleUp);
+            case LfoShape::sawUp:    return ShapePoints::preset (P::sawUp);
+            case LfoShape::sawDown:  return ShapePoints::preset (P::sawDown);
+            case LfoShape::square:   return ShapePoints::preset (P::square);
+            default:                 return ShapePoints::preset (P::flat);
+        }
+    }
+
+    ShapePoints oscPresetPoints (Waveform wave)
+    {
+        using P = ShapePoints::Preset;
+        switch (wave)
+        {
+            case Waveform::sine:     return ShapePoints::preset (P::sine);
+            case Waveform::saw:      return ShapePoints::preset (P::sawUp);
+            case Waveform::square:   return ShapePoints::preset (P::square);
+            case Waveform::triangle: return ShapePoints::preset (P::triangleDown);
+            default:                 return ShapePoints::preset (P::sawUp);
+        }
+    }
 }
 
 // ----------------------------------------------------------------------------- TabPage
@@ -81,6 +126,7 @@ void TabPage::resized()
 
 PluginEditor::PluginEditor (PluginProcessor& processor)
     : AudioProcessorEditor (processor),
+      pluginProcessor (processor),
       modulationModel (processor.apvts)
 {
     setLookAndFeel (&lookAndFeel);
@@ -93,7 +139,10 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
         auto& group = oscillatorGroups[i];
         group.add (std::make_unique<Toggle> (apvts, ParamIDs::oscOn[i],     "On"));
         group.add (std::make_unique<Choice> (apvts, ParamIDs::oscWave[i],   "Waveform"));
-        group.add (std::make_unique<OscillatorGraph> (apvts, i));
+        group.add (std::make_unique<OscillatorGraph> (
+            apvts, i,
+            [this, i] { return pluginProcessor.getOscPoints (i); },
+            [this, i] (juce::Component& target) { openOscShapeEditor (i, target); }));
         group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscLevel[i],  "Level"))
             .enableModulation (modulationModel, ModMatrix::oscLevelDest (i));
         group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscOctave[i], "Octave"));
@@ -150,6 +199,10 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
         group.add (std::make_unique<Toggle> (apvts, ParamIDs::lfoSync[k], "Sync"));
         controls.division = &group.add (std::make_unique<Choice> (apvts, ParamIDs::lfoDivision[k], "Division"));
         group.add (std::make_unique<Choice> (apvts, ParamIDs::lfoTrigger[k], "Trigger"));
+
+        // Editor da forma (RF15) à esquerda: o grupo é largo e baixo, então os controles
+        // ficam com a altura toda e o knob Rate não encolhe.
+        group.setDisplay (makeLfoShapeEditor (k), 0.55f, ParameterGroup::DisplayPlacement::left);
 
         if (auto* syncParam = apvts.getParameter (ParamIDs::lfoSync[k]))
         {
@@ -269,4 +322,67 @@ void PluginEditor::resized()
         chip->setBounds (chipsArea.removeFromLeft (chipWidth));
         chipsArea.removeFromLeft (4);
     }
+}
+
+// ----------------------------------------------------------------------------- Formas desenhadas (RF15)
+
+std::unique_ptr<ShapeEditor> PluginEditor::makeLfoShapeEditor (std::size_t lfo)
+{
+    auto editor = std::make_unique<ShapeEditor>();
+    auto& apvts = pluginProcessor.apvts;
+    const char* shapeID = ParamIDs::lfoShape[lfo];
+
+    // Mostra a forma desenhada (Custom) ou os pontos da forma pronta escolhida.
+    editor->getPoints = [this, &apvts, shapeID, lfo]
+    {
+        const auto shape = static_cast<LfoShape> (choiceIndex (apvts, shapeID));
+        return shape == LfoShape::custom ? pluginProcessor.getLfoPoints (lfo) : lfoPresetPoints (shape);
+    };
+
+    // A primeira edição de uma forma pronta parte dos pontos dela e liga o Custom.
+    editor->onEdit = [this, &apvts, shapeID, lfo] (const ShapePoints& points)
+    {
+        pluginProcessor.setLfoPoints (lfo, points);
+        setChoiceIndex (apvts, shapeID, static_cast<int> (LfoShape::custom));
+    };
+
+    editor->isEditable = [&apvts, shapeID]
+    {
+        return static_cast<LfoShape> (choiceIndex (apvts, shapeID)) != LfoShape::sampleHold;
+    };
+    editor->notEditableMessage = "Sample & Hold: a new random value every cycle (not drawable)";
+
+    editor->getPlayhead = [this, lfo] { return pluginProcessor.lfoDisplayPhase[lfo].load(); };
+    return editor;
+}
+
+std::unique_ptr<ShapeEditor> PluginEditor::makeOscShapeEditor (std::size_t osc)
+{
+    auto editor = std::make_unique<ShapeEditor>();
+    auto& apvts = pluginProcessor.apvts;
+    const char* waveID = ParamIDs::oscWave[osc];
+
+    editor->getPoints = [this, &apvts, waveID, osc]
+    {
+        const auto wave = static_cast<Waveform> (choiceIndex (apvts, waveID));
+        return wave == Waveform::custom ? pluginProcessor.getOscPoints (osc) : oscPresetPoints (wave);
+    };
+
+    editor->onEdit = [this, &apvts, waveID, osc] (const ShapePoints& points)
+    {
+        pluginProcessor.setOscPoints (osc, points);
+        setChoiceIndex (apvts, waveID, static_cast<int> (Waveform::custom));
+    };
+
+    return editor;
+}
+
+void PluginEditor::openOscShapeEditor (std::size_t osc, juce::Component& target)
+{
+    auto editor = makeOscShapeEditor (osc);
+    editor->setSize (juce::jmin (520, getWidth() - 40), juce::jmin (280, getHeight() - 80));
+
+    // Janela flutuante (balão) dentro da janela do plugin, apontando para o gráfico clicado.
+    // Fecha sozinha ao clicar fora. O CallOutBox vira dono do editor.
+    juce::CallOutBox::launchAsynchronously (std::move (editor), getLocalArea (&target, target.getLocalBounds()), this);
 }

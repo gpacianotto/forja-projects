@@ -3,7 +3,9 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
+#include <memory>
 
+#include "CustomShapes.h"
 #include "MatizaSynthesiser.h"
 #include "Parameters.h"
 #include "TuningEngine.h"
@@ -53,7 +55,25 @@ public:
     EnvelopeDisplay envelopeDisplay;
     EnvelopeDisplay modEnvDisplay; // envelope de modulação (RF10)
 
+    // --- Formas desenhadas (RF15). Só na thread da interface. ---
+    const ShapePoints& getLfoPoints (std::size_t lfo) const { return customShapes->getLfoPoints (lfo); }
+    const ShapePoints& getOscPoints (std::size_t osc) const { return customShapes->getOscPoints (osc); }
+    void setLfoPoints (std::size_t lfo, const ShapePoints& points);
+    void setOscPoints (std::size_t osc, const ShapePoints& points);
+
+    // Fase atual de cada LFO para o ponto do editor (0..1), ou -1 sem nota tocando no modo
+    // Retrigger. A thread de áudio escreve, a interface lê.
+    std::array<std::atomic<float>, ParamIDs::numLfos> lfoDisplayPhase {};
+
 private:
+    // Nomes das propriedades do estado onde os pontos são salvos (junto com os parâmetros).
+    static juce::Identifier lfoPointsId (std::size_t lfo) { return "lfo" + juce::String (lfo + 1) + "Points"; }
+    static juce::Identifier oscPointsId (std::size_t osc) { return "osc" + juce::String (osc + 1) + "Points"; }
+    void loadShapesFromState();
+
+    // No heap: as tabelas ocupam ~1,6 MB (ver CustomShapes.h).
+    std::unique_ptr<CustomShapes> customShapes = std::make_unique<CustomShapes>();
+
     static constexpr int numVoices = 8;
 
     // Parâmetros lidos na thread de áudio (atômicos, donos são o apvts)

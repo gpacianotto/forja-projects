@@ -23,11 +23,12 @@ enum class LfoShape
     sawDown,
     square,
     sampleHold,
+    custom, // forma desenhada (RF15)
     count
 };
 
 inline constexpr std::array<const char*, static_cast<std::size_t> (LfoShape::count)> lfoShapeNames {
-    "Sine", "Triangle", "Saw Up", "Saw Down", "Square", "Sample & Hold"
+    "Sine", "Triangle", "Saw Up", "Saw Down", "Square", "Sample & Hold", "Custom"
 };
 
 // Divisões de tempo do modo Sync, em semínimas (beats). T = tercina, D = pontuada.
@@ -50,6 +51,11 @@ public:
     }
 
     void setShape (LfoShape newShape) noexcept { shape = newShape; }
+
+    // Forma desenhada (RF15): customTableSize + 1 amostras, a última sendo o fim do ciclo.
+    // O dono dos dados é o CustomShapes; o ponteiro vale até o próximo bloco de áudio.
+    static constexpr int customTableSize = 2048;
+    void setCustomTable (const float* table) noexcept { customTable = table; }
 
     // Semente do Sample & Hold: vozes com sementes diferentes sorteiam valores diferentes.
     void setSeed (std::uint64_t newSeed) noexcept { seed = newSeed; }
@@ -80,7 +86,25 @@ public:
     std::int64_t getCycle() const noexcept { return cycle; }
 
     // Valor atual, de -1 a +1.
-    float value() const noexcept { return valueAt (shape, phase, cycle, seed); }
+    float value() const noexcept
+    {
+        if (shape == LfoShape::custom)
+            return customValue (customTable, phase);
+
+        return valueAt (shape, phase, cycle, seed);
+    }
+
+    // Lê a tabela desenhada na fase (0..1), com interpolação linear. Sem tabela, 0.
+    static float customValue (const float* table, double phase) noexcept
+    {
+        if (table == nullptr)
+            return 0.0f;
+
+        const double position = phase * customTableSize;
+        const int index = position >= customTableSize ? customTableSize - 1 : static_cast<int> (position);
+        const float fraction = static_cast<float> (position - index);
+        return table[index] + fraction * (table[index + 1] - table[index]);
+    }
 
     static float valueAt (LfoShape shape, double phase, std::int64_t cycle, std::uint64_t seed) noexcept
     {
@@ -97,6 +121,7 @@ public:
             case LfoShape::sawDown:  v = 1.0 - 2.0 * phase; break;
             case LfoShape::square:   v = phase < 0.5 ? 1.0 : -1.0; break;
             case LfoShape::sampleHold: v = randomBipolar (seed, cycle); break;
+            case LfoShape::custom:   break; // precisa da tabela: ver value()
             case LfoShape::count:    break;
         }
 
@@ -122,4 +147,5 @@ private:
     double phase = 0.0;       // 0..1 dentro do ciclo
     std::int64_t cycle = 0;   // quantos ciclos completos já passaram (usado pelo Sample & Hold)
     std::uint64_t seed = 0;
+    const float* customTable = nullptr;
 };

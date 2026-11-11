@@ -7,7 +7,9 @@ enum class Waveform
     sine = 0,
     saw,
     square,
-    triangle
+    triangle,
+    custom // forma desenhada (RF15); sempre a última
 };
 
-inline constexpr int numWaveforms = 4;
+// Formas prontas, montadas pelo banco de tabelas (todas menos Custom).
+inline constexpr int numBuiltinWaveforms = 4;

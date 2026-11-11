@@ -29,10 +29,13 @@ target_sources(Matiza PRIVATE
     src/Graphs.cpp
     src/ModulationUI.cpp
     src/EnvelopeTabs.cpp
+    src/ShapeEditor.cpp
     src/Controls.cpp
     src/MicroVoice.cpp
     src/Oscillator.cpp
     src/Wavetables.cpp
+    src/ShapePoints.cpp
+    src/CustomShapes.cpp
     src/TuningEngine.cpp)
 
 target_include_directories(Matiza PRIVATE src)
@@ -74,9 +77,12 @@ if(MATIZA_BUILD_TESTS)
         tests/LfoTests.cpp
         tests/UnisonTests.cpp
         tests/WavetableTests.cpp
+        tests/ShapeTests.cpp
         src/TuningEngine.cpp
         src/Oscillator.cpp
-        src/Wavetables.cpp)
+        src/Wavetables.cpp
+        src/ShapePoints.cpp
+        src/CustomShapes.cpp)
     target_include_directories(MatizaTests PRIVATE src)
     target_link_libraries(MatizaTests PRIVATE Catch2::Catch2WithMain)
 

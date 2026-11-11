@@ -28,7 +28,18 @@ namespace Wavetables
     // Nyquist, ou seja, maxHarmonic (nível) × increment <= 0,5.
     int levelFor (double increment) noexcept;
 
-    // Tabela de um nível: tableSize + 1 amostras (a última repete a primeira, para a
-    // interpolação ler a amostra seguinte sem testar a volta).
+    // Distância entre o começo de um nível e o do próximo, num bloco de níveis seguidos.
+    inline constexpr int levelStride = tableSize + 1;
+    inline constexpr int mipmapSetSize = numLevels * levelStride;
+
+    // Tabela de um nível de uma forma pronta: tableSize + 1 amostras (a última repete a
+    // primeira, para a interpolação ler a amostra seguinte sem testar a volta).
+    // Custom não está no banco (cada oscilador tem a sua): pedir Custom devolve a serra.
     const float* table (Waveform waveform, int level) noexcept;
+
+    // Monta os 21 níveis de uma forma desenhada (RF15). cycle: tableSize amostras de um ciclo.
+    // out: mipmapSetSize amostras (nível 0, nível 1, ...). Usa FFT: separa os harmônicos,
+    // zera os que passariam do limite de cada nível (e o DC, a média da onda) e volta.
+    // Aloca memória: chamar só fora da thread de áudio.
+    void buildMipmaps (const float* cycle, float* out);
 }

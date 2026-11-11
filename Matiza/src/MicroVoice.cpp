@@ -74,7 +74,10 @@ void MicroVoice::setParameters (const VoiceParameters& params)
     for (size_t o = 0; o < oscillators.size(); ++o)
     {
         for (auto& copy : oscillators[o])
+        {
+            copy.setCustomTables (params.oscCustomTables[o]);
             copy.setWaveform (params.oscillators[o].waveform);
+        }
 
         blendSmoothed[o].setTargetValue (params.oscillators[o].blend);
         widthSmoothed[o].setTargetValue (params.oscillators[o].width);
@@ -86,7 +89,10 @@ void MicroVoice::setParameters (const VoiceParameters& params)
     setEnvelopeParameters (modEnv, params.modEnv);
 
     for (size_t k = 0; k < lfos.size(); ++k)
+    {
         lfos[k].setShape (params.lfos[k].shape);
+        lfos[k].setCustomTable (params.lfoCustomTables[k]);
+    }
     glide.setTime (params.glideSeconds, getSampleRate());
 
     // Knobs (e a matriz em cima deles) valem em tempo real, inclusive para notas presas.

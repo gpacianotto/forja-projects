@@ -15,6 +15,10 @@ class Oscillator
 {
 public:
     void setWaveform (Waveform newWaveform) noexcept;
+
+    // Mipmaps da forma desenhada (RF15), usados quando a forma é Custom. O dono dos dados é o
+    // CustomShapes; o ponteiro vale até o próximo bloco de áudio.
+    void setCustomTables (const float* levels) noexcept;
     void setFrequency (double hz, double sampleRate) noexcept;
     void resetPhase() noexcept { phase = 0.0; }
     void setPhase (double newPhase) noexcept; // 0..1 (valores fora são dobrados para dentro)
@@ -32,6 +36,7 @@ private:
 
     // Tabela do nível (mipmap) atual. Iniciada aqui: o primeiro oscilador criado monta o banco.
     const float* table = Wavetables::table (Waveform::saw, 0);
+    const float* customLevels = nullptr;
 };
 
 // "inline" no header: chamada a cada amostra, para cada cópia de cada oscilador. Com o corpo

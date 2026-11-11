@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <complex>
 #include <numbers>
 #include <vector>
 
@@ -34,6 +35,9 @@ namespace Wavetables
                     const double sign = ((h - 1) / 2) % 2 == 0 ? 1.0 : -1.0;
                     return -sign * 8.0 / (pi * pi * h * h);
                 }
+
+                case Waveform::custom: // não fica no banco
+                    return 0.0;
             }
             return 0.0;
         }
@@ -42,7 +46,7 @@ namespace Wavetables
         class Bank
         {
         public:
-            Bank() : samples (static_cast<size_t> (numWaveforms * numLevels * samplesPerTable))
+            Bank() : samples (static_cast<size_t> (numBuiltinWaveforms * numLevels * samplesPerTable))
             {
                 // Seno de 1 ciclo amostrado uma vez. O harmônico h na amostra i é
                 // sin(2π·h·i/N) = sineTable[(h·i) mod N]: sem chamar std::sin no laço.
@@ -52,7 +56,7 @@ namespace Wavetables
 
                 std::vector<double> sum (tableSize);
 
-                for (int w = 0; w < numWaveforms; ++w)
+                for (int w = 0; w < numBuiltinWaveforms; ++w)
                 {
                     const auto waveform = static_cast<Waveform> (w);
 
@@ -88,6 +92,44 @@ namespace Wavetables
         private:
             std::vector<float> samples;
         };
+
+        // FFT complexa in-place (radix-2, Cooley-Tukey). n precisa ser potência de 2.
+        // inverse = true faz a transformada inversa (sem dividir por n).
+        void fft (std::vector<std::complex<double>>& a, bool inverse)
+        {
+            const std::size_t n = a.size();
+
+            // Reordena pelos bits invertidos do índice.
+            for (std::size_t i = 1, j = 0; i < n; ++i)
+            {
+                std::size_t bit = n >> 1;
+                for (; j & bit; bit >>= 1)
+                    j ^= bit;
+                j ^= bit;
+                if (i < j)
+                    std::swap (a[i], a[j]);
+            }
+
+            // Junta transformadas de tamanho 2, 4, 8... (as "borboletas").
+            for (std::size_t length = 2; length <= n; length <<= 1)
+            {
+                const double angle = (inverse ? 2.0 : -2.0) * pi / static_cast<double> (length);
+                const std::complex<double> step (std::cos (angle), std::sin (angle));
+
+                for (std::size_t start = 0; start < n; start += length)
+                {
+                    std::complex<double> w (1.0);
+                    for (std::size_t k = 0; k < length / 2; ++k)
+                    {
+                        const auto even = a[start + k];
+                        const auto odd  = a[start + k + length / 2] * w;
+                        a[start + k]              = even + odd;
+                        a[start + k + length / 2] = even - odd;
+                        w *= step;
+                    }
+                }
+            }
+        }
 
         Bank& bank()
         {
@@ -126,6 +168,41 @@ namespace Wavetables
 
     const float* table (Waveform waveform, int level) noexcept
     {
+        if (waveform == Waveform::custom)
+            waveform = Waveform::saw;
+
         return bank().data (waveform, std::clamp (level, 0, numLevels - 1));
+    }
+
+    void buildMipmaps (const float* cycle, float* out)
+    {
+        // Espectro do ciclo desenhado: o índice h é o harmônico h.
+        std::vector<std::complex<double>> spectrum (tableSize);
+        for (int i = 0; i < tableSize; ++i)
+            spectrum[static_cast<std::size_t> (i)] = cycle[i];
+        fft (spectrum, false);
+
+        std::vector<std::complex<double>> work (tableSize);
+
+        for (int level = 0; level < numLevels; ++level)
+        {
+            const int harmonics = maxHarmonic (level);
+
+            // Mantém só os harmônicos 1..harmonics (e os espelhos, N-h, que um sinal real tem).
+            // O DC (h = 0, a média) sai: uma onda desenhada fora do centro não empurra a saída.
+            std::fill (work.begin(), work.end(), std::complex<double> {});
+            for (int h = 1; h <= harmonics; ++h)
+            {
+                work[static_cast<std::size_t> (h)] = spectrum[static_cast<std::size_t> (h)];
+                work[static_cast<std::size_t> (tableSize - h)] = spectrum[static_cast<std::size_t> (tableSize - h)];
+            }
+
+            fft (work, true);
+
+            float* levelOut = out + level * levelStride;
+            for (int i = 0; i < tableSize; ++i)
+                levelOut[i] = static_cast<float> (work[static_cast<std::size_t> (i)].real() / tableSize);
+            levelOut[tableSize] = levelOut[0];
+        }
     }
 }

@@ -122,16 +122,22 @@ public:
     void setLayoutWeight (int weight) { layoutWeight = weight; }
     int getLayoutWeight() const { return layoutWeight > 0 ? layoutWeight : getNumControls(); }
 
-    // Componente opcional (ex.: um gráfico) desenhado acima da linha de controles.
+    // Onde o componente opcional fica: acima dos controles ou à esquerda deles (bom para
+    // grupos largos e baixos, como os LFOs, em que os knobs ficam com a altura toda).
+    enum class DisplayPlacement { above, left };
+
+    // Componente opcional (ex.: um gráfico) desenhado junto da linha de controles.
     // O grupo vira dono dele, como dos controles.
-    // heightFraction: parte da altura útil que o componente ocupa (o resto fica para os controles).
+    // fraction: parte da altura (above) ou da largura (left) que o componente ocupa.
     template <typename DisplayType>
-    DisplayType& setDisplay (std::unique_ptr<DisplayType> newDisplay, float heightFraction = 0.5f)
+    DisplayType& setDisplay (std::unique_ptr<DisplayType> newDisplay, float fraction = 0.5f,
+                             DisplayPlacement placement = DisplayPlacement::above)
     {
         auto& ref = *newDisplay;
         addAndMakeVisible (ref);
         display = std::move (newDisplay);
-        displayFraction = heightFraction;
+        displayFraction = fraction;
+        displayPlacement = placement;
         return ref;
     }
 
@@ -143,5 +149,6 @@ private:
     std::vector<std::unique_ptr<juce::Component>> controls;
     std::unique_ptr<juce::Component> display;
     float displayFraction = 0.5f;
+    DisplayPlacement displayPlacement = DisplayPlacement::above;
     int layoutWeight = 0; // 0 = usar o número de controles
 };
