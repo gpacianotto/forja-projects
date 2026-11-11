@@ -149,7 +149,7 @@ kanban-plugin: board
 	- [x] Classe `MicroSynthesiser` → `MatizaSynthesiser`, arquivo `src/MicroSynthesiser.h` → `MatizaSynthesiser.h` (`git mv`); atualizar o `#include` e o membro em `PluginProcessor.h`
 	- [x] Título no cabeçalho da interface: `g.drawText ("MicroSynth", …)` e comentário do `titleWidth` em `PluginEditor.cpp` (conferir se 140 px ainda cabe "Matiza")
 	- [x] Comentários com o nome antigo: `Controls.h`, `Lfo.h`, `MicroSound.h`, `MicroVoice.h`, `PluginEditor.h`, `PluginProcessor.h`, `TuningEngine.h`
-	- [ ] [a definir] renomear também `MicroVoice` e `MicroSound` (prefixo "Micro", não é o nome do produto) para manter a coerência
+	- [x] Renomear também `MicroVoice` e `MicroSound` → `MatizaVoice` e `MatizaSound` (feito em 10/11/2026, depois do card)
 	- [ ] Tela "sobre" e logo: não existem hoje (o nome aparece só como texto no cabeçalho). [a definir] se entram neste card ou em card próprio de identidade visual
 	- [x] Estado/presets: o estado é salvo com a tag neutra `PARAMS` e não há arquivos de preset com o nome; só conferir após o build
 	

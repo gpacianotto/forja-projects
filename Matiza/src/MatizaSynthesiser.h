@@ -2,7 +2,7 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
-#include "MicroVoice.h"
+#include "MatizaVoice.h"
 #include "NoteStack.h"
 #include "TuningEngine.h"
 
@@ -109,7 +109,7 @@ public:
 private:
     void playMonoNote (int midiChannel, int midiNoteNumber, float velocity, bool retriggerEnvelope)
     {
-        auto* voice = dynamic_cast<MicroVoice*> (getVoice (0));
+        auto* voice = dynamic_cast<MatizaVoice*> (getVoice (0));
         auto sound  = getSound (0);
 
         if (voice == nullptr || sound == nullptr)

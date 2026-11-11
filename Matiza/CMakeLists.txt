@@ -31,7 +31,7 @@ target_sources(Matiza PRIVATE
     src/EnvelopeTabs.cpp
     src/ShapeEditor.cpp
     src/Controls.cpp
-    src/MicroVoice.cpp
+    src/MatizaVoice.cpp
     src/Oscillator.cpp
     src/Wavetables.cpp
     src/ShapePoints.cpp

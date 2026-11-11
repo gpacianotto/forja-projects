@@ -1,7 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-#include "MicroSound.h"
-#include "MicroVoice.h"
+#include "MatizaSound.h"
+#include "MatizaVoice.h"
 #include "Parameters.h"
 
 PluginProcessor::PluginProcessor()
@@ -66,9 +66,9 @@ PluginProcessor::PluginProcessor()
 
     // O Synthesiser vira dono dos ponteiros (como um "new" cujo delete fica a cargo dele).
     for (int i = 0; i < numVoices; ++i)
-        synth.addVoice (new MicroVoice (tuning, globalMod, modRanges));
+        synth.addVoice (new MatizaVoice (tuning, globalMod, modRanges));
 
-    synth.addSound (new MicroSound());
+    synth.addSound (new MatizaSound());
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParameterLayout()
@@ -337,7 +337,7 @@ void PluginProcessor::updateVoices()
     params.resonance    = resoParam->load();
 
     for (int i = 0; i < synth.getNumVoices(); ++i)
-        if (auto* voice = dynamic_cast<MicroVoice*> (synth.getVoice (i)))
+        if (auto* voice = dynamic_cast<MatizaVoice*> (synth.getVoice (i)))
             voice->setParameters (params);
 }
 
@@ -346,7 +346,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     synth.setCurrentPlaybackSampleRate (sampleRate);
 
     for (int i = 0; i < synth.getNumVoices(); ++i)
-        if (auto* voice = dynamic_cast<MicroVoice*> (synth.getVoice (i)))
+        if (auto* voice = dynamic_cast<MatizaVoice*> (synth.getVoice (i)))
             voice->prepare (sampleRate, samplesPerBlock);
 
     updateTuning();
@@ -441,14 +441,14 @@ void PluginProcessor::updateLfoClock()
 void PluginProcessor::publishEnvelopeDisplay()
 {
     // A voz ativa que começou por último é a "última nota tocada".
-    MicroVoice* newest = nullptr;
+    MatizaVoice* newest = nullptr;
 
     for (int i = 0; i < synth.getNumVoices(); ++i)
-        if (auto* voice = dynamic_cast<MicroVoice*> (synth.getVoice (i)))
+        if (auto* voice = dynamic_cast<MatizaVoice*> (synth.getVoice (i)))
             if (voice->isVoiceActive() && (newest == nullptr || newest->wasStartedBefore (*voice)))
                 newest = voice;
 
-    MicroVoice::EnvelopeSnapshot snapshot; // idle se nenhuma voz estiver tocando
+    MatizaVoice::EnvelopeSnapshot snapshot; // idle se nenhuma voz estiver tocando
     if (newest != nullptr)
         snapshot = newest->getEnvelopeSnapshot();
 

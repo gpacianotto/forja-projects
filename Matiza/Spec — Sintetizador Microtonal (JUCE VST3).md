@@ -195,8 +195,8 @@ O Live manda o MIDI ao PluginProcessor; cada voz consulta o TuningEngine no note
 | `PluginProcessor` | `juce::AudioProcessor` | Dono dos parâmetros (`AudioProcessorValueTreeState`), do `Synthesiser` e do estado salvo; repassa MIDI e áudio no `processBlock` |
 | `PluginEditor` | `juce::AudioProcessorEditor` | Interface. Começa como `GenericAudioProcessorEditor`, depois vira knobs próprios |
 | `TuningEngine` | nenhuma (C++ puro) | `noteToHz(note, bend)` a partir de `edo`, `baseHz`, `refNote`, `bendSteps`; sem alocação, segura para a thread de áudio |
-| `MicroVoice` | `juce::SynthesiserVoice` | Uma voz: oscilador, ADSR e filtro; pede a frequência ao `TuningEngine` no note-on |
-| `MicroSound` | `juce::SynthesiserSound` | Marcador exigido pelo `Synthesiser` (aceita todas as notas e canais) |
+| `MatizaVoice` | `juce::SynthesiserVoice` | Uma voz: oscilador, ADSR e filtro; pede a frequência ao `TuningEngine` no note-on |
+| `MatizaSound` | `juce::SynthesiserSound` | Marcador exigido pelo `Synthesiser` (aceita todas as notas e canais) |
 | `MatizaSynthesiser` | `juce::Synthesiser` | Guarda do RF4 e modo Mono (RF7): pilha de notas pressionadas e troca de nota na voz 0 |
 | `Oscillator` | nenhuma (C++ puro) | Oscilador com PolyBLEP; cada voz tem 3 (RF6) |
 | `Glide` | nenhuma (C++ puro) | Rampa linear da altura (em notas/passos) para o portamento |
@@ -213,8 +213,8 @@ matiza/
 │   ├── PluginProcessor.h/.cpp
 │   ├── PluginEditor.h/.cpp
 │   ├── TuningEngine.h/.cpp
-│   ├── MicroVoice.h/.cpp
-│   ├── MicroSound.h
+│   ├── MatizaVoice.h/.cpp
+│   ├── MatizaSound.h
 │   └── Parameters.h       (IDs e layout dos parâmetros)
 └── tests/
     └── TuningEngineTests.cpp
@@ -240,7 +240,7 @@ juce_add_plugin(Matiza
 
 target_sources(Matiza PRIVATE
     src/PluginProcessor.cpp src/PluginEditor.cpp
-    src/TuningEngine.cpp src/MicroVoice.cpp)
+    src/TuningEngine.cpp src/MatizaVoice.cpp)
 
 target_link_libraries(Matiza PRIVATE
     juce::juce_audio_utils juce::juce_dsp

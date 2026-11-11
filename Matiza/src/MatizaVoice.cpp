@@ -1,5 +1,5 @@
-#include "MicroVoice.h"
-#include "MicroSound.h"
+#include "MatizaVoice.h"
+#include "MatizaSound.h"
 
 #include <cmath>
 #include <utility>
@@ -7,7 +7,7 @@
 using ModMatrix::Dest;
 using ModMatrix::Source;
 
-void MicroVoice::prepare (double sampleRate, int maxBlockSize)
+void MatizaVoice::prepare (double sampleRate, int maxBlockSize)
 {
     adsr.setSampleRate (sampleRate);
     modEnv.setSampleRate (sampleRate);
@@ -49,14 +49,14 @@ void MicroVoice::prepare (double sampleRate, int maxBlockSize)
     }
 }
 
-float MicroVoice::clampCutoff (float hz) const
+float MatizaVoice::clampCutoff (float hz) const
 {
     // O filtro exige cutoff abaixo de Nyquist (metade da taxa de amostragem).
     const auto maxHz = static_cast<float> (getSampleRate() * 0.45);
     return juce::jlimit (20.0f, juce::jmax (20.0f, maxHz), hz);
 }
 
-void MicroVoice::setEnvelopeParameters (juce::ADSR& envelope, const juce::ADSR::Parameters& p)
+void MatizaVoice::setEnvelopeParameters (juce::ADSR& envelope, const juce::ADSR::Parameters& p)
 {
     // Só repassa ao ADSR quando algo mudou: juce::ADSR::setParameters recalcula a velocidade
     // do release a partir do sustain, o que, chamado a cada bloco durante um release,
@@ -67,7 +67,7 @@ void MicroVoice::setEnvelopeParameters (juce::ADSR& envelope, const juce::ADSR::
         envelope.setParameters (p);
 }
 
-void MicroVoice::setParameters (const VoiceParameters& params)
+void MatizaVoice::setParameters (const VoiceParameters& params)
 {
     parameters = params;
 
@@ -99,12 +99,12 @@ void MicroVoice::setParameters (const VoiceParameters& params)
     updateModulation();
 }
 
-bool MicroVoice::canPlaySound (juce::SynthesiserSound* sound)
+bool MatizaVoice::canPlaySound (juce::SynthesiserSound* sound)
 {
-    return dynamic_cast<MicroSound*> (sound) != nullptr;
+    return dynamic_cast<MatizaSound*> (sound) != nullptr;
 }
 
-void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*,
+void MatizaVoice::startNote (int midiNoteNumber, float velocity, juce::SynthesiserSound*,
                             int currentPitchWheelPosition)
 {
     // std::exchange: lê o valor e já zera a flag (vale só para esta nota).
@@ -189,7 +189,7 @@ void MicroVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesise
     released = false;
 }
 
-void MicroVoice::stopNote (float, bool allowTailOff)
+void MatizaVoice::stopNote (float, bool allowTailOff)
 {
     // Troca de nota no modo Mono: o juce::Synthesiser corta a nota antiga antes de começar
     // a nova; aqui ignoramos o corte para a voz seguir soando (o startNote faz a troca).
@@ -212,7 +212,7 @@ void MicroVoice::stopNote (float, bool allowTailOff)
     }
 }
 
-void MicroVoice::restartLfos()
+void MatizaVoice::restartLfos()
 {
     // Modo Retrigger: cada nota começa o LFO do zero e sorteia uma semente nova para o
     // Sample & Hold. (No modo Free a posição é sobrescrita pela global no próximo bloco.)
@@ -223,12 +223,12 @@ void MicroVoice::restartLfos()
     }
 }
 
-void MicroVoice::aftertouchChanged (int newAftertouchValue)
+void MatizaVoice::aftertouchChanged (int newAftertouchValue)
 {
     polyAftertouch = static_cast<float> (newAftertouchValue) / 127.0f;
 }
 
-MicroVoice::EnvelopeSnapshot MicroVoice::getEnvelopeSnapshot() const noexcept
+MatizaVoice::EnvelopeSnapshot MatizaVoice::getEnvelopeSnapshot() const noexcept
 {
     EnvelopeSnapshot snapshot;
 
@@ -242,13 +242,13 @@ MicroVoice::EnvelopeSnapshot MicroVoice::getEnvelopeSnapshot() const noexcept
     return snapshot;
 }
 
-void MicroVoice::pitchWheelMoved (int newPitchWheelValue)
+void MatizaVoice::pitchWheelMoved (int newPitchWheelValue)
 {
     bend = TuningEngine::pitchWheelToBend (newPitchWheelValue);
     updateFrequencies();
 }
 
-void MicroVoice::updateModulation()
+void MatizaVoice::updateModulation()
 {
     // 1. Valor atual de cada fonte.
     ModMatrix::SourceValues sources {};
@@ -286,7 +286,7 @@ void MicroVoice::updateModulation()
         updateFrequencies();
 }
 
-void MicroVoice::updateUnisonLayouts()
+void MatizaVoice::updateUnisonLayouts()
 {
     // Desvio, volume e pan de cada cópia (RF12). Blend e Width vêm suavizados.
     for (size_t o = 0; o < unisonLayouts.size(); ++o)
@@ -298,7 +298,7 @@ void MicroVoice::updateUnisonLayouts()
     }
 }
 
-void MicroVoice::updateFrequencies()
+void MatizaVoice::updateFrequencies()
 {
     const double sampleRate = getSampleRate();
 
@@ -346,7 +346,7 @@ void MicroVoice::updateFrequencies()
     }
 }
 
-void MicroVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSample, int numSamples)
+void MatizaVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSample, int numSamples)
 {
     if (! isVoiceActive())
         return;

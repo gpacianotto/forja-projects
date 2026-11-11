@@ -87,11 +87,11 @@ struct GlobalModState
 // Uma voz do synth: 3 osciladores (cada um com até 8 cópias de unison, RF12) somados em estéreo
 // -> filtro passa-baixa -> envelope de amplitude (ADSR), com a matriz de modulação (RF10)
 // recalculada a cada 32 amostras.
-class MicroVoice final : public juce::SynthesiserVoice
+class MatizaVoice final : public juce::SynthesiserVoice
 {
 public:
     // A voz só lê estas referências; o dono é o PluginProcessor, que vive mais que ela.
-    MicroVoice (const TuningEngine& tuningEngine, const GlobalModState& globalModState, const ModRanges& modRanges)
+    MatizaVoice (const TuningEngine& tuningEngine, const GlobalModState& globalModState, const ModRanges& modRanges)
         : tuning (tuningEngine), globalMod (globalModState), ranges (modRanges) {}
 
     // Chamado em prepareToPlay, fora da thread de áudio (o filtro aloca memória aqui).
