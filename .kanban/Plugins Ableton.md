@@ -25,6 +25,148 @@ kanban-plugin: board
 	> Tentar: importar e exportar arquivos Scala (.scl).
 	
 	#Matiza
+- [ ] # Infra: tirar o token do GitHub da URL do remote
+	
+	A URL do `origin` tem um token pessoal do GitHub escrito por extenso (fica em `.git/config`, legível por qualquer ferramenta que abra o repositório). O token foi visto numa sessão remota em 11/11/2026: tratar como exposto.
+	
+	> Não colar o token em nenhum arquivo do repositório (este quadro também vai para o GitHub).
+	
+	**Etapas**
+	- [ ] Revogar o token atual em GitHub → Settings → Developer settings → Personal access tokens
+	- [ ] `git remote set-url origin https://github.com/gpacianotto/forja-projects`
+	- [ ] Login pelo Git Credential Manager (Git for Windows), que guarda a credencial no cofre do Windows; se precisar de token, criar um novo só com acesso a este repositório
+	- [ ] Conferir: `git remote -v` sem token e `git push` funcionando
+	- [ ] Conferir se o submódulo `_libs/JUCE` aparece como modificado no Git do Windows (`git status`); daqui do Linux aparece só por causa das quebras de linha CRLF
+	
+	#Workspace
+- [ ] # Interface: logo MTZ no cabeçalho do Matiza
+	
+	Trocar o texto "Matiza" do cabeçalho da interface pela logo MTZ (o esboço refinado da rodada 1 de logos, 11/11/2026), na cor palha (`Palette::primary`) sobre o fundo escuro.
+	
+	> Depende da aprovação final da logo. Se a rodada 2 mudar o desenho, usar a versão aprovada.
+	
+	**Onde entra**
+	- Cabeçalho: hoje `PluginEditor::paint` desenha o texto "Matiza" (22 pt, negrito) num espaço de 140 px de largura (`titleWidth`) por 36 px de altura (`headerHeight`). A logo testada em 30 px de altura continua legível.
+	- [a definir] Tela "Sobre" com a assinatura "MATIZA by Forja Instruments" (pendência do card de rebranding): entra neste card ou em card próprio.
+	- [a definir] Ícone do app Standalone (`ICON_BIG` / `ICON_SMALL` no `juce_add_plugin`), com o ícone de degradê.
+	
+	**Como fazer**
+	- Guardar o SVG da logo em `Matiza/assets/` e embutir no plugin com `juce_add_binary_data` (CMake). Carregar com `juce::Drawable::createFromSVG` e desenhar com `drawWithin`, mantendo a proporção.
+	- Alternativa sem arquivo: o MTZ é feito só de polígonos, dá para montar um `juce::Path` no código.
+	- Trocar a cor do SVG pela `Palette::primary` (`replaceColour`), para seguir a paleta se ela mudar.
+	- Conferir que as alças das fontes de modulação no cabeçalho continuam cabendo (o espaço do título pode mudar de largura).
+	
+	**Etapas**
+	- [ ] SVG final em `Matiza/assets/` e `juce_add_binary_data` no CMake
+	- [ ] Logo no cabeçalho, na cor palha, alinhada à esquerda e centralizada na altura
+	- [ ] Build Debug/Release sem warnings, pluginval nível 5
+	- [ ] Teste no Ableton: janela no tamanho padrão, mínimo e máximo
+	
+	#Matiza
+- [ ] # Feat: licenciamento (Paddle + servidor de licenças)
+	
+	Como o Matiza será vendido e liberado depois da compra. Planejado em 11/11/2026; fluxo da Paddle detalhado em 12/11/2026.
+	
+	**Decidido (11/11/2026)**
+	- **Venda pela Paddle**, que é o vendedor legal (merchant of record): cobra, cuida dos impostos de cada país e aceita Pix de compradores no Brasil. Taxa de 5% + US$ 0,50 por venda; repasse mensal (mínimo de US$ 100).
+	- **Licença = arquivo assinado pela Forja**, validado offline pelo plugin, **sem limite de máquinas**, com o nome do comprador gravado e visível na tela "Sobre" (inibe compartilhamento casual). Modelo parecido com o da u-he e da FabFilter.
+	- **Servidor de licenças próprio e pequeno** (o Paddle Billing não gera chaves): recebe o webhook de compra da Paddle, gera o arquivo assinado com a chave privada da Forja e envia por e-mail; permite baixar de novo. Ideia: AWS Lambda + Secrets Manager (chave privada) + SES (e-mail). Serve para os próximos plugins da marca.
+	- As licenças são assinadas pela Forja, não pela Paddle: trocar de plataforma de venda no futuro não invalida licenças vendidas.
+	- **Demo:** plugin completo, com um ruído curto periódico (como a u-he). Em vez de popup, uma **faixa fixa no cabeçalho** avisando do modo demo, com "Comprar" e "Ativar licença" (janelas modais em DAW abrem atrás do host ou travam a interface). [a definir] fazer a faixa piscar quando o ruído toca pela primeira vez na sessão.
+	- Descartados: Moonbase (5% + €1 sobre o total com imposto, licença presa ao formato deles), Lemon Squeezy (em migração para o Stripe Managed Payments) e cobrança própria com Stripe/Mercado Pago (a Forja viraria vendedora e assumiria os impostos de cada país).
+	
+	**Fluxo de uma venda (12/11/2026)**
+	1. Landing page carrega o **Paddle.js**; o botão "Comprar" abre o **checkout em overlay** da Paddle sobre a própria página (o cliente não sai do site).
+	2. A Paddle cobra (cartão, PayPal, Pix no Brasil), calcula o imposto e envia o recibo.
+	3. A Paddle manda o webhook **`transaction.completed`** para a Lambda, assinado no cabeçalho `Paddle-Signature` (HMAC-SHA256 sobre `ts:corpo-cru`; não alterar o corpo antes de verificar).
+	4. A Lambda confere a assinatura, busca o e-mail do cliente na API da Paddle (a transação concluída não traz o e-mail), gera a licença e envia por e-mail com o link de download. Precisa ser idempotente (a Paddle reenvia webhooks em caso de falha).
+	5. O cliente abre o Matiza e clica em "Ativar licença".
+	6. Repasse mensal da Paddle.
+	
+	**Configuração na Paddle**
+	- **Sandbox primeiro** (conta separada em sandbox-vendors.paddle.com, com cartões de teste, chaves e webhooks próprios; site aprovado na hora). Depois, a conta de produção.
+	- Produto "Matiza" com preço único em USD.
+	- **Default payment link** (obrigatório mesmo só com compra única): página do site que carrega o Paddle.js, por exemplo a landing page.
+	- Notificações: destino com a URL da Lambda, evento `transaction.completed` (e os de reembolso, abaixo); guardar a chave secreta.
+	- Chaves: token do navegador (Paddle.js) e chave de API do servidor.
+	
+	**Aprovação do domínio (bloqueia a primeira venda real)**
+	A Paddle revisa cada domínio de onde sai um checkout. A landing page precisa estar no ar, pública (sem login), com:
+	- Descrição clara do produto e **preço visível** (login e preço escondido são as causas mais comuns de reprovação).
+	- **Termos e condições** citando a Paddle como vendedora legal (merchant of record), **política de reembolso** e **aviso de privacidade**, acessíveis pela navegação do site; página de contato.
+	- Política de reembolso com prazo **entre 14 e 90 dias**, sem "todas as vendas são finais" (pode só remeter à política da Paddle).
+	- Nome do vendedor no site igual ao da conta na Paddle.
+	- Reservar de 1 a 2 semanas para a aprovação.
+	
+	**Risco: reembolso + licença offline**
+	Com reembolso obrigatório de pelo menos 14 dias e licença que funciona offline, alguém pode comprar, pedir reembolso e continuar usando. Mitigação: o servidor também ouve os eventos de reembolso da Paddle e registra a licença, que entra na lista negra embutida nas próximas versões do plugin. Risco aceito para o lançamento.
+	
+	**Regras técnicas**
+	- Sem licença, o plugin abre normalmente e mantém todos os parâmetros: nunca quebrar um set salvo. Só entra o ruído da demo.
+	- Verificação da licença fora da thread de áudio; o resultado vira um `std::atomic<bool>` que o `processBlock` só lê.
+	- Nenhuma chamada de rede ao abrir o plugin (o plugin nunca precisa falar com o servidor).
+	- Um arquivo de licença numa pasta do usuário, compartilhado pelo VST3 e pelo Standalone.
+	- Builds alpha/beta para os produtores parceiros com data de validade (chaves com prazo, como as do `KeyGeneration` do JUCE).
+	- Lista negra de licenças vazadas ou reembolsadas embutida nas versões seguintes.
+	- [a definir] Algoritmo de assinatura: RSA do JUCE (`RSAKey`/`KeyGeneration`) ou Ed25519 com uma biblioteca pequena.
+	
+	**Antes de começar**
+	- [ ] Confirmar com a Paddle se aceita vendedor pessoa física residente no Brasil e quanto custa o repasse até a conta
+	- [ ] RF de licenciamento no Spec (arquivo assinado, modo demo, faixa de aviso, regras da thread de áudio)
+	- [x] Conta na Paddle criada (12/11/2026)
+	
+	**Etapas (na ordem)**
+	- [ ] Conta sandbox: produto "Matiza", default payment link e checkout de teste numa página simples com Paddle.js
+	- [ ] Formato do arquivo de licença (campos: produto, nome, e-mail, pedido, data, versão máxima, validade opcional) e assinatura
+	- [ ] Servidor: webhook da Paddle (verificação da assinatura, idempotência), busca do e-mail na API, geração e envio da licença, reenvio por e-mail, registro de reembolsos para a lista negra; testes com o simulador de webhooks do sandbox
+	- [ ] Plugin: leitura e verificação da licença, estado demo/licenciado em atômico, tela "Ativar licença" (colar ou abrir o arquivo)
+	- [ ] Plugin: ruído da demo e faixa de aviso no cabeçalho; nome do licenciado na tela "Sobre"
+	- [ ] Landing page no domínio da Forja com preço, termos, reembolso, privacidade e contato (card próprio de landing page)
+	- [ ] Conta de produção: pedir aprovação do domínio, trocar as chaves e o webhook para produção
+	- [ ] Testes: licença válida, adulterada, de outro produto, vencida (alpha), lista negra; set salvo com licença abre igual sem licença (só com ruído); compra completa no sandbox de ponta a ponta
+	
+	#Matiza
+
+- [ ] # Feat: seguir a afinação do MTS-ESP
+	
+	Fazer o Matiza seguir a afinação de um plugin "master" do MTS-ESP (ODDSound), o padrão aberto que sincroniza a afinação entre plugins. Com isso o Matiza fica afinado junto com Serum, synths da u-he e dezenas de outros, sem configurar nada. Ver [[Plano de produto — Kick microtonal]], seção 4.
+	
+	**Decidido (12/11/2026)**
+	- Adotar o MTS-ESP em vez de criar um centralizador de afinação próprio.
+	- Vem antes do segundo produto (Kick), que também nasce com MTS-ESP.
+	
+	**Proposta**
+	- Seletor na aba Tuning: **Interna** (EDO, Base Freq, Ref Note, afinação desenhada) ou **MTS-ESP** (segue o master). [a definir] modo automático: seguir o MTS-ESP sempre que houver master na sessão.
+	- Com MTS-ESP ativo: knobs de afinação interna desabilitados (como com o Lock); gráfico de steps mostra a afinação vinda do master; notas filtradas pelo master (`MTS_ShouldFilterNote`) não tocam.
+	- Indicador "MTS-ESP: conectado / sem master" na aba Tuning.
+	- [a definir] Nota segurada quando a afinação do master muda: mantém a altura (como hoje, RF3) ou acompanha.
+	- [a definir] Como fica a afinação desenhada (RF17) quando o MTS-ESP está ativo.
+	
+	**Etapas**
+	- [ ] RF no Spec
+	- [ ] Biblioteca cliente (`libMTSClient.h/.cpp`, licença aberta) no projeto e no CMake
+	- [ ] `TuningEngine` com fonte de afinação: interna ou MTS-ESP (`MTS_NoteToFrequency`), consultada fora da thread de áudio quando possível
+	- [ ] Interface: seletor, indicador e gráfico de steps com a afinação do master
+	- [ ] Testes com o MTS-ESP Mini (gratuito) no Ableton: carregar um .scl e conferir no Tuner do Live
+	- [ ] Build Debug/Release sem warnings, pluginval nível 5
+	
+	#Matiza
+
+- [ ] # Produto: kick microtonal (segundo produto da Forja)
+	
+	Sintetizador de kick que segue a afinação microtonal da música (afinação interna igual à do Matiza + MTS-ESP). Nome e branding a definir quando o escopo fechar. Ver [[Plano de produto — Kick microtonal]].
+	
+	**Decidido (12/11/2026)**
+	- Fazer o kick primeiro; bateria completa fica para depois, e só com vozes tonais (toms, percussões, 808 tocável), se houver demanda.
+	- Não criar centralizador de afinação próprio: usar o MTS-ESP (card "Feat: seguir a afinação do MTS-ESP").
+	
+	**Antes de começar**
+	- [ ] Validar a demanda: perguntar aos dois produtores parceiros e numa comunidade microtonal (r/microtonal, Xenharmonic Alliance) como afinam o kick hoje e se comprariam um kick synth que segue a afinação
+	- [ ] Com validação positiva: Spec do produto (escopo, controles de som, formatos, preço)
+	- [ ] Nome e branding (marca Forja Instruments)
+	- [ ] Criar a pasta do projeto (skill `novo-plugin`) e registrar na tabela de projetos do `CLAUDE.md`
+	
+	#Workspace
 
 
 ## Em Andamento
