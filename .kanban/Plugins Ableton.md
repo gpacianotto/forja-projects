@@ -6,20 +6,6 @@ kanban-plugin: board
 
 ## Backlog
 
-- [ ] # Infra: tirar o token do GitHub da URL do remote
-	
-	A URL do `origin` tem um token pessoal do GitHub escrito por extenso (fica em `.git/config`, legível por qualquer ferramenta que abra o repositório). O token foi visto numa sessão remota em 11/11/2026: tratar como exposto.
-	
-	> Não colar o token em nenhum arquivo do repositório (este quadro também vai para o GitHub).
-	
-	**Etapas**
-	- [ ] Revogar o token atual em GitHub → Settings → Developer settings → Personal access tokens
-	- [ ] `git remote set-url origin https://github.com/gpacianotto/forja-projects`
-	- [ ] Login pelo Git Credential Manager (Git for Windows), que guarda a credencial no cofre do Windows; se precisar de token, criar um novo só com acesso a este repositório
-	- [ ] Conferir: `git remote -v` sem token e `git push` funcionando
-	- [ ] Conferir se o submódulo `_libs/JUCE` aparece como modificado no Git do Windows (`git status`); daqui do Linux aparece só por causa das quebras de linha CRLF
-	
-	#Workspace
 - [ ] # Feat: licenciamento (Paddle + servidor de licenças)
 	
 	Como o Matiza será vendido e liberado depois da compra. Planejado em 11/11/2026; fluxo da Paddle detalhado em 12/11/2026.
@@ -130,6 +116,20 @@ kanban-plugin: board
 
 ## Em Revisão
 
+- [ ] # Infra: tirar o token do GitHub da URL do remote
+	
+	A URL do `origin` tem um token pessoal do GitHub escrito por extenso (fica em `.git/config`, legível por qualquer ferramenta que abra o repositório). O token foi visto numa sessão remota em 11/11/2026: tratar como exposto.
+	
+	> Não colar o token em nenhum arquivo do repositório (este quadro também vai para o GitHub).
+	
+	**Etapas**
+	- [x] Revogar o token atual em GitHub → Settings → Developer settings → Personal access tokens
+	- [x] `git remote set-url origin https://github.com/gpacianotto/forja-projects` (12/11/2026; nenhum outro token em `.git/config`)
+	- [x] Login pelo Git Credential Manager (Git for Windows), que guarda a credencial no cofre do Windows; se precisar de token, criar um novo só com acesso a este repositório. O GCM tinha guardado o token revogado: `git credential-manager github logout gpacianotto` e um `git push` para logar de novo pelo navegador
+	- [x] Conferir: `git remote -v` sem token e `git push` funcionando (12/11/2026, push autenticado pelo GCM)
+	- [x] Conferir se o submódulo `_libs/JUCE` aparece como modificado no Git do Windows (`git status`); daqui do Linux aparece só por causa das quebras de linha CRLF (no Windows está limpo, 12/11/2026)
+	
+	#Workspace
 
 
 ## Concluído
