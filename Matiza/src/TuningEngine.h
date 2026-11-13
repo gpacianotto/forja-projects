@@ -1,9 +1,15 @@
 #pragma once
 
+#include "TuningTable.h"
+
 // Motor de afinação do Matiza: converte nota MIDI em frequência para qualquer EDO
 // (divisão igual da oitava).
 //
 //     f(n) = baseHz * 2^((n - refNote + bend * bendSteps) / edo)
+//
+// Com afinação desenhada (RF17), a altura em steps passa pela tabela antes:
+//
+//     f = baseHz * 2^((oitava * 1200 + cents[step]) / 1200)
 //
 // C++ puro, sem JUCE: pode ser testado sozinho. Não aloca memória, então é seguro chamar
 // na thread de áudio.
@@ -17,6 +23,7 @@ public:
         double baseHz    = 440.0; // frequência em que soa a nota de referência
         int    refNote   = 69;    // nota MIDI que soa em baseHz
         double bendSteps = 2.0;   // alcance do pitch bend, em passos da EDO
+        TuningTable table;        // afinação desenhada (RF17); só vale se table.edo == edo
     };
 
     void setSettings (const Settings& newSettings) noexcept;
@@ -24,7 +31,11 @@ public:
 
     // bend vai de -1 (pitch wheel todo para baixo) a +1 (todo para cima); 0 = sem bend.
     // A nota é double para aceitar alturas "entre notas" (ex.: 60,5 no meio de um glide).
-    double noteToHz (double midiNote, double bend = 0.0) const noexcept;
+    // extraSteps: transposição em steps somada à nota antes da tabela (oscilador, matriz; RF17).
+    double noteToHz (double midiNote, double bend = 0.0, double extraSteps = 0.0) const noexcept;
+
+    // A mesma altura em cents a partir da Base Freq (para o ponto do gráfico dos steps, RF16).
+    double centsFromBase (double midiNote, double bend = 0.0, double extraSteps = 0.0) const noexcept;
 
     // Razão de frequência de um oscilador transposto (RF6): 2^(oitavas + passos/edo + cents/1200).
     // Ex.: 1 oitava acima = 2,0; 0 de tudo = 1,0.

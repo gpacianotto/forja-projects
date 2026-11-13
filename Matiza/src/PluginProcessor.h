@@ -8,7 +8,9 @@
 #include "CustomShapes.h"
 #include "MatizaSynthesiser.h"
 #include "Parameters.h"
+#include "TripleBuffer.h"
 #include "TuningEngine.h"
+#include "TuningTable.h"
 
 // Processador do Matiza: recebe MIDI do host e devolve áudio estéreo.
 class PluginProcessor final : public juce::AudioProcessor
@@ -65,6 +67,11 @@ public:
     // Retrigger. A thread de áudio escreve, a interface lê.
     std::array<std::atomic<float>, ParamIDs::numLfos> lfoDisplayPhase {};
 
+    // --- Afinação desenhada (RF17). Só na thread da interface. ---
+    // A tabela vale só quando table.edo == edo atual; TuningTable {} = nenhuma (afinação igual).
+    const TuningTable& getTuningTable() const { return tuningTableUi; }
+    void setTuningTable (const TuningTable& table);
+
     static constexpr int numVoices = 8;
 
     // Altura de cada voz para o gráfico dos steps (RF16). A thread de áudio escreve uma vez por
@@ -83,6 +90,12 @@ private:
     static juce::Identifier lfoPointsId (std::size_t lfo) { return "lfo" + juce::String (lfo + 1) + "Points"; }
     static juce::Identifier oscPointsId (std::size_t osc) { return "osc" + juce::String (osc + 1) + "Points"; }
     void loadShapesFromState();
+
+    // Afinação desenhada (RF17): cópia da interface + entrega ao áudio sem lock.
+    static inline const juce::Identifier tuningTableId { "tuningTable" };
+    void loadTuningTableFromState();
+    TuningTable tuningTableUi;
+    TripleBuffer<TuningTable> tuningTables;
 
     // No heap: as tabelas ocupam ~1,6 MB (ver CustomShapes.h).
     std::unique_ptr<CustomShapes> customShapes = std::make_unique<CustomShapes>();

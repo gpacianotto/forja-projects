@@ -279,6 +279,7 @@ void PluginProcessor::updateTuning()
     settings.baseHz  = baseHzParam->load();
     settings.refNote = static_cast<int> (refNoteParam->load());
     settings.bendSteps = bendStepsParam->load();
+    settings.table = tuningTables.read(); // RF17: cópia de ~600 bytes, sem alocação
     tuning.setSettings (settings);
 }
 
@@ -502,7 +503,15 @@ juce::AudioProcessorEditor* PluginProcessor::createEditor()
 
 void PluginProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (auto xml = apvts.copyState().createXml())
+    auto state = apvts.copyState();
+
+    // RF17: uma tabela desenhada para outro EDO já foi descartada (o EDO mudou por automação
+    // ou com a interface fechada); não vai para o set.
+    const auto table = TuningTable::fromString (state.getProperty (tuningTableId).toString().toStdString());
+    if (! table || ! table->isFor (juce::roundToInt (edoParam->load())))
+        state.removeProperty (tuningTableId, nullptr);
+
+    if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
@@ -514,6 +523,7 @@ void PluginProcessor::setStateInformation (const void* data, int sizeInBytes)
         {
             apvts.replaceState (juce::ValueTree::fromXml (*xml));
             loadShapesFromState();
+            loadTuningTableFromState();
         }
     }
 }
@@ -541,6 +551,25 @@ void PluginProcessor::loadShapesFromState()
     for (std::size_t i = 0; i < ParamIDs::numOscillators; ++i)
         if (auto points = ShapePoints::fromString (apvts.state.getProperty (oscPointsId (i)).toString().toStdString()))
             customShapes->setOscPoints (i, *points);
+}
+
+void PluginProcessor::setTuningTable (const TuningTable& table)
+{
+    tuningTableUi = table;
+    tuningTables.beginWrite() = table;
+    tuningTables.publish();
+
+    if (table.edo >= 1)
+        apvts.state.setProperty (tuningTableId, juce::String (table.toString()), nullptr);
+    else
+        apvts.state.removeProperty (tuningTableId, nullptr);
+}
+
+void PluginProcessor::loadTuningTableFromState()
+{
+    // Set sem afinação desenhada (ou com texto inválido): afinação igual.
+    const auto table = TuningTable::fromString (apvts.state.getProperty (tuningTableId).toString().toStdString());
+    setTuningTable (table.value_or (TuningTable {}));
 }
 
 // Ponto de entrada que o host chama para criar o plugin

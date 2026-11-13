@@ -164,6 +164,8 @@ As listas de forma e divisão também são fechadas: nunca reordenar nem remover
   - **Reset:** botão **Reset (equal)** volta às linhas equidistantes. Mudar o `edo` por qualquer caminho (knob, automação do Ableton, preset) também descarta a afinação desenhada e volta ao equidistante com o novo número de linhas. Regra simples e sem lock: se o N da tabela for diferente do `edo` atual, vale a afinação igual.
   - **Lock:** com `tuningLock` ligado, as alças somem e o gráfico não aceita arrasto (só visualização), como os knobs de afinação.
   - **Afinação:** o `TuningEngine` passa a ler a tabela: f = baseHz × 2^((oitava × 1200 + cents[step]) / 1200). Alturas fracionárias (glide, pitch bend) interpolam linearmente em cents entre o step e o seguinte. A tabela vai da interface para o áudio pelo buffer triplo do RF15, sem lock e sem alocação no áudio.
+  - **Tudo o que é medido em steps segue a tabela** (decidido em 12/11/2026): a transposição em steps de cada oscilador (RF6), o destino Pitch da matriz (RF10) e o pitch bend somam steps à altura da nota antes de consultar a tabela. Ex.: Osc 2 em +4 steps cai exatamente na quarta linha desenhada acima da nota, então o intervalo entre os osciladores pode mudar de nota para nota. A oitava do oscilador continua ×2 e o Fine continua em cents.
+  - O ponto das notas no gráfico (RF16) também usa a tabela, então cai em cima das linhas desenhadas.
   - Notas já seguradas mantêm a altura ao mexer numa linha (como no RF3); as próximas notas usam a nova afinação.
   - [a definir] Importar e exportar arquivos Scala (.scl), formato padrão de afinações microtonais.
 

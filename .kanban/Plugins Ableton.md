@@ -150,6 +150,9 @@ kanban-plugin: board
 
 ## Em Andamento
 
+
+## Em Revisão
+
 - [ ] # Feat: afinação desenhada no gráfico dos steps
 	
 	Fase 2 do gráfico dos steps: arrastar as linhas com o mouse para criar uma afinação personalizada, nas duas visões (Circle e Line). Depende do card "Interface: gráfico dos steps da EDO na aba Tuning".
@@ -166,13 +169,20 @@ kanban-plugin: board
 	
 	![[Esboço — Tuning Steps — Fase 2 (arrastar).png]]
 	
+	**Decidido (12/11/2026)**
+	- Transposição em steps dos osciladores, Pitch da matriz e pitch bend seguem a tabela desenhada (ver RF17 no Spec).
+	
+	**Etapas**
+	- [x] `TuningTable` (lógica pura): tabela por step, mover linha sem cruzar vizinhas, texto do estado; `TuningEngine` lê a tabela; 8 testes novos (97 no total): tabela igual = afinação de hoje; 7 EDO step 4 em 702 ¢ = 660 Hz
+	- [x] Voz: transposição em steps e Pitch da matriz pela tabela; ponto do gráfico pela tabela
+	- [x] Processador: tabela no buffer triplo, salva no estado (`tuningTable`), descartada quando o EDO muda
+	- [x] Interface: alças nas duas visões, arrasto com texto (cents, posição igual, vizinhas), Reset (equal), "custom" no centro, Lock
+	- [x] Build Debug/Release sem warnings, ctest, pluginval nível 5 (12/11/2026)
+	- [ ] Teste no Ableton (teste 18 do Spec)
+	
 	> Tentar: importar e exportar arquivos Scala (.scl).
 	
 	#Matiza
-
-
-## Em Revisão
-
 
 ## Concluído
 

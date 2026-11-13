@@ -9,13 +9,19 @@ void TuningEngine::setSettings (const Settings& newSettings) noexcept
     settings.edo = std::max (1, settings.edo); // evita divisão por zero
 }
 
-double TuningEngine::noteToHz (double midiNote, double bend) const noexcept
+double TuningEngine::noteToHz (double midiNote, double bend, double extraSteps) const noexcept
 {
-    // Quantos passos da EDO a nota está acima (ou abaixo) da referência, incluindo o bend.
-    const double steps = (midiNote - settings.refNote) + bend * settings.bendSteps;
+    // Cada 1200 cents = uma oitava = dobro da frequência.
+    return settings.baseHz * std::exp2 (centsFromBase (midiNote, bend, extraSteps) / 1200.0);
+}
 
-    // Cada passo multiplica a frequência por 2^(1/edo); edo passos = uma oitava = dobro.
-    return settings.baseHz * std::exp2 (steps / settings.edo);
+double TuningEngine::centsFromBase (double midiNote, double bend, double extraSteps) const noexcept
+{
+    // Quantos passos da EDO a nota está acima (ou abaixo) da referência, incluindo o bend e a
+    // transposição. Na afinação igual, cada passo vale 1200/edo cents; com tabela, cada passo
+    // cai na linha desenhada (TuningTable::stepsToCents).
+    const double steps = (midiNote - settings.refNote) + bend * settings.bendSteps + extraSteps;
+    return settings.table.stepsToCents (steps, settings.edo);
 }
 
 double TuningEngine::transposeRatio (int edo, int octaves, double steps, double cents) noexcept

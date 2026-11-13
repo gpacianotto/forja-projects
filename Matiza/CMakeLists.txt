@@ -80,6 +80,7 @@ if(MATIZA_BUILD_TESTS)
         tests/WavetableTests.cpp
         tests/ShapeTests.cpp
         tests/StepMathTests.cpp
+        tests/TuningTableTests.cpp
         src/TuningEngine.cpp
         src/Oscillator.cpp
         src/Wavetables.cpp

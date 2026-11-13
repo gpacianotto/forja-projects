@@ -41,6 +41,9 @@ namespace
         return (value >= 0 ? "+" : "") + juce::String (value);
     }
 
+    constexpr float handleSize     = 8.0f;  // alça (RF17)
+    constexpr float handleHitRange = 10.0f; // distância máxima do mouse até a alça
+
     // Fundo dos gráficos, igual ao de Graphs.cpp: um pouco mais escuro que o grupo.
     juce::Colour graphBackground() { return Palette::background.darker (0.3f); }
 }
@@ -51,6 +54,7 @@ TuningStepsView::TuningStepsView (PluginProcessor& processor)
     edoParam     = apvts.getRawParameterValue (ParamIDs::edo);
     baseHzParam  = apvts.getRawParameterValue (ParamIDs::baseHz);
     refNoteParam = apvts.getRawParameterValue (ParamIDs::refNote);
+    lockParam    = apvts.getRawParameterValue (ParamIDs::tuningLock);
 
     dotCents.fill (-1.0f);
     heldNotes.reserve (PluginProcessor::numVoices);
@@ -73,6 +77,13 @@ TuningStepsView::TuningStepsView (PluginProcessor& processor)
     twelveTetButton.setColour (juce::ToggleButton::tickColourId, Palette::primary);
     twelveTetButton.onClick = [this] { setTwelveTet (twelveTetButton.getToggleState(), true); };
     addAndMakeVisible (twelveTetButton);
+
+    // RF17: volta às linhas equidistantes.
+    resetButton.setTooltip ("Discard the drawn tuning and go back to equal steps.");
+    resetButton.setColour (juce::TextButton::buttonColourId, Palette::widget);
+    resetButton.setColour (juce::TextButton::textColourOffId, Palette::text);
+    resetButton.onClick = [this] { pluginProcessor.setTuningTable (TuningTable {}); };
+    addAndMakeVisible (resetButton);
 
     syncUiStateFromTree();
     circleButton.setToggleState (view == View::circle, juce::dontSendNotification);
@@ -140,6 +151,29 @@ void TuningStepsView::timerCallback()
         refNote = newRefNote;
         changed = true;
     }
+
+    // RF17: mudar o EDO (knob, automação, preset) descarta a afinação desenhada.
+    if (const auto& current = pluginProcessor.getTuningTable(); current.edo >= 1 && ! current.isFor (edo))
+        pluginProcessor.setTuningTable (TuningTable {});
+
+    if (pluginProcessor.getTuningTable() != table)
+    {
+        table = pluginProcessor.getTuningTable();
+        changed = true;
+    }
+
+    if (const bool newLocked = lockParam->load() >= 0.5f; newLocked != locked)
+    {
+        locked = newLocked;
+        if (locked)
+        {
+            dragStep = hoverStep = -1;
+            setMouseCursor (juce::MouseCursor::NormalCursor);
+        }
+        changed = true;
+    }
+
+    updateResetButton();
 
     // Notas seguradas agora: quais steps acendem, onde ficam os pontos e a lista.
     std::array<bool, maxEdo> held {};
@@ -211,6 +245,8 @@ void TuningStepsView::resized()
     circleButton.setBounds (buttons.removeFromRight (64).reduced (0, 1));
     buttons.removeFromRight (12);
     twelveTetButton.setBounds (buttons.removeFromRight (78));
+    buttons.removeFromRight (8);
+    resetButton.setBounds (buttons.removeFromRight (100).reduced (0, 1));
 
     // O botão Circle/Line ocupa só os cantos; o resto do cabeçalho é desenhado em paint().
     headerArea = buttons;
@@ -231,11 +267,34 @@ void TuningStepsView::paint (juce::Graphics& g)
 
 void TuningStepsView::paintHeader (juce::Graphics& g, juce::Rectangle<float> area)
 {
-    // Ex.: "19 EDO · 63.2 ¢/step"
+    if (dragStep > 0)
+    {
+        paintDragInfo (g, area);
+        return;
+    }
+
+    // Ex.: "19 EDO · 63.2 ¢/step", ou "19 EDO · custom" com afinação desenhada (RF17).
+    const juce::String detail = table.isCustomFor (edo)
+                                    ? juce::String ("custom")
+                                    : juce::String (StepMath::stepCents (1, edo), 1) + " " + centSign + "/step";
     g.setColour (Palette::text);
     g.setFont (juce::FontOptions (13.0f));
-    g.drawText (juce::String (edo) + " EDO " + middleDot + " "
-                    + juce::String (StepMath::stepCents (1, edo), 1) + " " + centSign + "/step",
+    g.drawText (juce::String (edo) + " EDO " + middleDot + " " + detail, area, juce::Justification::centredLeft);
+}
+
+void TuningStepsView::paintDragInfo (juce::Graphics& g, juce::Rectangle<float> area) const
+{
+    // Ex.: "Step 4: 702.0 ¢ · equal 685.7 ¢ · gaps 187.6 / 162.9 ¢"
+    const double here  = stepPosition (dragStep);
+    const double below = stepPosition (dragStep - 1);
+    const double above = dragStep + 1 < edo ? stepPosition (dragStep + 1) : StepMath::centsPerOctave;
+
+    g.setColour (Palette::primary);
+    g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    g.drawText ("Step " + juce::String (dragStep) + ": " + juce::String (here, 1) + " " + centSign
+                    + " " + middleDot + " equal " + juce::String (StepMath::stepCents (dragStep, edo), 1) + " " + centSign
+                    + " " + middleDot + " gaps " + juce::String (here - below, 1) + " / " + juce::String (above - here, 1)
+                    + " " + centSign,
                 area, juce::Justification::centredLeft);
 }
 
@@ -281,9 +340,14 @@ void TuningStepsView::paintCircle (juce::Graphics& g, juce::Rectangle<float> are
     constexpr float labelMargin = 22.0f; // espaço para os números fora da borda
     const float radius = juce::jmin (area.getWidth(), area.getHeight()) * 0.5f - labelMargin;
     if (radius < 20.0f)
+    {
+        circleRadius = 0.0f;
         return;
+    }
 
     const auto centre = area.getCentre();
+    circleCentre = centre;
+    circleRadius = radius;
 
     // Disco
     g.setColour (graphBackground());
@@ -307,7 +371,7 @@ void TuningStepsView::paintCircle (juce::Graphics& g, juce::Rectangle<float> are
         for (int k = 0; k < edo; ++k)
             if ((glow[static_cast<size_t> (k)] > 0.0f) == litPass)
             {
-                const double angle = StepMath::centsToAngle (StepMath::stepCents (k, edo));
+                const double angle = StepMath::centsToAngle (stepPosition (k));
                 drawStepLine (g, { centre, polar (centre, angle, radius) }, k);
             }
 
@@ -318,7 +382,7 @@ void TuningStepsView::paintCircle (juce::Graphics& g, juce::Rectangle<float> are
         if (! StepMath::shouldLabel (k, edo) && glow[static_cast<size_t> (k)] <= 0.0f)
             continue;
 
-        const double angle = StepMath::centsToAngle (StepMath::stepCents (k, edo));
+        const double angle = StepMath::centsToAngle (stepPosition (k));
         const auto at = polar (centre, angle, radius + 15.0f);
         g.setColour (labelColour (k));
         g.drawText (juce::String (k), juce::Rectangle<float> (26.0f, 14.0f).withCentre (at),
@@ -346,9 +410,12 @@ void TuningStepsView::paintCircle (juce::Graphics& g, juce::Rectangle<float> are
         g.drawText (juce::String (edo) + " EDO", edoRow, juce::Justification::centred);
         g.setColour (Palette::textMuted);
         g.setFont (juce::FontOptions (10.0f));
-        g.drawText (juce::String (StepMath::stepCents (1, edo), 1) + " " + centSign, stepRow,
-                    juce::Justification::centred);
+        g.drawText (table.isCustomFor (edo) ? juce::String ("custom")
+                                            : juce::String (StepMath::stepCents (1, edo), 1) + " " + centSign,
+                    stepRow, juce::Justification::centred);
     }
+
+    paintHandles (g);
 
     // Pontos: a altura que cada voz segurada está tocando (anda com pitch bend e glide).
     for (const float cents : dotCents)
@@ -376,7 +443,10 @@ void TuningStepsView::paintLine (juce::Graphics& g, juce::Rectangle<float> area)
     auto ruler    = area.removeFromBottom (32.0f);
     auto bar      = area.reduced (0.0f, 2.0f);
     if (bar.getHeight() < 30.0f || bar.getWidth() < 100.0f)
+    {
+        lineHandleRow = {};
         return;
+    }
 
     auto xOf = [&bar] (double cents)
     {
@@ -391,6 +461,7 @@ void TuningStepsView::paintLine (juce::Graphics& g, juce::Rectangle<float> area)
     auto lineArea = bar.reduced (0.0f, 4.0f);
     auto numbersRow = lineArea.removeFromBottom (16.0f); // números dos steps, dentro da barra
     lineArea.removeFromBottom (2.0f);
+    lineHandleRow = { bar.getX(), lineArea.getY(), bar.getWidth(), lineArea.getHeight() };
 
     // Referência 12-TET: linhas tracejadas a cada 100 ¢.
     if (showTwelveTet)
@@ -409,7 +480,7 @@ void TuningStepsView::paintLine (juce::Graphics& g, juce::Rectangle<float> area)
             if ((glow[static_cast<size_t> (step)] > 0.0f) != litPass)
                 continue;
 
-            const float x = xOf (k == edo ? StepMath::centsPerOctave : StepMath::stepCents (k, edo));
+            const float x = xOf (k == edo ? StepMath::centsPerOctave : stepPosition (k));
             drawStepLine (g, { x, lineArea.getY(), x, lineArea.getBottom() }, step);
         }
 
@@ -421,7 +492,7 @@ void TuningStepsView::paintLine (juce::Graphics& g, juce::Rectangle<float> area)
         if (! StepMath::shouldLabel (step, edo) && glow[static_cast<size_t> (step)] <= 0.0f)
             continue;
 
-        const float x = xOf (k == edo ? StepMath::centsPerOctave : StepMath::stepCents (k, edo));
+        const float x = xOf (k == edo ? StepMath::centsPerOctave : stepPosition (k));
         g.setColour (labelColour (step));
         g.drawText (k == edo ? "0" + primeSign : juce::String (k),
                     juce::Rectangle<float> (x - 13.0f, numbersRow.getY(), 26.0f, numbersRow.getHeight()),
@@ -461,6 +532,8 @@ void TuningStepsView::paintLine (juce::Graphics& g, juce::Rectangle<float> area)
         g.setColour (Palette::primary);
         g.fillEllipse (juce::Rectangle<float> (9.0f, 9.0f).withCentre (at));
     }
+
+    paintHandles (g);
 }
 
 // ----------------------------------------------------------------------------- Lista de notas
@@ -470,7 +543,7 @@ void TuningStepsView::paintHeldList (juce::Graphics& g, juce::Rectangle<float> a
     // Ex.: "MIDI 75 → step 6, oct +0 · 379 ¢ · 547.7 Hz"
     auto describe = [this] (const HeldNote& note)
     {
-        const double cents = StepMath::stepCents (note.step, edo);
+        const double cents = stepPosition (note.step);
         return "MIDI " + juce::String (note.midiNote) + " " + arrow + " step " + juce::String (note.step)
              + ", oct " + signedInt (note.octave) + " " + middleDot + " " + juce::String (juce::roundToInt (cents))
              + " " + centSign + " " + middleDot + " " + juce::String (StepMath::toHz (baseHz, note.octave, cents), 1) + " Hz";
@@ -529,4 +602,156 @@ void TuningStepsView::paintHeldList (juce::Graphics& g, juce::Rectangle<float> a
             break;
         drawItem (area.removeFromTop (20.0f), describe (note));
     }
+}
+
+// ----------------------------------------------------------------------------- Afinação desenhada (RF17)
+
+bool TuningStepsView::canEdit() const
+{
+    if (locked || edo < 2) // com 1 EDO só existe o step 0, que é fixo
+        return false;
+
+    return view == View::circle ? circleRadius > 0.0f : ! lineHandleRow.isEmpty();
+}
+
+juce::Point<float> TuningStepsView::handlePosition (int step) const
+{
+    const double cents = stepPosition (step);
+
+    // Circle: no meio da linha, fora do miolo e longe dos pontos das notas (que ficam na borda).
+    if (view == View::circle)
+        return polar (circleCentre, StepMath::centsToAngle (cents), circleRadius * 0.72f);
+
+    // Line: no meio da altura das linhas.
+    return { lineHandleRow.getX() + static_cast<float> (StepMath::centsToFraction (cents)) * lineHandleRow.getWidth(),
+             lineHandleRow.getCentreY() };
+}
+
+int TuningStepsView::findHandle (juce::Point<float> position) const
+{
+    if (! canEdit())
+        return -1;
+
+    // A alça mais próxima dentro do alcance (com muitos steps, as alças ficam coladas).
+    int best = -1;
+    float bestDistance = handleHitRange;
+    for (int k = 1; k < edo; ++k)
+    {
+        const float distance = handlePosition (k).getDistanceFrom (position);
+        if (distance <= bestDistance)
+        {
+            best = k;
+            bestDistance = distance;
+        }
+    }
+    return best;
+}
+
+double TuningStepsView::centsAt (juce::Point<float> position, int step) const
+{
+    if (view == View::line)
+    {
+        const float fraction = (position.x - lineHandleRow.getX()) / juce::jmax (1.0f, lineHandleRow.getWidth());
+        return StepMath::centsPerOctave * fraction; // fora da barra: moveStep prende entre as vizinhas
+    }
+
+    // Circle: ângulo a partir do topo, no sentido horário (inverso de polar()).
+    const auto delta = position - circleCentre;
+    double angle = std::atan2 (static_cast<double> (delta.x), static_cast<double> (-delta.y));
+    if (angle < 0.0)
+        angle += juce::MathConstants<double>::twoPi;
+
+    const double cents = StepMath::centsPerOctave * angle / juce::MathConstants<double>::twoPi;
+
+    // Perto do topo, o ângulo pula de 1199 ¢ para 0 ¢. Escolhe a volta mais perto de onde a
+    // linha está, para o último step não "saltar" para o começo ao passar do topo.
+    const double current = stepPosition (step);
+    double best = cents;
+    for (const double candidate : { cents - StepMath::centsPerOctave, cents + StepMath::centsPerOctave })
+        if (std::abs (candidate - current) < std::abs (best - current))
+            best = candidate;
+
+    return best;
+}
+
+void TuningStepsView::paintHandles (juce::Graphics& g) const
+{
+    if (! canEdit())
+        return;
+
+    for (int k = 1; k < edo; ++k)
+    {
+        const auto at = handlePosition (k);
+        const bool active = k == dragStep || (dragStep < 0 && k == hoverStep);
+        const bool moved  = std::abs (stepPosition (k) - StepMath::stepCents (k, edo)) > 1.0e-6;
+        const float size  = active ? handleSize + 4.0f : handleSize;
+        const auto box    = juce::Rectangle<float> (size, size).withCentre (at);
+
+        g.setColour (active ? Palette::primary : Palette::widget);
+        g.fillEllipse (box);
+        g.setColour (moved || active ? Palette::primary : Palette::textMuted);
+        g.drawEllipse (box, 1.2f);
+    }
+}
+
+void TuningStepsView::updateResetButton()
+{
+    resetButton.setEnabled (! locked && table.isCustomFor (edo));
+}
+
+void TuningStepsView::mouseMove (const juce::MouseEvent& event)
+{
+    const int step = findHandle (event.position);
+    if (step != hoverStep)
+    {
+        hoverStep = step;
+        setMouseCursor (step > 0 ? juce::MouseCursor::DraggingHandCursor : juce::MouseCursor::NormalCursor);
+        repaint();
+    }
+}
+
+void TuningStepsView::mouseExit (const juce::MouseEvent&)
+{
+    if (hoverStep >= 0 && dragStep < 0)
+    {
+        hoverStep = -1;
+        setMouseCursor (juce::MouseCursor::NormalCursor);
+        repaint();
+    }
+}
+
+void TuningStepsView::mouseDown (const juce::MouseEvent& event)
+{
+    dragStep = findHandle (event.position);
+    if (dragStep > 0)
+        repaint();
+}
+
+void TuningStepsView::mouseDrag (const juce::MouseEvent& event)
+{
+    if (dragStep <= 0 || ! canEdit())
+        return;
+
+    // A tabela nova vai para o processador a cada movimento: o áudio usa nas próximas notas
+    // (as seguradas mantêm a altura, RF3) e o estado do set é atualizado.
+    TuningTable moved = table;
+    moved.moveStep (dragStep, centsAt (event.position, dragStep), edo);
+
+    if (moved != table)
+    {
+        table = moved;
+        pluginProcessor.setTuningTable (table);
+        updateResetButton();
+    }
+    repaint();
+}
+
+void TuningStepsView::mouseUp (const juce::MouseEvent& event)
+{
+    if (dragStep < 0)
+        return;
+
+    dragStep = -1;
+    mouseMove (event); // atualiza a alça sob o mouse e o cursor
+    repaint();
 }

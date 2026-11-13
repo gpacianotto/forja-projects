@@ -249,14 +249,11 @@ MatizaVoice::PitchSnapshot MatizaVoice::getPitchSnapshot() const noexcept
     if (! isVoiceActive())
         return snapshot;
 
-    // Mesma conta do TuningEngine, mas em cents: usa a afinação copiada no note-on (RF3),
-    // então o ponto mostra a altura que está soando de verdade.
-    const auto& settings = noteTuning.getSettings();
-    const double steps = glide.getCurrent() - settings.refNote + bend * settings.bendSteps;
-
+    // Usa a afinação copiada no note-on (RF3), com a tabela desenhada (RF17), então o ponto
+    // mostra a altura que está soando de verdade.
     snapshot.held          = ! released;
     snapshot.midiNote      = currentMidiNote;
-    snapshot.centsFromBase = 1200.0 * steps / juce::jmax (1, settings.edo);
+    snapshot.centsFromBase = noteTuning.centsFromBase (glide.getCurrent(), bend);
     return snapshot;
 }
 
@@ -321,8 +318,7 @@ void MatizaVoice::updateFrequencies()
     const double sampleRate = getSampleRate();
 
     // RF1: a frequência vem do motor de afinação (qualquer EDO), nunca do 12 tons do JUCE.
-    const double noteHz = noteTuning.noteToHz (glide.getCurrent(), bend);
-    const int edo = noteTuning.getSettings().edo;
+    const double note = glide.getCurrent();
 
     const double globalPitchSteps = modOffsets[ModMatrix::index (Dest::pitch)] * ModMatrix::pitchStepsAtFull;
 
@@ -339,7 +335,11 @@ void MatizaVoice::updateFrequencies()
 
         const float oscLevel = ModMatrix::applyNormalized (osc.level, modOffsets[ModMatrix::index (ModMatrix::oscLevelDest (i))]);
 
-        const double hz = noteHz * TuningEngine::transposeRatio (edo, osc.octave, steps, fineCents);
+        // Transposição em steps e Pitch da matriz somam steps à nota antes da tabela (RF17):
+        // com afinação desenhada, "+4 steps" cai na quarta linha acima da nota. A oitava e o
+        // Fine multiplicam depois (×2 por oitava; cents).
+        const double hz = noteTuning.noteToHz (note, bend, steps)
+                        * std::exp2 (osc.octave + fineCents / 1200.0);
 
         // Unison (RF12): cada cópia desvia alguns cents da frequência do oscilador.
         // Cópia que passaria de Nyquist (RF4) fica muda; as outras continuam.

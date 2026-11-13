@@ -17,8 +17,12 @@
 // Notas seguradas acendem a linha do seu step (brilho que se apaga ~300 ms depois de soltar),
 // e um ponto mostra a altura que está soando, andando entre as linhas com pitch bend e glide.
 //
+// Afinação desenhada (RF17): cada linha (menos a do step 0) tem uma alça que o usuário arrasta
+// para mudar a posição do step. A tabela vai para o processador (PluginProcessor::setTuningTable),
+// que a entrega ao áudio. Com o Lock da aba Tuning ligado, as alças somem.
+//
 // Como os outros gráficos (Graphs.h), lê tudo de atômicos num Timer de 30 Hz, na thread da
-// interface, e só redesenha quando algo mudou. Nada aqui muda o som.
+// interface, e só redesenha quando algo mudou.
 class TuningStepsView final : public juce::Component, private juce::Timer
 {
 public:
@@ -27,6 +31,13 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+
+    // Arrasto das alças (RF17)
+    void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
 
 private:
     enum class View { circle, line };
@@ -58,14 +69,26 @@ private:
     void drawStepLine (juce::Graphics&, juce::Line<float> line, int step) const;
     juce::Colour labelColour (int step) const;
 
+    // --- Afinação desenhada (RF17) ---
+    double stepPosition (int step) const { return table.stepCents (step, edo); } // cents na oitava
+    bool canEdit() const;
+    juce::Point<float> handlePosition (int step) const;
+    int findHandle (juce::Point<float> position) const; // step da alça sob o mouse, ou -1
+    double centsAt (juce::Point<float> position, int step) const;
+    void paintHandles (juce::Graphics&) const;
+    void paintDragInfo (juce::Graphics&, juce::Rectangle<float> area) const;
+    void updateResetButton();
+
     PluginProcessor& pluginProcessor;
     juce::AudioProcessorValueTreeState& apvts;
     std::atomic<float>* edoParam     = nullptr;
     std::atomic<float>* baseHzParam  = nullptr;
     std::atomic<float>* refNoteParam = nullptr;
+    std::atomic<float>* lockParam    = nullptr;
 
     juce::TextButton circleButton { "Circle" }, lineButton { "Line" };
     juce::ToggleButton twelveTetButton { "12-TET" };
+    juce::TextButton resetButton { "Reset (equal)" };
 
     View view = View::circle;
     bool showTwelveTet = false;
@@ -76,6 +99,17 @@ private:
     double baseHz = 440.0;
     int    refNote = 69;
     std::array<float, maxEdo> glow {}; // brilho de cada step, 0..1
+
+    // Afinação desenhada: cópia da tabela do processador e estado do arrasto.
+    TuningTable table;
+    bool locked = false;
+    int hoverStep = -1;
+    int dragStep  = -1;
+
+    // Geometria do último desenho, para achar as alças com o mouse.
+    juce::Point<float> circleCentre;
+    float circleRadius = 0.0f;              // 0 = visão Circle sem espaço para desenhar
+    juce::Rectangle<float> lineHandleRow;   // faixa das linhas na visão Line (vazia = sem espaço)
 
     // Ponto de cada voz segurada: posição em cents dentro da oitava, ou -1 sem ponto.
     std::array<float, PluginProcessor::numVoices> dotCents {};
