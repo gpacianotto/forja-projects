@@ -20,28 +20,27 @@ kanban-plugin: board
 	- [ ] Conferir se o submódulo `_libs/JUCE` aparece como modificado no Git do Windows (`git status`); daqui do Linux aparece só por causa das quebras de linha CRLF
 	
 	#Workspace
-- [ ] # Interface: logo MTZ no cabeçalho do Matiza
+- [ ] # Interface: logos no Matiza (cabeçalho, tela Sobre e ícone)
 	
-	Trocar o texto "Matiza" do cabeçalho da interface pela logo MTZ (o esboço refinado da rodada 1 de logos, 11/11/2026), na cor palha (`Palette::primary`) sobre o fundo escuro.
+	Levar as logos aprovadas em 12/11/2026 para dentro do plugin. Os arquivos estão em `_brand/` (ver `_brand/README.md`); não redesenhar no código.
 	
-	> Depende da aprovação final da logo. Se a rodada 2 mudar o desenho, usar a versão aprovada.
-	
-	**Onde entra**
-	- Cabeçalho: hoje `PluginEditor::paint` desenha o texto "Matiza" (22 pt, negrito) num espaço de 140 px de largura (`titleWidth`) por 36 px de altura (`headerHeight`). A logo testada em 30 px de altura continua legível.
-	- [a definir] Tela "Sobre" com a assinatura "MATIZA by Forja Instruments" (pendência do card de rebranding): entra neste card ou em card próprio.
-	- [a definir] Ícone do app Standalone (`ICON_BIG` / `ICON_SMALL` no `juce_add_plugin`), com o ícone de degradê.
+	**O que entra**
+	- **Cabeçalho:** trocar o texto "Matiza" (`PluginEditor::paint`, 22 pt, num espaço de 140 × 36 px, `titleWidth`/`headerHeight`) pelo MTZ (`_brand/matiza/mtz-palha.svg`), na cor `Palette::primary`, alinhado à esquerda e centralizado na altura. Testado: continua legível com 30 px de altura (tamanho mínimo).
+	- **Tela "Sobre"** (pendência do card de rebranding): janela simples aberta por um botão discreto no cabeçalho, com a assinatura "MATIZA by Forja Instruments" (`_brand/matiza/matiza-assinatura-clara.svg`), versão (`JucePlugin_VersionString`), créditos (JUCE e a fonte Inter, licença OFL) e um espaço para o nome do licenciado (card de licenciamento). Sem janela modal do sistema: um componente por cima do editor, fechado com clique fora ou Esc.
+	- **Ícone do app Standalone:** `ICON_BIG` e `ICON_SMALL` no `juce_add_plugin` com `_brand/matiza/png/matiza-icone-512.png` e `-64.png`.
 	
 	**Como fazer**
-	- Guardar o SVG da logo em `Matiza/assets/` e embutir no plugin com `juce_add_binary_data` (CMake). Carregar com `juce::Drawable::createFromSVG` e desenhar com `drawWithin`, mantendo a proporção.
-	- Alternativa sem arquivo: o MTZ é feito só de polígonos, dá para montar um `juce::Path` no código.
-	- Trocar a cor do SVG pela `Palette::primary` (`replaceColour`), para seguir a paleta se ela mudar.
-	- Conferir que as alças das fontes de modulação no cabeçalho continuam cabendo (o espaço do título pode mudar de largura).
+	- Copiar os arquivos usados para `Matiza/assets/` (o plugin não depende de `_brand/` no build) e embutir com `juce_add_binary_data` no CMake.
+	- Carregar o SVG com `juce::Drawable::createFromSVG` uma vez (no construtor, nunca no `paint`), trocar a cor com `replaceColour` para seguir a `Palette`, e desenhar com `drawWithin` mantendo a proporção.
+	- Conferir que as alças das fontes de modulação no cabeçalho continuam cabendo.
 	
 	**Etapas**
-	- [ ] SVG final em `Matiza/assets/` e `juce_add_binary_data` no CMake
-	- [ ] Logo no cabeçalho, na cor palha, alinhada à esquerda e centralizada na altura
+	- [ ] `Matiza/assets/` com os arquivos e `juce_add_binary_data` no CMake
+	- [ ] MTZ no cabeçalho
+	- [ ] Tela "Sobre" com a assinatura, versão e créditos
+	- [ ] Ícone do Standalone
 	- [ ] Build Debug/Release sem warnings, pluginval nível 5
-	- [ ] Teste no Ableton: janela no tamanho padrão, mínimo e máximo
+	- [ ] Teste no Ableton: cabeçalho no tamanho padrão, mínimo e máximo; abrir e fechar a tela Sobre; ícone do Standalone no Windows
 	
 	#Matiza
 - [ ] # Feat: licenciamento (Paddle + servidor de licenças)

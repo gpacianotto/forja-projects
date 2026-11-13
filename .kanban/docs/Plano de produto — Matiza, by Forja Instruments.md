@@ -47,6 +47,14 @@ Também há nomes vizinhos no KVR, como o [Mycrosynth](https://www.kvraudio.com/
 - [ ] Garantir o @forjainstruments no Instagram e no YouTube.
 - [ ] Fazer o pedido de registro da marca Forja no INPI (classe 9).
 
+## Identidade visual (12/11/2026)
+
+Logos aprovadas e guardadas em `_brand/` (ver `_brand/README.md`: qual arquivo usar onde, cores, tamanho mínimo e como gerar de novo):
+
+- **Forja Instruments:** símbolo da **Bigorna** + a palavra FORJA desenhada em blocos (hastes e barras de espessura única, cortes a 45°) + INSTRUMENTS em Inter SemiBold.
+- **Matiza:** sigla **MTZ**, refinada a partir do esboço de 10/11/2026 (M, T e Z presos numa barra contínua), na cor palha sobre o fundo escuro da interface; ícone com o degradê ferro → branco → palha.
+- Cores da paleta Têmpera (`Matiza/src/Palette.h`). Os conceitos B (Têmpera) e C (Punção) da Forja ficaram de fora.
+
 ## Marca guarda-chuva
 
 A marca será **Forja Instruments**, seguindo a estrutura da Xfer Records: uma marca da empresa e um nome curto e próprio para cada plugin. Matiza é o primeiro; os próximos plugins ganham nomes próprios e aparecem no menu "Produtos" do site da Forja.

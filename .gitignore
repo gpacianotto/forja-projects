@@ -13,6 +13,9 @@ _tools/pluginval/
 # Claude Code (configurações locais pessoais)
 .claude/settings.local.json
 
+# Python (scripts de _brand/fonte)
+__pycache__/
+
 # Sistema
 Thumbs.db
 desktop.ini

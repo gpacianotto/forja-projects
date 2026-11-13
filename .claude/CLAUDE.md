@@ -16,6 +16,7 @@ O caminho tem espaços: SEMPRE coloque caminhos entre aspas em comandos de shell
 Plugins Ableton/
 ├── .claude/            contexto compartilhado (este arquivo, skills, templates)
 ├── .kanban/            quadro kanban (vault do Obsidian) — ver seção "Kanban"
+├── _brand/            logos da Forja Instruments e dos produtos (ver _brand/README.md)
 ├── _libs/JUCE/         submódulo git do JUCE 8 — NUNCA editar
 ├── _tools/
 │   ├── juce-build/     build do AudioPluginHost
