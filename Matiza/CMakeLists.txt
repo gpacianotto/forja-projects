@@ -21,11 +21,21 @@ juce_add_plugin(Matiza
     COPY_PLUGIN_AFTER_BUILD TRUE
     VST3_COPY_DIR "C:/Program Files/Common Files/VST3/Dev"
     BUNDLE_ID com.forjainstruments.matiza
-    PRODUCT_NAME "Matiza")
+    PRODUCT_NAME "Matiza"
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/assets/matiza-icone-512.png"
+    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/assets/matiza-icone-64.png")
+
+# Logos embutidas no plugin (copiadas de _brand/matiza; o build não depende de _brand/).
+# No código: BinaryData::mtzpalha_svg, BinaryData::matizaassinaturaclara_svg.
+juce_add_binary_data(MatizaAssets
+    SOURCES
+        assets/mtz-palha.svg
+        assets/matiza-assinatura-clara.svg)
 
 target_sources(Matiza PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
+    src/AboutOverlay.cpp
     src/Graphs.cpp
     src/ModulationUI.cpp
     src/EnvelopeTabs.cpp
@@ -48,6 +58,7 @@ target_compile_definitions(Matiza PUBLIC
 
 target_link_libraries(Matiza
     PRIVATE
+        MatizaAssets
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

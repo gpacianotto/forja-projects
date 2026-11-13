@@ -20,29 +20,6 @@ kanban-plugin: board
 	- [ ] Conferir se o submódulo `_libs/JUCE` aparece como modificado no Git do Windows (`git status`); daqui do Linux aparece só por causa das quebras de linha CRLF
 	
 	#Workspace
-- [ ] # Interface: logos no Matiza (cabeçalho, tela Sobre e ícone)
-	
-	Levar as logos aprovadas em 12/11/2026 para dentro do plugin. Os arquivos estão em `_brand/` (ver `_brand/README.md`); não redesenhar no código.
-	
-	**O que entra**
-	- **Cabeçalho:** trocar o texto "Matiza" (`PluginEditor::paint`, 22 pt, num espaço de 140 × 36 px, `titleWidth`/`headerHeight`) pelo MTZ (`_brand/matiza/mtz-palha.svg`), na cor `Palette::primary`, alinhado à esquerda e centralizado na altura. Testado: continua legível com 30 px de altura (tamanho mínimo).
-	- **Tela "Sobre"** (pendência do card de rebranding): janela simples aberta por um botão discreto no cabeçalho, com a assinatura "MATIZA by Forja Instruments" (`_brand/matiza/matiza-assinatura-clara.svg`), versão (`JucePlugin_VersionString`), créditos (JUCE e a fonte Inter, licença OFL) e um espaço para o nome do licenciado (card de licenciamento). Sem janela modal do sistema: um componente por cima do editor, fechado com clique fora ou Esc.
-	- **Ícone do app Standalone:** `ICON_BIG` e `ICON_SMALL` no `juce_add_plugin` com `_brand/matiza/png/matiza-icone-512.png` e `-64.png`.
-	
-	**Como fazer**
-	- Copiar os arquivos usados para `Matiza/assets/` (o plugin não depende de `_brand/` no build) e embutir com `juce_add_binary_data` no CMake.
-	- Carregar o SVG com `juce::Drawable::createFromSVG` uma vez (no construtor, nunca no `paint`), trocar a cor com `replaceColour` para seguir a `Palette`, e desenhar com `drawWithin` mantendo a proporção.
-	- Conferir que as alças das fontes de modulação no cabeçalho continuam cabendo.
-	
-	**Etapas**
-	- [ ] `Matiza/assets/` com os arquivos e `juce_add_binary_data` no CMake
-	- [ ] MTZ no cabeçalho
-	- [ ] Tela "Sobre" com a assinatura, versão e créditos
-	- [ ] Ícone do Standalone
-	- [ ] Build Debug/Release sem warnings, pluginval nível 5
-	- [ ] Teste no Ableton: cabeçalho no tamanho padrão, mínimo e máximo; abrir e fechar a tela Sobre; ícone do Standalone no Windows
-	
-	#Matiza
 - [ ] # Feat: licenciamento (Paddle + servidor de licenças)
 	
 	Como o Matiza será vendido e liberado depois da compra. Planejado em 11/11/2026; fluxo da Paddle detalhado em 12/11/2026.
@@ -150,12 +127,36 @@ kanban-plugin: board
 ## Em Andamento
 
 
+
 ## Em Revisão
 
 
 
 ## Concluído
 
+- [x] # Interface: logos no Matiza (cabeçalho, tela Sobre e ícone)
+	
+	Levar as logos aprovadas em 12/11/2026 para dentro do plugin. Os arquivos estão em `_brand/` (ver `_brand/README.md`); não redesenhar no código.
+	
+	**O que entra**
+	- **Cabeçalho:** trocar o texto "Matiza" (`PluginEditor::paint`, 22 pt, num espaço de 140 × 36 px, `titleWidth`/`headerHeight`) pelo MTZ (`_brand/matiza/mtz-palha.svg`), na cor `Palette::primary`, alinhado à esquerda e centralizado na altura. Testado: continua legível com 30 px de altura (tamanho mínimo).
+	- **Tela "Sobre"** (pendência do card de rebranding): janela simples aberta por um botão discreto no cabeçalho, com a assinatura "MATIZA by Forja Instruments" (`_brand/matiza/matiza-assinatura-clara.svg`), versão (`JucePlugin_VersionString`), créditos (JUCE e a fonte Inter, licença OFL) e um espaço para o nome do licenciado (card de licenciamento). Sem janela modal do sistema: um componente por cima do editor, fechado com clique fora ou Esc.
+	- **Ícone do app Standalone:** `ICON_BIG` e `ICON_SMALL` no `juce_add_plugin` com `_brand/matiza/png/matiza-icone-512.png` e `-64.png`.
+	
+	**Como fazer**
+	- Copiar os arquivos usados para `Matiza/assets/` (o plugin não depende de `_brand/` no build) e embutir com `juce_add_binary_data` no CMake.
+	- Carregar o SVG com `juce::Drawable::createFromSVG` uma vez (no construtor, nunca no `paint`), trocar a cor com `replaceColour` para seguir a `Palette`, e desenhar com `drawWithin` mantendo a proporção.
+	- Conferir que as alças das fontes de modulação no cabeçalho continuam cabendo.
+	
+	**Etapas**
+	- [x] `Matiza/assets/` com os arquivos e `juce_add_binary_data` no CMake (`MatizaAssets`)
+	- [x] MTZ no cabeçalho (30 px de altura; clicar abre a tela Sobre)
+	- [x] Tela "Sobre" com a assinatura, versão e créditos (`src/AboutOverlay`; texto "License: not activated" reservado para o licenciamento)
+	- [x] Ícone do Standalone
+	- [x] Build Debug/Release sem warnings, 97 testes, pluginval nível 5 (12/11/2026)
+	- [x] Teste no Ableton (aprovado em 12/11/2026): cabeçalho no tamanho padrão, mínimo e máximo; abrir e fechar a tela Sobre; ícone do Standalone no Windows
+	
+	#Matiza
 - [x] # Feat: afinação desenhada no gráfico dos steps
 	
 	Fase 2 do gráfico dos steps: arrastar as linhas com o mouse para criar uma afinação personalizada, nas duas visões (Circle e Line). Depende do card "Interface: gráfico dos steps da EDO na aba Tuning".

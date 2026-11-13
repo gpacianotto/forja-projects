@@ -5,6 +5,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include "AboutOverlay.h"
 #include "Controls.h"
 #include "ModulationUI.h"
 #include "Palette.h"
@@ -123,6 +124,12 @@ private:
         std::unique_ptr<juce::ParameterAttachment> syncAttachment;
     };
     std::array<LfoSyncControls, ParamIDs::numLfos> lfoSyncControls;
+
+    // Logo MTZ no cabeçalho; clicar abre a tela Sobre.
+    juce::DrawableButton logoButton { "About Matiza", juce::DrawableButton::ImageFitted };
+
+    // Por último: fica por cima de todos os outros componentes quando aberta.
+    AboutOverlay aboutOverlay;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginEditor)
 };

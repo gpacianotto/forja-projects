@@ -1,5 +1,8 @@
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
+
+#include <BinaryData.h> // logos embutidas (juce_add_binary_data, ver CMakeLists.txt)
+
 #include "EnvelopeTabs.h"
 #include "Graphs.h"
 #include "TuningStepsView.h"
@@ -10,7 +13,9 @@ namespace
     constexpr int margin       = 12;
     constexpr int gap          = 10;
     constexpr int tabBarDepth  = 30;
-    constexpr int titleWidth   = 140; // espaço do nome "Matiza" no cabeçalho
+    constexpr int titleWidth   = 140; // espaço da logo MTZ no cabeçalho
+    constexpr int logoHeight   = 30;  // tamanho mínimo do MTZ (ver _brand/README.md)
+    constexpr float logoAspect = 2000.0f / 520.0f; // viewBox do mtz-palha.svg
     constexpr int versionWidth = 60;
 
     // Tamanho inicial e limites da janela redimensionável. O mínimo é o próprio tamanho
@@ -284,6 +289,25 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
         tuningLockAttachment->sendInitialUpdate();
     }
 
+    // Logo MTZ (assets/mtz-palha.svg, embutido pelo CMake). Carregada uma vez aqui, nunca no
+    // paint. A cor do arquivo é trocada pela da paleta, para seguir a Palette se ela mudar.
+    if (auto logo = juce::Drawable::createFromImageData (BinaryData::mtzpalha_svg, BinaryData::mtzpalha_svgSize))
+    {
+        logo->replaceColour (juce::Colour (0xffd9a441), Palette::primary);
+        auto logoHover = logo->createCopy();
+        logoHover->replaceColour (Palette::primary, Palette::primary.brighter (0.35f));
+        logoButton.setImages (logo.get(), logoHover.get()); // o botão guarda cópias
+    }
+    logoButton.setEdgeIndent (0);
+    logoButton.setColour (juce::DrawableButton::backgroundColourId, juce::Colours::transparentBlack);
+    logoButton.setColour (juce::DrawableButton::backgroundOnColourId, juce::Colours::transparentBlack);
+    logoButton.setMouseCursor (juce::MouseCursor::PointingHandCursor);
+    logoButton.setTooltip ("About Matiza");
+    logoButton.onClick = [this] { aboutOverlay.show(); };
+    addAndMakeVisible (logoButton);
+
+    addChildComponent (aboutOverlay); // invisível até clicar na logo
+
     setResizable (true, true); // true, true = pode redimensionar e mostra a alça no canto
     setResizeLimits (minWidth, minHeight, maxWidth, maxHeight);
     setSize (defaultWidth, defaultHeight);
@@ -321,10 +345,6 @@ void PluginEditor::paint (juce::Graphics& g)
 
     auto header = getLocalBounds().reduced (margin, 0).removeFromTop (headerHeight + margin / 2);
 
-    g.setColour (getLookAndFeel().findColour (juce::Label::textColourId));
-    g.setFont (juce::FontOptions (22.0f, juce::Font::bold));
-    g.drawText ("Matiza", header, juce::Justification::centredLeft);
-
     g.setColour (getLookAndFeel().findColour (juce::Label::textColourId).withAlpha (0.5f));
     g.setFont (juce::FontOptions (13.0f));
     g.drawText ("v" JucePlugin_VersionString, header, juce::Justification::centredRight);
@@ -335,6 +355,13 @@ void PluginEditor::resized()
     auto area = getLocalBounds();
     auto header = area.removeFromTop (headerHeight + margin / 2);
     tabs.setBounds (area);
+    aboutOverlay.setBounds (getLocalBounds());
+
+    // Logo MTZ à esquerda, centralizada na altura, com a proporção do arquivo.
+    const auto titleArea = header.reduced (margin, 0).removeFromLeft (titleWidth);
+    logoButton.setBounds (titleArea.withWidth (juce::roundToInt (logoHeight * logoAspect))
+                                   .withSizeKeepingCentre (juce::roundToInt (logoHeight * logoAspect), logoHeight)
+                                   .withX (titleArea.getX()));
 
     // Alças das fontes entre o nome e a versão, divididas igualmente.
     auto chipsArea = header.reduced (margin, 0);
