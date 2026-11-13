@@ -116,7 +116,11 @@ kanban-plugin: board
 
 ## Em Revisão
 
-- [ ] # Infra: tirar o token do GitHub da URL do remote
+
+
+## Concluído
+
+- [x] # Infra: tirar o token do GitHub da URL do remote
 	
 	A URL do `origin` tem um token pessoal do GitHub escrito por extenso (fica em `.git/config`, legível por qualquer ferramenta que abra o repositório). O token foi visto numa sessão remota em 11/11/2026: tratar como exposto.
 	
@@ -130,10 +134,6 @@ kanban-plugin: board
 	- [x] Conferir se o submódulo `_libs/JUCE` aparece como modificado no Git do Windows (`git status`); daqui do Linux aparece só por causa das quebras de linha CRLF (no Windows está limpo, 12/11/2026)
 	
 	#Workspace
-
-
-## Concluído
-
 - [x] # Interface: logos no Matiza (cabeçalho, tela Sobre e ícone)
 	
 	Levar as logos aprovadas em 12/11/2026 para dentro do plugin. Os arquivos estão em `_brand/` (ver `_brand/README.md`); não redesenhar no código.
