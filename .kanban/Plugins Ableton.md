@@ -6,25 +6,6 @@ kanban-plugin: board
 
 ## Backlog
 
-- [ ] # Feat: afinação desenhada no gráfico dos steps
-	
-	Fase 2 do gráfico dos steps: arrastar as linhas com o mouse para criar uma afinação personalizada, nas duas visões (Circle e Line). Depende do card "Interface: gráfico dos steps da EDO na aba Tuning".
-	
-	Ver RF17 no Spec.
-	
-	**Decidido (11/11/2026)**
-	- Mudar o EDO por qualquer caminho (knob, automação do Ableton, preset) descarta a afinação desenhada e volta às linhas equidistantes com o novo número de linhas.
-	- O Lock da aba Tuning também trava o gráfico: sem alças, sem arrasto.
-	- Step 0 fixo em 0 ¢, oitava sempre 1200 ¢, linhas não se cruzam; botão Reset (equal).
-	- Salva no estado do plugin, não automatizável.
-	
-	**Esboço**
-	
-	![[Esboço — Tuning Steps — Fase 2 (arrastar).png]]
-	
-	> Tentar: importar e exportar arquivos Scala (.scl).
-	
-	#Matiza
 - [ ] # Infra: tirar o token do GitHub da URL do remote
 	
 	A URL do `origin` tem um token pessoal do GitHub escrito por extenso (fica em `.git/config`, legível por qualquer ferramenta que abra o repositório). O token foi visto numa sessão remota em 11/11/2026: tratar como exposto.
@@ -126,7 +107,6 @@ kanban-plugin: board
 	- [ ] Testes: licença válida, adulterada, de outro produto, vencida (alpha), lista negra; set salvo com licença abre igual sem licença (só com ruído); compra completa no sandbox de ponta a ponta
 	
 	#Matiza
-
 - [ ] # Feat: seguir a afinação do MTS-ESP
 	
 	Fazer o Matiza seguir a afinação de um plugin "master" do MTS-ESP (ODDSound), o padrão aberto que sincroniza a afinação entre plugins. Com isso o Matiza fica afinado junto com Serum, synths da u-he e dezenas de outros, sem configurar nada. Ver [[Plano de produto — Kick microtonal]], seção 4.
@@ -151,7 +131,6 @@ kanban-plugin: board
 	- [ ] Build Debug/Release sem warnings, pluginval nível 5
 	
 	#Matiza
-
 - [ ] # Produto: kick microtonal (segundo produto da Forja)
 	
 	Sintetizador de kick que segue a afinação microtonal da música (afinação interna igual à do Matiza + MTS-ESP). Nome e branding a definir quando o escopo fechar. Ver [[Plano de produto — Kick microtonal]].
@@ -171,7 +150,33 @@ kanban-plugin: board
 
 ## Em Andamento
 
-- [ ] # Interface: gráfico dos steps da EDO na aba Tuning
+- [ ] # Feat: afinação desenhada no gráfico dos steps
+	
+	Fase 2 do gráfico dos steps: arrastar as linhas com o mouse para criar uma afinação personalizada, nas duas visões (Circle e Line). Depende do card "Interface: gráfico dos steps da EDO na aba Tuning".
+	
+	Ver RF17 no Spec.
+	
+	**Decidido (11/11/2026)**
+	- Mudar o EDO por qualquer caminho (knob, automação do Ableton, preset) descarta a afinação desenhada e volta às linhas equidistantes com o novo número de linhas.
+	- O Lock da aba Tuning também trava o gráfico: sem alças, sem arrasto.
+	- Step 0 fixo em 0 ¢, oitava sempre 1200 ¢, linhas não se cruzam; botão Reset (equal).
+	- Salva no estado do plugin, não automatizável.
+	
+	**Esboço**
+	
+	![[Esboço — Tuning Steps — Fase 2 (arrastar).png]]
+	
+	> Tentar: importar e exportar arquivos Scala (.scl).
+	
+	#Matiza
+
+
+## Em Revisão
+
+
+## Concluído
+
+- [x] # Interface: gráfico dos steps da EDO na aba Tuning
 	
 	Abaixo dos knobs da aba Tuning, um painel **Steps** que mostra onde caem os passos da EDO dentro da oitava, em duas sub-abas: **Circle** (radial, uma volta = uma oitava) e **Line** (a mesma oitava na horizontal). Ao tocar uma nota, a linha do step dela pulsa.
 	
@@ -200,20 +205,11 @@ kanban-plugin: board
 	- [x] Botão 12-TET e sub-aba salvos no estado do plugin (`stepsTwelveTet`, `stepsView`)
 	- [x] Aba Tuning: grupo Steps abaixo dos knobs (`TabPage::addRow` com altura máxima por linha; nota com altura fixa)
 	- [x] Pré-visualização renderizada com o JUCE no Linux (stub do processador): Circle e Line em 19 e 72 EDO
-	- [ ] Build Debug/Release no Windows sem warnings, ctest, pluginval nível 5
-	- [ ] Teste no Ableton: 12 e 19 EDO nas duas visões, acorde, pitch bend, glide no modo Mono, EDO 72, redimensionar a janela
-	
-	> Código escrito em 11/11/2026 pelo acesso remoto (sem MSVC): falta compilar no Windows.
+	- [x] Build Debug/Release no Windows sem warnings (corrigido o C4459 de `maxHeight` em `TabPage::addRow`), 89 testes, pluginval nível 5 (12/11/2026)
+	- [x] Ajustes do teste (12/11/2026): miolo do Circle com duas linhas de altura fixa ("N EDO" e "x ¢", sem sobreposição); tamanho mínimo da janela = tamanho inicial (840 × 560)
+	- [x] Teste no Ableton: 12 e 19 EDO nas duas visões, acorde, pitch bend, glide no modo Mono, EDO 72, redimensionar a janela
 	
 	#Matiza
-
-
-## Em Revisão
-
-
-
-## Concluído
-
 - [x] # Interface: gráfico do LFO com edição manual da onda
 	
 	Mostrar a forma de cada LFO num gráfico de linhas, com ponto da fase atual.
@@ -481,6 +477,6 @@ kanban-plugin: board
 
 %% kanban:settings
 ```
-{"kanban-plugin":"board","list-collapse":[false,false,false,false],"show-checkboxes":true,"new-line-trigger":"enter","hide-card-count":false,"full-list-lane-width":true,"lane-width":350,"new-note-template":"Projetos de Software/Untitled Kanban.md","tag-sort":[{"tag":"#MicroSynth"}],"tag-colors":[{"tagKey":"#Matiza","color":"rgba(255, 0, 0, 1)","backgroundColor":"rgba(255, 255, 255, 1)"}],"move-tags":true,"tag-action":"kanban"}
+{"kanban-plugin":"board","list-collapse":[false,false,false,true],"show-checkboxes":true,"new-line-trigger":"enter","hide-card-count":false,"full-list-lane-width":true,"lane-width":350,"new-note-template":"Projetos de Software/Untitled Kanban.md","tag-sort":[{"tag":"#MicroSynth"}],"tag-colors":[{"tagKey":"#Matiza","color":"rgba(255, 0, 0, 1)","backgroundColor":"rgba(255, 255, 255, 1)"}],"move-tags":true,"tag-action":"kanban"}
 ```
 %%

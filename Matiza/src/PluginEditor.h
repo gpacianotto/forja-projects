@@ -19,9 +19,9 @@ class TabPage final : public juce::Component
 {
 public:
     // weight: altura relativa da linha (2 = o dobro de uma linha com peso 1).
-    // maxHeight > 0: altura máxima só desta linha; o que sobrar vai para as linhas sem limite
+    // rowMaxHeight > 0: altura máxima só desta linha; o que sobrar vai para as linhas sem limite
     // próprio (ex.: na aba Tuning, os knobs ficam baixos e o gráfico dos steps cresce).
-    void addRow (std::initializer_list<ParameterGroup*> groups, int weight = 1, int maxHeight = 0);
+    void addRow (std::initializer_list<ParameterGroup*> groups, int weight = 1, int rowMaxHeight = 0);
 
     // Altura máxima de cada linha, para os knobs não ficarem gigantes numa aba com poucos controles.
     void setMaxRowHeight (int height) { maxRowHeight = height; }

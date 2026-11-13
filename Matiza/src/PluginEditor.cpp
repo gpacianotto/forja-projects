@@ -13,9 +13,10 @@ namespace
     constexpr int titleWidth   = 140; // espaço do nome "Matiza" no cabeçalho
     constexpr int versionWidth = 60;
 
-    // Tamanho inicial e limites da janela redimensionável.
+    // Tamanho inicial e limites da janela redimensionável. O mínimo é o próprio tamanho
+    // inicial: menor que isso, os knobs e os gráficos ficam apertados.
     constexpr int defaultWidth  = 840, defaultHeight = 560;
-    constexpr int minWidth      = 640, minHeight     = 460;
+    constexpr int minWidth      = defaultWidth, minHeight = defaultHeight;
     constexpr int maxWidth      = 1680, maxHeight    = 1120;
 
     // Uma linha de grupos; cada grupo ganha largura proporcional ao seu número de controles,
@@ -81,9 +82,9 @@ namespace
 
 // ----------------------------------------------------------------------------- TabPage
 
-void TabPage::addRow (std::initializer_list<ParameterGroup*> groups, int weight, int maxHeight)
+void TabPage::addRow (std::initializer_list<ParameterGroup*> groups, int weight, int rowMaxHeight)
 {
-    rows.push_back ({ groups, weight, maxHeight });
+    rows.push_back ({ groups, weight, rowMaxHeight });
 
     for (auto* group : groups)
         addAndMakeVisible (*group);

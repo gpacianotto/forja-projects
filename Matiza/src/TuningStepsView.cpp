@@ -326,23 +326,28 @@ void TuningStepsView::paintCircle (juce::Graphics& g, juce::Rectangle<float> are
     }
 
     // Miolo com o nome da EDO.
-    const float hubRadius = juce::jmin (34.0f, radius * 0.32f);
+    const float hubRadius = juce::jmin (36.0f, radius * 0.36f);
     const auto hub = juce::Rectangle<float> (hubRadius * 2.0f, hubRadius * 2.0f).withCentre (centre);
     g.setColour (Palette::panel);
     g.fillEllipse (hub);
     g.setColour (Palette::outline);
     g.drawEllipse (hub, 1.0f);
 
-    if (hubRadius >= 26.0f)
+    if (hubRadius >= 24.0f)
     {
+        // Duas linhas de altura fixa, uma logo acima e outra logo abaixo do centro, para não se
+        // sobreporem em nenhum tamanho. "/step" fica só no cabeçalho: aqui não cabe.
+        const float textWidth = hubRadius * 1.8f;
+        const juce::Rectangle<float> edoRow  (centre.x - textWidth * 0.5f, centre.y - 15.0f, textWidth, 15.0f);
+        const juce::Rectangle<float> stepRow (centre.x - textWidth * 0.5f, centre.y + 1.0f,  textWidth, 12.0f);
+
         g.setColour (Palette::text);
         g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
-        g.drawText (juce::String (edo) + " EDO", hub.withTrimmedBottom (hubRadius * 0.7f).withTrimmedTop (hubRadius * 0.25f),
-                    juce::Justification::centredBottom);
+        g.drawText (juce::String (edo) + " EDO", edoRow, juce::Justification::centred);
         g.setColour (Palette::textMuted);
         g.setFont (juce::FontOptions (10.0f));
-        g.drawText (juce::String (StepMath::stepCents (1, edo), 1) + " " + centSign + "/step",
-                    hub.withTrimmedTop (hubRadius * 1.05f), juce::Justification::centredTop);
+        g.drawText (juce::String (StepMath::stepCents (1, edo), 1) + " " + centSign, stepRow,
+                    juce::Justification::centred);
     }
 
     // Pontos: a altura que cada voz segurada está tocando (anda com pitch bend e glide).
