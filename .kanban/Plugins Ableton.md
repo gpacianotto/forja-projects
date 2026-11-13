@@ -153,7 +153,11 @@ kanban-plugin: board
 
 ## Em Revisão
 
-- [ ] # Feat: afinação desenhada no gráfico dos steps
+
+
+## Concluído
+
+- [x] # Feat: afinação desenhada no gráfico dos steps
 	
 	Fase 2 do gráfico dos steps: arrastar as linhas com o mouse para criar uma afinação personalizada, nas duas visões (Circle e Line). Depende do card "Interface: gráfico dos steps da EDO na aba Tuning".
 	
@@ -178,14 +182,11 @@ kanban-plugin: board
 	- [x] Processador: tabela no buffer triplo, salva no estado (`tuningTable`), descartada quando o EDO muda
 	- [x] Interface: alças nas duas visões, arrasto com texto (cents, posição igual, vizinhas), Reset (equal), "custom" no centro, Lock
 	- [x] Build Debug/Release sem warnings, ctest, pluginval nível 5 (12/11/2026)
-	- [ ] Teste no Ableton (teste 18 do Spec)
+	- [x] Teste no Ableton (teste 18 do Spec), aprovado em 12/11/2026
 	
 	> Tentar: importar e exportar arquivos Scala (.scl).
 	
 	#Matiza
-
-## Concluído
-
 - [x] # Interface: gráfico dos steps da EDO na aba Tuning
 	
 	Abaixo dos knobs da aba Tuning, um painel **Steps** que mostra onde caem os passos da EDO dentro da oitava, em duas sub-abas: **Circle** (radial, uma volta = uma oitava) e **Line** (a mesma oitava na horizontal). Ao tocar uma nota, a linha do step dela pulsa.
