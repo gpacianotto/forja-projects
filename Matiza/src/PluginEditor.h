@@ -10,6 +10,7 @@
 #include "ModulationUI.h"
 #include "Palette.h"
 #include "Parameters.h"
+#include "ScaleLines.h"
 #include "ShapeEditor.h"
 
 class PluginProcessor;
@@ -48,7 +49,7 @@ private:
 };
 
 // Interface própria do Matiza, organizada em abas (RF8):
-//   Oscillators  — os 3 osciladores (RF6)
+//   Oscillators  — os 3 osciladores (RF6), um por sub-aba, com o unison embaixo (RF12, RF19)
 //   Amp & Filter — modo de vozes (RF7), volume, envelopes (Amp Env / Mod Env) e filtro
 //   Matrix       — os 8 slots da matriz de modulação (RF10)
 //   LFOs         — os 3 LFOs (RF11)
@@ -67,6 +68,9 @@ public:
 
 private:
     void setTuningLocked (bool locked);
+
+    // Linhas da escala atual em volta do step 0, para o gráfico do unison (RF19).
+    ScaleLines::Lines currentScaleLines();
 
     // Editores de forma desenhada (RF15), ligados aos pontos do processador e ao parâmetro
     // de forma (a primeira edição muda a forma para Custom).
@@ -88,6 +92,9 @@ private:
     std::array<ParameterGroup, ParamIDs::numOscillators> oscillatorGroups { ParameterGroup { "Osc 1" },
                                                                             ParameterGroup { "Osc 2" },
                                                                             ParameterGroup { "Osc 3" } };
+    std::array<ParameterGroup, ParamIDs::numOscillators> unisonGroups { ParameterGroup { "Unison" },
+                                                                        ParameterGroup { "Unison" },
+                                                                        ParameterGroup { "Unison" } };
     ParameterGroup voiceGroup    { "Voice" };
     ParameterGroup outputGroup   { "Output" };
     ParameterGroup envelopeGroup { "Envelope" };
@@ -99,7 +106,12 @@ private:
                                                               ParameterGroup { "LFO 2" },
                                                               ParameterGroup { "LFO 3" } };
 
-    TabPage oscillatorsPage, ampFilterPage, matrixPage, lfoPage, tuningPage;
+    TabPage ampFilterPage, matrixPage, lfoPage, tuningPage;
+
+    // Aba Oscillators: uma sub-aba por oscilador (oscilador em cima, unison embaixo).
+    // As sub-abas são declaradas depois das páginas: são destruídas antes delas.
+    std::array<TabPage, ParamIDs::numOscillators> oscillatorPages;
+    juce::TabbedComponent oscillatorTabs { juce::TabbedButtonBar::TabsAtTop };
 
     // Alças das fontes de modulação, no cabeçalho.
     std::vector<std::unique_ptr<SourceChip>> sourceChips;

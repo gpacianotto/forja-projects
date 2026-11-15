@@ -100,3 +100,42 @@ TEST_CASE ("Unison: width 0 deixa tudo no centro; width 1 abre as pontas", "[uni
         REQUIRE_THAT (p, WithinAbs (p0, 1e-5));
     }
 }
+
+// --- Gráfico do unison (RF19): altura das barras e tiques da régua L/R ---
+
+TEST_CASE ("Grafico do unison: altura das barras = centrais 1, laterais Blend")
+{
+    // 4 cópias: as duas do meio são centrais.
+    CHECK (Unison::relativeLevel (0, 4, 0.3f) == 0.3f);
+    CHECK (Unison::relativeLevel (1, 4, 0.3f) == 1.0f);
+    CHECK (Unison::relativeLevel (2, 4, 0.3f) == 1.0f);
+    CHECK (Unison::relativeLevel (3, 4, 0.3f) == 0.3f);
+
+    // Blend 0: só as centrais aparecem; fora da faixa, limitado.
+    CHECK (Unison::relativeLevel (0, 5, 0.0f) == 0.0f);
+    CHECK (Unison::relativeLevel (2, 5, 0.0f) == 1.0f);
+    CHECK (Unison::relativeLevel (0, 5, 2.0f) == 1.0f);
+}
+
+TEST_CASE ("Grafico do unison: pan de cada copia na regua L/R")
+{
+    CHECK (Unison::pan (0, 1, 1.0f) == 0.0f);   // uma cópia: centro
+    CHECK (Unison::pan (0, 3, 1.0f) == -1.0f);  // ponta esquerda
+    CHECK (Unison::pan (1, 3, 1.0f) == 0.0f);
+    CHECK (Unison::pan (2, 3, 1.0f) == 1.0f);   // ponta direita
+    CHECK (Unison::pan (2, 3, 0.5f) == 0.5f);   // Width 50 %
+    CHECK (Unison::pan (0, 3, 0.0f) == 0.0f);   // Width 0: tudo no centro
+}
+
+TEST_CASE ("Grafico do unison: a conta do grafico e a do audio")
+{
+    // O pan do gráfico tem que bater com os ganhos L/R que o áudio usa.
+    const auto layout = Unison::computeLayout (5, 30.0f, 0.6f, 0.8f);
+    for (int k = 0; k < layout.count; ++k)
+    {
+        const auto i = static_cast<std::size_t> (k);
+        const float angle = std::atan2 (layout.gainRight[i], layout.gainLeft[i]);
+        const float panFromGains = angle * 4.0f / std::numbers::pi_v<float> - 1.0f;
+        CHECK_THAT (panFromGains, Catch::Matchers::WithinAbs (Unison::pan (k, 5, 0.8f), 1e-5));
+    }
+}

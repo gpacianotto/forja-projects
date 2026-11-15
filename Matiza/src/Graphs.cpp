@@ -3,6 +3,7 @@
 #include "Oscillator.h"
 #include "Palette.h"
 #include "Parameters.h"
+#include "Unison.h"
 
 namespace
 {
@@ -65,23 +66,43 @@ namespace
     }
 }
 
-FilterGraph::FilterGraph (juce::AudioProcessorValueTreeState& apvts)
+FilterGraph::FilterGraph (juce::AudioProcessorValueTreeState& apvts, const ModulationDisplay& modulationDisplay)
+    : modulation (modulationDisplay)
 {
     cutoffParam = apvts.getRawParameterValue (ParamIDs::cutoff);
     resoParam   = apvts.getRawParameterValue (ParamIDs::reso);
+    cutoffRange = apvts.getParameterRange (ParamIDs::cutoff);
+    resoRange   = apvts.getParameterRange (ParamIDs::reso);
     startTimerHz (refreshHz);
+}
+
+FilterGraph::Values FilterGraph::modulatedValues() const
+{
+    // Mesma conta da voz (MatizaVoice::updateModulation): soma o deslocamento na posição
+    // normalizada do knob e converte de volta para Hz / Q.
+    auto modulate = [] (const juce::NormalisableRange<float>& range, float base, std::optional<float> offset)
+    {
+        if (! offset.has_value() || *offset == 0.0f)
+            return base;
+        return range.convertFrom0to1 (ModMatrix::applyNormalized (range.convertTo0to1 (base), *offset));
+    };
+
+    return { modulate (cutoffRange, cutoffParam->load(), modulation.read (ModMatrix::Dest::cutoff)),
+             modulate (resoRange,   resoParam->load(),   modulation.read (ModMatrix::Dest::resonance)) };
 }
 
 void FilterGraph::timerCallback()
 {
-    if (cutoffParam->load() != drawnCutoff || resoParam->load() != drawnReso)
+    if (cutoffParam->load() != drawnCutoff || resoParam->load() != drawnReso || ! (modulatedValues() == drawnModulated))
         repaint();
 }
 
 void FilterGraph::paint (juce::Graphics& g)
 {
-    drawnCutoff = cutoffParam->load();
-    drawnReso   = resoParam->load();
+    drawnCutoff    = cutoffParam->load();
+    drawnReso      = resoParam->load();
+    drawnModulated = modulatedValues();
+    const bool modulated = drawnModulated.cutoff != drawnCutoff || drawnModulated.reso != drawnReso;
 
     const auto area = drawGraphBackground (g, *this);
 
@@ -107,20 +128,33 @@ void FilterGraph::paint (juce::Graphics& g)
     // Curva: um ponto a cada 2 pixels.
     // (Não dá para usar curve.isEmpty() para achar o primeiro ponto: um Path só com o ponto
     // inicial ainda conta como vazio, e cada ponto abriria um caminho novo, sem linhas.)
-    juce::Path curve;
-    bool firstPoint = true;
-    for (float x = area.getX(); x <= area.getRight(); x += 2.0f)
+    auto makeCurve = [&area] (float cutoff, float reso)
     {
-        const double db = GraphMath::lowpassMagnitudeDb (xToHz (x, area), drawnCutoff, drawnReso);
-        const float y = dbToY (db, area);
+        juce::Path path;
+        bool firstPoint = true;
+        for (float x = area.getX(); x <= area.getRight(); x += 2.0f)
+        {
+            const double db = GraphMath::lowpassMagnitudeDb (xToHz (x, area), cutoff, reso);
+            const float y = dbToY (db, area);
 
-        if (firstPoint)
-            curve.startNewSubPath (x, y);
-        else
-            curve.lineTo (x, y);
+            if (firstPoint)
+                path.startNewSubPath (x, y);
+            else
+                path.lineTo (x, y);
 
-        firstPoint = false;
+            firstPoint = false;
+        }
+        return path;
+    };
+
+    // RF20: com modulação, a curva dos knobs fica apagada por trás da curva modulada.
+    if (modulated)
+    {
+        g.setColour (curveColour (*this).withAlpha (0.3f));
+        g.strokePath (makeCurve (drawnCutoff, drawnReso), juce::PathStrokeType (1.5f));
     }
+
+    const juce::Path curve = makeCurve (drawnModulated.cutoff, drawnModulated.reso);
 
     // Preenchimento translúcido embaixo da curva.
     juce::Path fill (curve);
@@ -214,6 +248,140 @@ void OscillatorGraph::paint (juce::Graphics& g)
     const bool enabled = drawnOn > 0.5f;
     g.setColour (curveColour (*this).withAlpha (enabled ? 1.0f : 0.3f));
     g.strokePath (wave, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved));
+}
+
+// ----------------------------------------------------------------------------- UnisonGraph
+
+UnisonGraph::UnisonGraph (juce::AudioProcessorValueTreeState& apvts, std::size_t oscIndex,
+                          std::function<ScaleLines::Lines()> lines)
+    : scaleLines (std::move (lines))
+{
+    onParam     = apvts.getRawParameterValue (ParamIDs::oscOn[oscIndex]);
+    unisonParam = apvts.getRawParameterValue (ParamIDs::oscUnison[oscIndex]);
+    detuneParam = apvts.getRawParameterValue (ParamIDs::oscDetune[oscIndex]);
+    blendParam  = apvts.getRawParameterValue (ParamIDs::oscBlend[oscIndex]);
+    widthParam  = apvts.getRawParameterValue (ParamIDs::oscWidth[oscIndex]);
+    startTimerHz (refreshHz);
+}
+
+std::array<float, 5> UnisonGraph::readValues() const
+{
+    return { onParam->load(), unisonParam->load(), detuneParam->load(), blendParam->load(), widthParam->load() };
+}
+
+void UnisonGraph::timerCallback()
+{
+    // Knobs, automação e a escala (EDO, afinação desenhada, master do MTS-ESP) mudam o desenho.
+    const auto lines = scaleLines != nullptr ? scaleLines() : ScaleLines::Lines {};
+    if (readValues() != drawnValues || ! (lines == drawnLines))
+        repaint();
+}
+
+void UnisonGraph::paint (juce::Graphics& g)
+{
+    drawnValues = readValues();
+    drawnLines  = scaleLines != nullptr ? scaleLines() : ScaleLines::Lines {};
+
+    const bool  enabled = drawnValues[0] > 0.5f;
+    const int   count   = juce::jlimit (1, Unison::maxVoices, juce::roundToInt (drawnValues[1]));
+    const float detune  = drawnValues[2];
+    const float blend   = drawnValues[3] / 100.0f;
+    const float width   = drawnValues[4] / 100.0f;
+    const auto  layout  = Unison::computeLayout (count, detune, blend, width); // mesma conta do áudio
+    const float alpha   = enabled ? 1.0f : 0.35f; // oscilador desligado: apagado, como a onda
+
+    const auto area = drawGraphBackground (g, *this);
+
+    // Faixas, de cima para baixo: título, barras, cents do eixo, régua L/R.
+    // Muito baixo: só barras e régua.
+    const bool roomForText = area.getHeight() >= 80.0f && area.getWidth() >= 120.0f;
+    auto rest = area;
+    const auto titleRow = roomForText ? rest.removeFromTop (16.0f) : juce::Rectangle<float>();
+    const auto panRow   = rest.removeFromBottom (16.0f);
+    rest.removeFromBottom (4.0f);
+    const auto axisRow  = roomForText ? rest.removeFromBottom (14.0f) : juce::Rectangle<float>();
+    const auto bars     = rest.reduced (0.0f, 2.0f);
+
+    // Eixo de afinação: −100 a +100 cents (a faixa do Detune) em volta da nota. Margem nas
+    // pontas para os textos e as letras L/R.
+    constexpr float axisCents = 100.0f;
+    constexpr float sideMargin = 14.0f;
+    const float halfWidth = area.getWidth() / 2.0f - sideMargin;
+    const float centreX = area.getCentreX();
+    auto xOfCents = [centreX, halfWidth] (double cents)
+    {
+        return centreX + static_cast<float> (cents / axisCents) * halfWidth;
+    };
+
+    g.setFont (juce::FontOptions (11.0f));
+
+    // Grade: ±50 ¢ e ±100 ¢ bem fracas; a nota (0 ¢) mais forte.
+    g.setColour (gridColour (*this));
+    for (const float c : { -100.0f, -50.0f, 50.0f, 100.0f })
+        g.drawVerticalLine (juce::roundToInt (xOfCents (c)), bars.getY(), bars.getBottom());
+    g.setColour (gridColour (*this).withMultipliedAlpha (2.0f));
+    g.drawVerticalLine (juce::roundToInt (centreX), bars.getY(), bars.getBottom());
+
+    // Linhas da escala atual (steps vizinhos), tracejadas em bronze.
+    const float dashes[] = { 3.0f, 3.0f };
+    g.setColour (Palette::secondary.withAlpha (0.8f * alpha));
+    for (int i = 0; i < drawnLines.count; ++i)
+    {
+        const float x = xOfCents (drawnLines.cents[static_cast<std::size_t> (i)]);
+        g.drawDashedLine ({ x, bars.getY(), x, bars.getBottom() }, dashes, 2, 1.5f);
+    }
+
+    // Barras: posição = desvio da cópia; altura = volume relativo (centrais 1, laterais Blend).
+    const float barWidth = juce::jlimit (3.0f, 8.0f, area.getWidth() / 50.0f);
+    for (int k = 0; k < layout.count; ++k)
+    {
+        const float level = Unison::relativeLevel (k, layout.count, blend);
+        const float x = xOfCents (layout.detuneCents[static_cast<std::size_t> (k)]);
+        const float h = juce::jmax (2.0f, level * bars.getHeight());
+        const auto bar = juce::Rectangle<float> (x - barWidth / 2.0f, bars.getBottom() - h, barWidth, h);
+
+        g.setColour (curveColour (*this).withAlpha (alpha * (level > 0.0f ? 0.85f : 0.3f)));
+        g.fillRoundedRectangle (bar, juce::jmin (2.0f, barWidth / 2.0f));
+    }
+
+    // Régua L—C—R do Width, com um tique por cópia na posição do pan.
+    const float rulerY = panRow.getCentreY();
+    g.setColour (gridTextColour (*this));
+    g.drawHorizontalLine (juce::roundToInt (rulerY), centreX - halfWidth, centreX + halfWidth);
+    g.drawVerticalLine (juce::roundToInt (centreX), rulerY - 3.0f, rulerY + 3.0f);
+    g.drawText ("L", juce::Rectangle<float> (area.getX(), panRow.getY(), sideMargin - 2.0f, panRow.getHeight()),
+                juce::Justification::centredLeft);
+    g.drawText ("R", juce::Rectangle<float> (area.getRight() - sideMargin + 2.0f, panRow.getY(), sideMargin - 2.0f, panRow.getHeight()),
+                juce::Justification::centredRight);
+
+    g.setColour (curveColour (*this).withAlpha (alpha));
+    for (int k = 0; k < layout.count; ++k)
+    {
+        const float x = centreX + Unison::pan (k, layout.count, width) * halfWidth;
+        g.fillRoundedRectangle (juce::Rectangle<float> (x - 1.5f, rulerY - 5.0f, 3.0f, 10.0f), 1.0f);
+    }
+
+    if (! roomForText)
+        return;
+
+    // Cents do eixo, embaixo das barras.
+    g.setColour (gridTextColour (*this));
+    const juce::String minus (juce::CharPointer_UTF8 ("\xe2\x88\x92")); // −
+    for (const auto& [cents, text] : { std::pair { -100.0f, minus + "100" }, std::pair { -50.0f, minus + "50" },
+                                       std::pair { 0.0f, juce::String ("0 ct") }, std::pair { 50.0f, juce::String ("+50") },
+                                       std::pair { 100.0f, juce::String ("+100") } })
+        g.drawText (text, juce::Rectangle<float> (xOfCents (cents) - 22.0f, axisRow.getY(), 44.0f, axisRow.getHeight()),
+                    juce::Justification::centred);
+
+    // Título: "4 voices · ±50 ct · blend 78 % · width 100 %"
+    const juce::String dot (juce::CharPointer_UTF8 ("\xc2\xb7"));        // ·
+    const juce::String plusMinus (juce::CharPointer_UTF8 ("\xc2\xb1"));  // ±
+    const juce::String title = juce::String (layout.count) + (layout.count == 1 ? " voice" : " voices")
+                             + " " + dot + " " + plusMinus + juce::String (detune, 1) + " ct"
+                             + " " + dot + " blend " + juce::String (juce::roundToInt (blend * 100.0f)) + " %"
+                             + " " + dot + " width " + juce::String (juce::roundToInt (width * 100.0f)) + " %";
+    g.setColour (gridTextColour (*this).withMultipliedAlpha (1.6f));
+    g.drawFittedText (title, titleRow.toNearestInt(), juce::Justification::centredLeft, 1, 0.8f);
 }
 
 // ----------------------------------------------------------------------------- EnvelopeGraph

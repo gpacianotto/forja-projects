@@ -7,6 +7,7 @@
 
 #include "CustomShapes.h"
 #include "MatizaSynthesiser.h"
+#include "ModulationDisplay.h"
 #include "Parameters.h"
 #include "TripleBuffer.h"
 #include "TuningEngine.h"
@@ -58,6 +59,9 @@ public:
     };
     EnvelopeDisplay envelopeDisplay;
     EnvelopeDisplay modEnvDisplay; // envelope de modulação (RF10)
+
+    // Deslocamento atual de cada destino da matriz na última voz tocada (RF20).
+    ModulationDisplay modulationDisplay;
 
     // --- Formas desenhadas (RF15). Só na thread da interface. ---
     const ShapePoints& getLfoPoints (std::size_t lfo) const { return customShapes->getLfoPoints (lfo); }

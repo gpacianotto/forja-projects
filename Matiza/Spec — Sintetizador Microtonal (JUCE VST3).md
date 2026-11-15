@@ -180,6 +180,18 @@ As listas de forma e divisão também são fechadas: nunca reordenar nem remover
   - **Biblioteca:** `libMTSClient.h/.cpp` da ODDSound (licença 0BSD: uso comercial livre, sem atribuição obrigatória) em `third_party/MTS-ESP/`, sem modificações. Ela só carrega a `LIBMTS.dll` instalada pelo MTS-ESP em `Common Files\MTS-ESP`; sem ela, o Matiza segue na afinação interna. Não acessa a rede.
   - [a definir] Mensagens MIDI Tuning Standard (SysEx) quando não houver master (`MTS_ParseMIDIData`).
   - [a definir] Tabelas por canal MIDI (controladores microtonais com mais de 128 teclas).
+- RF19 (v0.12): gráfico do unison (RF12), como no Serum.
+  - **Onde fica:** a aba Oscillators tem uma sub-aba por oscilador (Osc 1, Osc 2, Osc 3). Em cada uma, o grupo do oscilador em cima (On, Waveform, onda, Level, Octave, Steps, Fine) e, embaixo, o grupo **Unison** com o gráfico à esquerda e os knobs Unison, Detune, Blend e Width à direita. O gráfico fica sempre visível e acompanha knobs, automação e escala (decidido em 15/11/2026, depois do teste da primeira versão, em que o gráfico cobria a onda e ficava pequeno demais).
+  - **Barras:** uma por cópia, num eixo horizontal de afinação de −100 a +100 cents em volta da nota (a faixa do Detune). Posição = desvio da cópia; altura = volume relativo (centrais = 1, laterais = Blend). Mesma conta do áudio (`Unison.h`), sem duplicar.
+  - **Width:** uma régua L—C—R embaixo das barras, com um tique por cópia na posição do pan (decidido em 15/11/2026).
+  - **Linhas da escala** atrás das barras: os steps vizinhos da afinação atual (EDO, afinação desenhada do RF17 ou master do MTS-ESP do RF18) que caem dentro do eixo, contados a partir do step 0. Com 12 EDO o eixo inteiro fica dentro de um semitom; com 19 EDO aparecem os steps ±1 (±63 ¢).
+  - Não muda o tamanho mínimo da janela (840 × 560). Oscilador desligado: gráfico apagado, como a onda.
+- RF20 (v0.12): modulação animada nos knobs e no gráfico do filtro.
+  - **Knob:** nos knobs modulados (com anel, RF10/RF14), um ponto claro no anel de dentro mostra o valor modulado atual (soma de todos os slots daquele destino), andando dentro do alcance.
+  - **Gráfico do filtro (RF9):** com Cutoff ou Resonance modulados, a curva desenhada usa os valores modulados; a curva do valor dos knobs fica apagada por trás (decidido em 15/11/2026).
+  - **Fonte do valor:** a modulação é calculada por voz. No fim de cada bloco, o áudio publica em atômicos o deslocamento de cada destino da **última voz tocada** (a mesma do ponto do envelope do RF9). A interface lê a 30 Hz e só redesenha o que mudou.
+  - **Sem nota tocando** (nenhuma voz ativa, contando o release): o ponto some e o gráfico mostra só a curva dos knobs (decidido em 15/11/2026).
+  - [a definir] Outros gráficos afetados por destinos da matriz (ondas dos osciladores com Level, steps com Pitch).
 
 ## Modelo de afinação
 
@@ -335,6 +347,8 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 | 17. Gráfico dos steps | Painel Steps com Circle e Line, notas acesas, ponto com bend/glide e botão 12-TET (RF16) | Com 19 EDO, as 19 linhas aparecem equidistantes nas duas visões; tocar um acorde acende as linhas dos seus steps; pitch bend e glide movem o ponto entre as linhas; mudar o EDO redesenha na hora |
 | 18. Afinação desenhada | Arrastar as linhas, Reset, Lock e `TuningEngine` com tabela (RF17) | Arrastar a linha do step 4 de 7 EDO para 702 ¢ e tocar esse step mede ~660 Hz no Tuner do Live (Base 440); mudar o EDO volta ao equidistante; com Lock as linhas não mexem; reabrir o set mantém o desenho |
 | 19. MTS-ESP | Cliente MTS-ESP, Follow MTS-ESP, indicador, gráfico com a afinação do master (RF18) | Com o MTS-ESP Mini carregando um .scl de 19 EDO numa track, o Matiza em outra track toca afinado com o master (Tuner do Live); mudar a escala no master muda a nota segurada; desligar o Follow volta à afinação interna; sem o MTS-ESP instalado, nada muda |
+| 20. Gráfico do unison | Sub-abas Osc 1/2/3, grupo Unison com barras das cópias, régua L/R e linhas da escala (RF19) | Girar o Detune espalha as barras; Blend 0 deixa só as centrais; Width 0 junta os tiques no C; com 19 EDO aparecem as linhas ±63 ¢; automação do Detune move as barras; os 3 osciladores nas sub-abas |
+| 21. Modulação animada | Ponto do valor modulado nos knobs e curva do filtro modulada (RF20) | LFO 1 → Cutoff: o ponto do knob e a curva do filtro andam juntos com uma nota segurada; dois slots no mesmo knob mostram um ponto só (a soma); soltar a nota e acabar o release some com o ponto |
 
 Uma sugestão de ritmo: as etapas 1 e 2 cabem numa primeira noite, e a etapa 3 é o marco que prova a ideia.
 

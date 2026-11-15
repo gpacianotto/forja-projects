@@ -7,7 +7,8 @@ using ModMatrix::Source;
 
 // ----------------------------------------------------------------------------- ModulationModel
 
-ModulationModel::ModulationModel (juce::AudioProcessorValueTreeState& apvts)
+ModulationModel::ModulationModel (juce::AudioProcessorValueTreeState& apvts, const ModulationDisplay* display)
+    : liveDisplay (display)
 {
     for (std::size_t i = 0; i < ParamIDs::numModSlots; ++i)
     {
@@ -245,6 +246,22 @@ void ModRingOverlay::paint (juce::Graphics& g)
         g.setColour (colour);
         g.strokePath (arc, stroke);
     }
+
+    // RF20: ponto claro no anel de dentro, no valor modulado atual (soma de todos os slots).
+    // Mesma conta do anel: posição do knob + deslocamento × escala, presa na faixa do knob.
+    if (drawnLiveOffset.has_value())
+    {
+        const float angle = angleFor (drawnProportion + *drawnLiveOffset * scale);
+        const juce::Point<float> at { geo.centre.x + geo.radius * std::sin (angle),
+                                      geo.centre.y - geo.radius * std::cos (angle) };
+        const float size = ringThickness + 4.0f;
+        const auto dot = juce::Rectangle<float> (size, size).withCentre (at);
+
+        g.setColour (Palette::background);
+        g.fillEllipse (dot.expanded (1.0f)); // contorno escuro: destaca o ponto do anel colorido
+        g.setColour (Palette::text);
+        g.fillEllipse (dot);
+    }
 }
 
 bool ModRingOverlay::hitTest (int x, int y)
@@ -297,7 +314,10 @@ void ModRingOverlay::timerCallback()
     const auto slots = model.slotsFor (dest);
     const double proportion = slider.valueToProportionOfLength (slider.getValue());
 
-    bool changed = proportion != drawnProportion || slots != drawnSlots;
+    // RF20: o ponto do valor modulado anda a cada bloco; só existe se o knob tem anel.
+    const auto live = slots.isEmpty() ? std::nullopt : model.getLiveOffset (dest);
+
+    bool changed = proportion != drawnProportion || slots != drawnSlots || live != drawnLiveOffset;
     for (int k = 0; k < slots.size() && ! changed; ++k)
     {
         const auto slot = model.getSlot (static_cast<std::size_t> (slots[k]));
@@ -310,6 +330,7 @@ void ModRingOverlay::timerCallback()
 
     const bool countChanged = slots.size() != drawnSlots.size();
     drawnSlots = slots;
+    drawnLiveOffset = live;
     for (int k = 0; k < slots.size(); ++k)
     {
         const auto slot = model.getSlot (static_cast<std::size_t> (slots[k]));

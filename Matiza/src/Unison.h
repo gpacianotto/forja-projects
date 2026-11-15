@@ -44,6 +44,20 @@ namespace Unison
         return index == count / 2 - 1 || index == count / 2;
     }
 
+    // Volume de uma cópia antes da normalização: centrais = 1, as outras = blend (0 a 1).
+    // A altura das barras do gráfico do unison (RF19) é exatamente este valor.
+    inline float relativeLevel (int index, int count, float blend) noexcept
+    {
+        return isCentral (index, count) ? 1.0f : std::clamp (blend, 0.0f, 1.0f);
+    }
+
+    // Pan de uma cópia, de -1 (toda à esquerda) a +1 (toda à direita): o tique na régua L/R do
+    // gráfico (RF19). Com uma cópia só, centro.
+    inline float pan (int index, int count, float width) noexcept
+    {
+        return count <= 1 ? 0.0f : std::clamp (width, 0.0f, 1.0f) * position (index, count);
+    }
+
     // count: 1 a 8 (valores fora da faixa são limitados).
     // detuneCents: desvio das cópias das pontas (as outras ficam entre -detune e +detune).
     // blend e width: 0 a 1.
@@ -69,7 +83,7 @@ namespace Unison
 
         for (int k = 0; k < layout.count; ++k)
         {
-            gains[k] = isCentral (k, layout.count) ? 1.0f : blend;
+            gains[k] = relativeLevel (k, layout.count, blend);
             sumOfSquares += gains[k] * gains[k];
         }
 
@@ -85,8 +99,8 @@ namespace Unison
 
             // Pan de potência constante: o ângulo vai de 0 (todo à esquerda) a pi/2 (todo à
             // direita). O fator raiz de 2 faz o centro valer 1 nos dois lados, como antes do unison.
-            const float pan   = width * pos;
-            const float angle = (pan + 1.0f) * static_cast<float> (std::numbers::pi) / 4.0f;
+            const float panK  = pan (k, layout.count, width);
+            const float angle = (panK + 1.0f) * static_cast<float> (std::numbers::pi) / 4.0f;
             const float gain  = gains[k] * normalisation * std::numbers::sqrt2_v<float>;
 
             layout.gainLeft[k]  = gain * std::cos (angle);

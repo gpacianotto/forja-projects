@@ -113,56 +113,6 @@ kanban-plugin: board
 	Resultado esperado: recomendação (fazer / não fazer / versão simplificada) e plano em etapas no Spec, como no [[Estudo — Wavetable nos osciladores]]. Depende da etapa C (Position) para o workflow completo.
 	
 	#Matiza
-- [ ] # Interface: modulação animada nos knobs e nos gráficos
-	
-	Hoje o anel da modulação (RF10/RF14) mostra só o alcance, parado. No Serum, o knob mostra o valor modulado se mexendo em tempo real. Os gráficos que dependem de knobs modulados (curva do filtro do RF9, por exemplo) também não reagem à modulação. Os concorrentes têm isso, e ajuda a entender o que a modulação está fazendo.
-	
-	**Proposta**
-	- **Knob:** um marcador (ponto ou trecho mais claro do anel) na posição do valor modulado atual, andando dentro do alcance. Com vários slots no mesmo knob (RF14), um marcador para o valor final (soma dos slots).
-	- **Gráfico do filtro:** a curva desenhada com Cutoff e Resonance modulados, não com o valor do knob. [a definir] manter a curva do valor base apagada por trás.
-	- [a definir] Outros gráficos afetados por destinos da matriz (ondas dos osciladores com Level, steps com Pitch).
-	
-	**Como fazer**
-	- O valor modulado só existe no áudio (matriz calculada por voz a cada bloco). No fim de cada bloco, o processador publica em atômicos o valor final de cada destino da **última voz tocada** (como o Serum e o ponto do envelope do RF9).
-	- A interface lê com o timer que já existe (30 Hz, como no RF16) e só redesenha o que mudou.
-	- Sem nota tocando: marcador some (ou fica no valor base). LFO com trigger livre: [a definir] mostrar o movimento mesmo sem nota.
-	- Custo: um atômico por destino (hoje 10 + 4 vagas), escrito uma vez por bloco.
-	
-	**Etapas**
-	- [ ] RF no Spec
-	- [ ] Processador: valores modulados da última voz em atômicos
-	- [ ] Knobs: marcador do valor modulado
-	- [ ] Gráfico do filtro com os valores modulados
-	- [ ] Build Debug/Release sem warnings, testes, pluginval nível 5
-	- [ ] Teste no Ableton: LFO 1 → Cutoff (knob e curva andando juntos), dois slots no mesmo knob, sem nota tocando, CPU da interface
-	
-	#Matiza
-- [ ] # Interface: gráfico do unison (Unison, Detune, Blend, Width)
-	
-	O unison (RF12) já funciona, mas os 4 knobs não mostram o que estão fazendo. No Serum, ao mexer neles aparece um gráfico que explica o efeito. Pedido em 13/11/2026.
-	
-	**Proposta**
-	- Ao arrastar (ou passar o mouse em) Unison, Detune, Blend ou Width, um gráfico aparece **por cima do gráfico da onda do oscilador** e some ~1 s depois de soltar.
-	- Uma barra por cópia sobre um eixo de afinação (cents em volta da nota):
-		- **Unison:** número de barras.
-		- **Detune:** espalhamento das barras para os lados.
-		- **Blend:** altura das barras laterais em relação às centrais.
-		- **Width:** [a definir] cor ou deslocamento vertical das barras indo da esquerda para a direita (pan), ou um segundo eixo L/R.
-	- Bônus do Matiza: linhas da escala atual (steps da EDO, afinação desenhada ou MTS-ESP) atrás das barras, mostrando o detune em relação aos graus da escala.
-	
-	**Espaço na tela**
-	- Por cima do gráfico da onda, não precisa de área nova. O tamanho mínimo da janela hoje é 840 × 560.
-	- Se o gráfico da onda ficar pequeno demais para ler as barras no tamanho mínimo: **avisar o Guilherme antes** de aumentar o tamanho mínimo do plugin (ele topa aumentar, mas quer ser consultado).
-	
-	**Etapas**
-	- [ ] RF no Spec
-	- [ ] Cálculo das posições, volumes e pans das cópias reaproveitando `src/Unison.h` (mesma conta do áudio, sem duplicar)
-	- [ ] Componente do gráfico e sobreposição no gráfico da onda, com aparecer/sumir
-	- [ ] Linhas da escala atrás das barras
-	- [ ] Build Debug/Release sem warnings, testes, pluginval nível 5
-	- [ ] Teste no Ableton: os 4 knobs nos 3 osciladores, automação do Live (o gráfico não deve aparecer só por automação [a definir]), tamanho mínimo da janela
-	
-	#Matiza
 - [ ] # Feat: landing page v0 (site da Forja Instruments)
 	
 	Primeira versão do site, com a página do Matiza. Além de vender, é **pré-requisito da Paddle**: a aprovação do domínio bloqueia a primeira venda real (ver card "Feat: licenciamento", seção "Aprovação do domínio"). Pôr uma versão simples no ar cedo, mesmo antes das demos dos produtores.
@@ -203,6 +153,59 @@ kanban-plugin: board
 
 
 ## Concluído
+
+- [x] # Interface: gráfico do unison (Unison, Detune, Blend, Width)
+	
+	O unison (RF12) já funciona, mas os 4 knobs não mostram o que estão fazendo. No Serum, ao mexer neles aparece um gráfico que explica o efeito. Pedido em 13/11/2026.
+	
+	**Proposta**
+	- Ao arrastar (ou passar o mouse em) Unison, Detune, Blend ou Width, um gráfico aparece **por cima do gráfico da onda do oscilador** e some ~1 s depois de soltar.
+	- Uma barra por cópia sobre um eixo de afinação (cents em volta da nota):
+		- **Unison:** número de barras.
+		- **Detune:** espalhamento das barras para os lados.
+		- **Blend:** altura das barras laterais em relação às centrais.
+		- **Width:** [a definir] cor ou deslocamento vertical das barras indo da esquerda para a direita (pan), ou um segundo eixo L/R.
+	- Bônus do Matiza: linhas da escala atual (steps da EDO, afinação desenhada ou MTS-ESP) atrás das barras, mostrando o detune em relação aos graus da escala.
+	
+	**Espaço na tela**
+	- Por cima do gráfico da onda, não precisa de área nova. O tamanho mínimo da janela hoje é 840 × 560.
+	- Se o gráfico da onda ficar pequeno demais para ler as barras no tamanho mínimo: **avisar o Guilherme antes** de aumentar o tamanho mínimo do plugin (ele topa aumentar, mas quer ser consultado).
+	
+	**Etapas**
+	- [x] RF19 no Spec (15/11/2026); decidido: Width numa régua L/R embaixo, automação não mostra o gráfico
+	- [x] Cálculo das posições, volumes e pans das cópias reaproveitando `src/Unison.h` (mesma conta do áudio, sem duplicar) (15/11/2026)
+	- [x] Componente do gráfico e sobreposição no gráfico da onda, com aparecer/sumir (15/11/2026)
+	- [x] Ajuste depois do primeiro teste (15/11/2026): o gráfico por cima da onda ficou pequeno demais. Agora a aba Oscillators tem sub-abas Osc 1/2/3; em cada uma, grupo Unison numa linha própria com o gráfico grande (`UnisonGraph`) sempre visível ao lado dos 4 knobs
+	- [x] Linhas da escala atrás das barras (`ScaleLines.h`: EDO, afinação desenhada ou MTS-ESP) (15/11/2026)
+	- [x] Build Debug/Release sem warnings, testes, pluginval nível 5 (Debug e Release ok em 15/11/2026)
+	- [x] Teste no Ableton: os 4 knobs nos 3 osciladores (sub-abas), automação do Live movendo as barras, tamanho mínimo da janela (testado pelo Guilherme em 15/11/2026)
+	
+	#Matiza
+
+- [x] # Interface: modulação animada nos knobs e nos gráficos
+	
+	Hoje o anel da modulação (RF10/RF14) mostra só o alcance, parado. No Serum, o knob mostra o valor modulado se mexendo em tempo real. Os gráficos que dependem de knobs modulados (curva do filtro do RF9, por exemplo) também não reagem à modulação. Os concorrentes têm isso, e ajuda a entender o que a modulação está fazendo.
+	
+	**Proposta**
+	- **Knob:** um marcador (ponto ou trecho mais claro do anel) na posição do valor modulado atual, andando dentro do alcance. Com vários slots no mesmo knob (RF14), um marcador para o valor final (soma dos slots).
+	- **Gráfico do filtro:** a curva desenhada com Cutoff e Resonance modulados, não com o valor do knob. [a definir] manter a curva do valor base apagada por trás.
+	- [a definir] Outros gráficos afetados por destinos da matriz (ondas dos osciladores com Level, steps com Pitch).
+	
+	**Como fazer**
+	- O valor modulado só existe no áudio (matriz calculada por voz a cada bloco). No fim de cada bloco, o processador publica em atômicos o valor final de cada destino da **última voz tocada** (como o Serum e o ponto do envelope do RF9).
+	- A interface lê com o timer que já existe (30 Hz, como no RF16) e só redesenha o que mudou.
+	- Sem nota tocando: marcador some (ou fica no valor base). LFO com trigger livre: [a definir] mostrar o movimento mesmo sem nota.
+	- Custo: um atômico por destino (hoje 10 + 4 vagas), escrito uma vez por bloco.
+	
+	**Etapas**
+	- [x] RF20 no Spec (15/11/2026); decidido: curva dos knobs apagada por trás, ponto some sem nota
+	- [x] Processador: valores modulados da última voz em atômicos (`ModulationDisplay.h`) (15/11/2026)
+	- [x] Knobs: marcador do valor modulado (ponto claro no anel de dentro) (15/11/2026)
+	- [x] Gráfico do filtro com os valores modulados (15/11/2026)
+	- [x] Build Debug/Release sem warnings, testes, pluginval nível 5 (Debug e Release ok em 15/11/2026)
+	- [x] Teste no Ableton: LFO 1 → Cutoff (knob e curva andando juntos), dois slots no mesmo knob, sem nota tocando, CPU da interface (testado pelo Guilherme em 15/11/2026)
+	
+	#Matiza
 
 - [x] # Feat: seguir a afinação do MTS-ESP
 	

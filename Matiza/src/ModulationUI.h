@@ -7,6 +7,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "ModMatrix.h"
+#include "ModulationDisplay.h"
 #include "Palette.h"
 #include "Parameters.h"
 
@@ -20,7 +21,8 @@
 class ModulationModel
 {
 public:
-    explicit ModulationModel (juce::AudioProcessorValueTreeState& apvts);
+    // display: valores modulados publicados pelo áudio (RF20); nullptr = sem animação.
+    explicit ModulationModel (juce::AudioProcessorValueTreeState& apvts, const ModulationDisplay* display = nullptr);
 
     ModMatrix::Slot getSlot (std::size_t slotIndex) const;
 
@@ -55,7 +57,16 @@ public:
     // Cor de cada fonte (RF14): alças do cabeçalho e anéis dos knobs.
     static juce::Colour sourceColour (ModMatrix::Source source);
 
+    // RF20: deslocamento atual do destino na última voz tocada (soma de todos os slots), ou
+    // nada se nenhuma voz estiver tocando.
+    std::optional<float> getLiveOffset (ModMatrix::Dest dest) const
+    {
+        return liveDisplay != nullptr ? liveDisplay->read (dest) : std::nullopt;
+    }
+
 private:
+    const ModulationDisplay* liveDisplay = nullptr;
+
     static void setParameter (juce::RangedAudioParameter& param, float value);
 
     std::array<juce::RangedAudioParameter*, ParamIDs::numModSlots> sourceParams {};
@@ -110,6 +121,7 @@ private:
     juce::Array<int> drawnSlots;
     std::array<float, ParamIDs::numModSlots> drawnAmounts {};
     std::array<int, ParamIDs::numModSlots> drawnSources {};
+    std::optional<float> drawnLiveOffset; // RF20: ponto do valor modulado (nada = sem ponto)
 };
 
 // Alça de uma fonte de modulação: arraste até um knob para criar a ligação.

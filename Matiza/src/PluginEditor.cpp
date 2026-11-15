@@ -1,10 +1,13 @@
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 
+#include <limits>
+
 #include <BinaryData.h> // logos embutidas (juce_add_binary_data, ver CMakeLists.txt)
 
 #include "EnvelopeTabs.h"
 #include "Graphs.h"
+#include "MasterScale.h"
 #include "MtsControl.h"
 #include "TuningStepsView.h"
 
@@ -155,7 +158,7 @@ void TabPage::resized()
 PluginEditor::PluginEditor (PluginProcessor& processor)
     : AudioProcessorEditor (processor),
       pluginProcessor (processor),
-      modulationModel (processor.apvts)
+      modulationModel (processor.apvts, &processor.modulationDisplay)
 {
     setLookAndFeel (&lookAndFeel);
 
@@ -180,14 +183,27 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
         group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscFine[i],   "Fine"))
             .enableModulation (modulationModel, ModMatrix::oscFineDest (i));
 
-        // Unison (RF12)
-        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscUnison[i], "Unison"));
-        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscDetune[i], "Detune"));
-        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscBlend[i],  "Blend"));
-        group.add (std::make_unique<Knob>   (apvts, ParamIDs::oscWidth[i],  "Width"));
+        // Unison (RF12) numa linha própria, com o gráfico das cópias à esquerda (RF19).
+        auto& unison = unisonGroups[i];
+        unison.setDisplay (std::make_unique<UnisonGraph> (apvts, i, [this] { return currentScaleLines(); }),
+                           0.5f, ParameterGroup::DisplayPlacement::left);
+        unison.add (std::make_unique<Knob> (apvts, ParamIDs::oscUnison[i], "Unison"));
+        unison.add (std::make_unique<Knob> (apvts, ParamIDs::oscDetune[i], "Detune"));
+        unison.add (std::make_unique<Knob> (apvts, ParamIDs::oscBlend[i],  "Blend"));
+        unison.add (std::make_unique<Knob> (apvts, ParamIDs::oscWidth[i],  "Width"));
 
-        oscillatorsPage.addRow ({ &group });
+        // Uma sub-aba por oscilador: o oscilador em cima, o unison embaixo (que cresce com a janela).
+        oscillatorPages[i].addRow ({ &group }, 1, 170);
+        oscillatorPages[i].addRow ({ &unison }, 1);
     }
+
+    oscillatorTabs.setTabBarDepth (26);
+    oscillatorTabs.setOutline (0);
+    oscillatorTabs.setIndent (0);
+    for (size_t i = 0; i < oscillatorPages.size(); ++i)
+        oscillatorTabs.addTab ("Osc " + juce::String (i + 1),
+                               lookAndFeel.findColour (juce::ResizableWindow::backgroundColourId),
+                               &oscillatorPages[i], false);
 
     // --- Aba Amp & Filter ---
     voiceGroup.add (std::make_unique<Choice> (apvts, ParamIDs::voiceMode, "Mode"));
@@ -206,7 +222,7 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
         .enableModulation (modulationModel, ModMatrix::Dest::resonance);
 
     // Gráfico (RF9) acima dos knobs do filtro (os do envelope ficam dentro das abas).
-    filterGroup.setDisplay (std::make_unique<FilterGraph> (apvts));
+    filterGroup.setDisplay (std::make_unique<FilterGraph> (apvts, processor.modulationDisplay));
 
     ampFilterPage.addRow ({ &voiceGroup, &outputGroup });
     ampFilterPage.addRow ({ &envelopeGroup, &filterGroup }, 2); // linha com gráficos: o dobro da altura
@@ -276,7 +292,7 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
     tabs.setTabBarDepth (tabBarDepth);
     tabs.setOutline (0);
     // false = as abas não apagam as páginas (elas são membros do editor).
-    tabs.addTab ("Oscillators",  tabColour, &oscillatorsPage, false);
+    tabs.addTab ("Oscillators",  tabColour, &oscillatorTabs,  false);
     tabs.addTab ("Amp & Filter", tabColour, &ampFilterPage,   false);
     tabs.addTab ("Matrix",       tabColour, &matrixPage,      false);
     tabs.addTab ("LFOs",         tabColour, &lfoPage,         false);
@@ -327,6 +343,33 @@ PluginEditor::~PluginEditor()
 {
     // Desligar o LookAndFeel antes que ele (um membro) seja destruído.
     setLookAndFeel (nullptr);
+}
+
+ScaleLines::Lines PluginEditor::currentScaleLines()
+{
+    // Os steps vizinhos do step 0 dentro de ±100 ¢ (o eixo do gráfico do unison, RF19).
+    constexpr double rangeCents = 100.0;
+
+    // Seguindo um master do MTS-ESP (RF18): as notas da tabela dele em volta do step 0.
+    const auto master = pluginProcessor.getMasterDisplay();
+    if (master.active)
+    {
+        const int refNote = juce::roundToInt (pluginProcessor.apvts.getRawParameterValue (ParamIDs::refNote)->load());
+        const auto layout = MasterScale::build (master.hz, master.refKey, master.periodRatio, refNote);
+
+        return ScaleLines::around ([&] (int k)
+        {
+            const int note = layout.refNote + k;
+            if (note < 0 || note >= MasterScale::numMidiNotes)
+                return std::numeric_limits<double>::quiet_NaN(); // fim do teclado: para de procurar
+            return 1200.0 * std::log2 (MasterScale::safeHz (master.hz, note) / layout.refHz);
+        }, rangeCents);
+    }
+
+    // Afinação interna: EDO, com a afinação desenhada (RF17) se houver.
+    const int edo = juce::jmax (1, juce::roundToInt (pluginProcessor.apvts.getRawParameterValue (ParamIDs::edo)->load()));
+    const auto& table = pluginProcessor.getTuningTable();
+    return ScaleLines::around ([&] (int k) { return table.stepsToCents (k, edo); }, rangeCents);
 }
 
 void PluginEditor::setTuningLocked (bool locked)

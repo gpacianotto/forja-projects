@@ -120,6 +120,9 @@ public:
     };
     EnvelopeSnapshot getEnvelopeSnapshot() const noexcept;
 
+    // Deslocamento atual de cada destino da matriz nesta voz (RF20, modulação animada).
+    const ModMatrix::DestOffsets& getModOffsets() const noexcept { return modOffsets; }
+
     // Fase atual de um LFO desta voz (para o ponto do editor no modo Retrigger, RF15).
     double getLfoPhase (std::size_t lfo) const noexcept { return lfos[lfo].getPhase(); }
 

@@ -526,6 +526,16 @@ void PluginProcessor::publishEnvelopeDisplay()
     modEnvDisplay.stage.store (static_cast<int> (snapshot.stage));
     modEnvDisplay.secondsInStage.store (static_cast<float> (snapshot.secondsInStage));
     modEnvDisplay.level.store (snapshot.modLevel);
+
+    // Modulação animada (RF20): deslocamento de cada destino na mesma voz (a última tocada).
+    // Sem voz tocando, só o "active" muda: a interface some com o ponto.
+    if (newest != nullptr)
+    {
+        const auto& offsets = newest->getModOffsets();
+        for (size_t d = 0; d < offsets.size(); ++d)
+            modulationDisplay.offsets[d].store (offsets[d]);
+    }
+    modulationDisplay.active.store (newest != nullptr);
 }
 
 void PluginProcessor::publishPitchDisplay()

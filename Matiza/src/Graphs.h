@@ -5,6 +5,7 @@
 #include <functional>
 
 #include "PluginProcessor.h"
+#include "ScaleLines.h"
 #include "ShapePoints.h"
 
 // Gráficos da aba Amp & Filter (RF9).
@@ -14,10 +15,12 @@
 // knobs, automação do Ableton e o ponto do envelope, sem nunca tocar na thread de áudio.
 
 // Curva de resposta do filtro passa-baixa: frequência (log, 20 Hz–20 kHz) × ganho (dB).
+// RF20: com Cutoff ou Resonance modulados e uma nota tocando, desenha a curva com os valores
+// modulados (da última voz tocada) e deixa a curva dos knobs apagada por trás.
 class FilterGraph final : public juce::Component, private juce::Timer
 {
 public:
-    explicit FilterGraph (juce::AudioProcessorValueTreeState& apvts);
+    FilterGraph (juce::AudioProcessorValueTreeState& apvts, const ModulationDisplay& modulation);
     ~FilterGraph() override { stopTimer(); }
 
     void paint (juce::Graphics&) override;
@@ -25,9 +28,17 @@ public:
 private:
     void timerCallback() override;
 
+    // Valores modulados agora (iguais aos dos knobs sem modulação ou sem nota).
+    struct Values { float cutoff = 0.0f; float reso = 0.0f; bool operator== (const Values&) const = default; };
+    Values modulatedValues() const;
+
     std::atomic<float>* cutoffParam = nullptr;
     std::atomic<float>* resoParam   = nullptr;
-    float drawnCutoff = -1.0f, drawnReso = -1.0f; // valores do último desenho
+    juce::NormalisableRange<float> cutoffRange, resoRange; // as mesmas faixas que a voz usa
+    const ModulationDisplay& modulation;
+
+    float drawnCutoff = -1.0f, drawnReso = -1.0f; // valores dos knobs no último desenho
+    Values drawnModulated { -1.0f, -1.0f };       // valores modulados no último desenho
 };
 
 // Um ciclo da forma de onda de um oscilador (card "gráfico das ondas dos osciladores").
@@ -55,6 +66,35 @@ private:
     std::function<ShapePoints()> customPoints;
     std::function<void (juce::Component&)> openEditor;
     ShapePoints drawnPoints;
+};
+
+// Gráfico do unison de um oscilador (RF19), ao lado dos knobs Unison, Detune, Blend e Width:
+// uma barra por cópia num eixo de −100 a +100 cents (posição = desvio, altura = volume), a
+// régua L—C—R do Width com um tique por cópia e, atrás, as linhas da escala atual (steps
+// vizinhos da EDO, da afinação desenhada ou do master do MTS-ESP). Sempre visível; usa a mesma
+// conta do áudio (Unison.h).
+class UnisonGraph final : public juce::Component, private juce::Timer
+{
+public:
+    UnisonGraph (juce::AudioProcessorValueTreeState& apvts, std::size_t oscIndex,
+                 std::function<ScaleLines::Lines()> scaleLines);
+    ~UnisonGraph() override { stopTimer(); }
+
+    void paint (juce::Graphics&) override;
+
+private:
+    void timerCallback() override;
+    std::array<float, 5> readValues() const; // on, unison, detune, blend, width
+
+    std::atomic<float>* onParam     = nullptr;
+    std::atomic<float>* unisonParam = nullptr;
+    std::atomic<float>* detuneParam = nullptr;
+    std::atomic<float>* blendParam  = nullptr;
+    std::atomic<float>* widthParam  = nullptr;
+    std::function<ScaleLines::Lines()> scaleLines;
+
+    std::array<float, 5> drawnValues { -1.0f, -1.0f, -1.0f, -1.0f, -1.0f };
+    ScaleLines::Lines drawnLines;
 };
 
 // Desenho do ADSR, com um ponto na posição atual do envelope da última nota tocada.
