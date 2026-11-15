@@ -200,7 +200,11 @@ kanban-plugin: board
 
 ## Em Revisão
 
-- [ ] # Feat: seguir a afinação do MTS-ESP
+
+
+## Concluído
+
+- [x] # Feat: seguir a afinação do MTS-ESP
 	
 	Fazer o Matiza seguir a afinação de um plugin "master" do MTS-ESP (ODDSound), o padrão aberto que sincroniza a afinação entre plugins. Com isso o Matiza fica afinado junto com Serum, synths da u-he e dezenas de outros, sem configurar nada. Ver [[Plano de produto — Kick microtonal]], seção 4.
 	
@@ -221,13 +225,9 @@ kanban-plugin: board
 	- [x] `TuningEngine` com fonte de afinação: interna ou MTS-ESP (`MTS_NoteToFrequency`), tabela copiada pela thread de áudio a cada bloco (regra do RF18); parâmetro `mtsFollow` (sem botão ainda), notas filtradas e 9 testes (15/11/2026)
 	- [x] Interface: botão Follow MTS-ESP, indicador, knobs internos desabilitados e gráfico de steps com a escala do master; 8 testes (15/11/2026)
 	- [x] Testes com o MTS-ESP Mini (gratuito) no Ableton: carregar um .scl e conferir no Tuner do Live (motor, "master sai" e interface ok, testado pelo Guilherme em 15/11/2026; arquivos em `Matiza/tests/tunings/`)
-	- [ ] Build Debug/Release sem warnings, pluginval nível 5 (Debug ok e pluginval nível 5 no Debug ok em 15/11/2026; falta Release)
+	- [x] Build Debug/Release sem warnings, pluginval nível 5 (Debug e Release ok em 15/11/2026)
 	
 	#Matiza
-
-
-
-## Concluído
 
 - [x] # Infra: tirar o token do GitHub da URL do remote
 	

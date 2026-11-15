@@ -44,3 +44,4 @@ O app Standalone sai em `build/Matiza_artefacts/Debug/Standalone/Matiza.exe`.
 | 0.1.0 (wavetable, RF13) | 2026-11-10 | 1.0.4, nível 5, Release | Passou, com osciladores de wavetable e mipmaps |
 | 0.1.0 (anéis por slot, RF14) | 2026-11-10 | 1.0.4, nível 5, Release | Passou |
 | 0.1.0 (formas desenhadas, RF15) | 2026-11-10 | 1.0.4, nível 5, Release | Passou, com os pontos no estado |
+| 0.1.0 (MTS-ESP, RF18) | 2026-11-15 | 1.0.4, nível 5, Release | Passou, com o cliente MTS-ESP, o parâmetro `mtsFollow` e a coluna MTS-ESP (validador VST3 da Steinberg pulado) |
