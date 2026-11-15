@@ -157,6 +157,13 @@ private:
     // Cópia da afinação tirada no note-on: se edo/baseHz mudarem com a nota presa, ela não
     // muda (RF3), nem quando o pitch bend recalcula a frequência.
     TuningEngine noteTuning;
+
+    // Afinação que vale agora para esta voz. Interna: a cópia do note-on (RF3, nota presa
+    // mantém a altura). Master do MTS-ESP ativo: a afinação ao vivo, atualizada a cada bloco
+    // (RF18, nota presa acompanha o master). Se o master sai com a nota presa, ela volta à
+    // cópia do note-on (a altura que tinha ao começar) e as notas seguintes usam a interna.
+    const TuningEngine& pitchTuning() const noexcept { return tuning.followsMaster() ? tuning : noteTuning; }
+
     double bend = 0.0; // -1..+1
     int currentMidiNote = 60; // para o Key Track
 

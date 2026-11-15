@@ -32,6 +32,12 @@ juce_add_binary_data(MatizaAssets
         assets/mtz-palha.svg
         assets/matiza-assinatura-clara.svg)
 
+# Cliente MTS-ESP da ODDSound (RF18), sem modificações. Biblioteca estática separada para:
+# (1) não herdar os warnings recomendados do JUCE (código de terceiros, não corrigimos);
+# (2) isolar o <windows.h> que ela inclui do resto do plugin.
+add_library(MTSClient STATIC third_party/MTS-ESP/libMTSClient.cpp)
+target_include_directories(MTSClient PUBLIC third_party/MTS-ESP)
+
 target_sources(Matiza PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
@@ -41,6 +47,7 @@ target_sources(Matiza PRIVATE
     src/EnvelopeTabs.cpp
     src/ShapeEditor.cpp
     src/TuningStepsView.cpp
+    src/MtsControl.cpp
     src/Controls.cpp
     src/MatizaVoice.cpp
     src/Oscillator.cpp
@@ -59,6 +66,7 @@ target_compile_definitions(Matiza PUBLIC
 target_link_libraries(Matiza
     PRIVATE
         MatizaAssets
+        MTSClient
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC
@@ -92,6 +100,8 @@ if(MATIZA_BUILD_TESTS)
         tests/ShapeTests.cpp
         tests/StepMathTests.cpp
         tests/TuningTableTests.cpp
+        tests/MasterTuningTests.cpp
+        tests/MasterScaleTests.cpp
         src/TuningEngine.cpp
         src/Oscillator.cpp
         src/Wavetables.cpp

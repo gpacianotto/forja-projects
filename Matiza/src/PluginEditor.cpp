@@ -5,6 +5,7 @@
 
 #include "EnvelopeTabs.h"
 #include "Graphs.h"
+#include "MtsControl.h"
 #include "TuningStepsView.h"
 
 namespace
@@ -252,10 +253,11 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
 
     // --- Aba Tuning (RF8) ---
     tuningGroup.add (std::make_unique<Toggle> (apvts, ParamIDs::tuningLock, "Lock"));
-    tuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::edo,       "EDO")));
-    tuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::baseHz,    "Base Freq")));
-    tuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::refNote,   "Ref Note")));
-    tuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::bendSteps, "Bend Range")));
+    auto& mtsControl = tuningGroup.add (std::make_unique<MtsControl> (processor)); // RF18
+    internalTuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::edo,     "EDO")));
+    internalTuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::baseHz,  "Base Freq")));
+    internalTuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::refNote, "Ref Note")));
+    bendRangeControl = &tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::bendSteps, "Bend Range"));
 
     // Gráfico dos steps da EDO (RF16): ocupa o grupo inteiro (sem controles próprios).
     stepsGroup.setDisplay (std::make_unique<TuningStepsView> (processor), 1.0f, ParameterGroup::DisplayPlacement::left);
@@ -266,7 +268,8 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
     tuningPage.setNoteHeight (36);
     tuningPage.setNote ("Lock protects the tuning knobs from accidental changes in this window. "
                         "Host automation still applies.\n"
-                        "Tuning changes affect the next notes played; held notes keep their pitch.");
+                        "Tuning changes affect the next notes played; held notes keep their pitch. "
+                        "While following an MTS-ESP master, its tuning applies, held notes included.");
 
     // --- Abas ---
     const auto tabColour = lookAndFeel.findColour (juce::ResizableWindow::backgroundColourId);
@@ -288,6 +291,13 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
             *lockParam, [this] (float value) { setTuningLocked (value > 0.5f); });
         tuningLockAttachment->sendInitialUpdate();
     }
+
+    // Master do MTS-ESP (RF18): seguindo o master, os knobs da afinação interna não valem.
+    mtsControl.setOnFollowingChanged ([this] (bool following)
+    {
+        followingMaster = following;
+        updateTuningControls();
+    });
 
     // Logo MTZ (assets/mtz-palha.svg, embutido pelo CMake). Carregada uma vez aqui, nunca no
     // paint. A cor do arquivo é trocada pela da paleta, para seguir a Palette se ela mudar.
@@ -321,11 +331,22 @@ PluginEditor::~PluginEditor()
 
 void PluginEditor::setTuningLocked (bool locked)
 {
-    for (auto* control : tuningControls)
+    tuningLocked = locked;
+    updateTuningControls();
+}
+
+void PluginEditor::updateTuningControls()
+{
+    auto setUsable = [] (juce::Component* control, bool usable)
     {
-        control->setEnabled (! locked);
-        control->setAlpha (locked ? 0.4f : 1.0f); // apagado = travado
-    }
+        control->setEnabled (usable);
+        control->setAlpha (usable ? 1.0f : 0.4f); // apagado = travado ou sem efeito
+    };
+
+    for (auto* control : internalTuningControls)
+        setUsable (control, ! tuningLocked && ! followingMaster);
+
+    setUsable (bendRangeControl, ! tuningLocked);
 }
 
 void PluginEditor::setLfoSynced (size_t lfoIndex, bool synced)

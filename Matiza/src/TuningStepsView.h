@@ -5,6 +5,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include "MasterScale.h"
 #include "PluginProcessor.h"
 
 // Gráfico dos steps da EDO na aba Tuning (RF16).
@@ -20,6 +21,10 @@
 // Afinação desenhada (RF17): cada linha (menos a do step 0) tem uma alça que o usuário arrasta
 // para mudar a posição do step. A tabela vai para o processador (PluginProcessor::setTuningTable),
 // que a entrega ao áudio. Com o Lock da aba Tuning ligado, as alças somem.
+//
+// Master do MTS-ESP (RF18): enquanto o Matiza segue um master, o gráfico mostra a escala do
+// master (linhas = notas MIDI dentro de um período, ver MasterScale.h), só para visualização:
+// sem alças e sem Reset.
 //
 // Como os outros gráficos (Graphs.h), lê tudo de atômicos num Timer de 30 Hz, na thread da
 // interface, e só redesenha quando algo mudou.
@@ -69,6 +74,12 @@ private:
     void drawStepLine (juce::Graphics&, juce::Line<float> line, int step) const;
     juce::Colour labelColour (int step) const;
 
+    // --- Linhas do gráfico: da EDO interna ou da escala do master (RF18) ---
+    int numLines() const { return masterMode ? masterLayout.numLines : edo; }
+    // Posição da linha k numa volta de 0 a 1200 (com o master, o período é esticado para caber).
+    double linePosition (int k) const;
+    juce::String periodName() const; // "oct" (oitava) ou "per" (período que não é a oitava)
+
     // --- Afinação desenhada (RF17) ---
     double stepPosition (int step) const { return table.stepCents (step, edo); } // cents na oitava
     bool canEdit() const;
@@ -94,11 +105,18 @@ private:
     bool showTwelveTet = false;
 
     // Estado do último desenho.
-    static constexpr int maxEdo = 72; // máximo do parâmetro edo
+    static constexpr int maxEdo = 72; // máximo do parâmetro edo (e de linhas do master)
+    static_assert (maxEdo >= MasterScale::maxLines);
     int    edo = 12;
     double baseHz = 440.0;
     int    refNote = 69;
     std::array<float, maxEdo> glow {}; // brilho de cada step, 0..1
+
+    // Master do MTS-ESP (RF18): cópia do que o áudio publicou e a escala montada para o desenho.
+    bool masterMode = false;
+    MasterScale::Layout masterLayout;
+    std::array<double, MasterScale::numMidiNotes> masterHz {};
+    juce::String masterName;
 
     // Afinação desenhada: cópia da tabela do processador e estado do arrasto.
     TuningTable table;

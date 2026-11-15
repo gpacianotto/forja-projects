@@ -3,15 +3,17 @@
 #include <array>
 #include <atomic>
 
-// Entrega de dados grandes (tabelas) da thread da interface para a thread de áudio, sem lock
-// e sem alocação (RF15).
+// Entrega de dados grandes (tabelas) entre duas threads, sem lock e sem alocação: da interface
+// para o áudio (formas desenhadas, RF15; afinação desenhada, RF17) ou do áudio para a
+// interface (tabela do master do MTS-ESP, RF18).
 //
-// Três cópias do dado: uma publicada (a mais recente pronta), uma em uso pelo áudio e uma
-// livre para a interface escrever. A interface nunca escreve na publicada nem na que o áudio
-// está usando, então o áudio sempre lê uma tabela inteira e estável.
+// Três cópias do dado: uma publicada (a mais recente pronta), uma em uso pelo leitor e uma
+// livre para o escritor. O escritor nunca escreve na publicada nem na que o leitor está
+// usando, então o leitor sempre lê um dado inteiro e estável.
 //
-// Regras: um único escritor (a interface) e um único leitor (o áudio). O leitor chama read()
-// uma vez por bloco e pode usar a referência até o próximo read().
+// Regras: um único escritor e um único leitor (cada um sempre na mesma thread). O leitor
+// chama read() e pode usar a referência até o próximo read(). Escritor e leitor nunca
+// esperam um pelo outro, então os dois lados podem ser a thread de áudio.
 //
 // Em Java, faríamos isso com um AtomicReference para um objeto imutável novo a cada mudança;
 // aqui reaproveitamos três objetos fixos para o áudio nunca precisar liberar memória.
@@ -19,7 +21,7 @@ template <typename T>
 class TripleBuffer
 {
 public:
-    // --- Escritor (thread da interface) ---
+    // --- Escritor ---
 
     // Devolve uma cópia livre para preencher. Depois de preencher, chame publish().
     T& beginWrite() noexcept
@@ -36,13 +38,13 @@ public:
 
     void publish() noexcept { publishedIndex.store (writing); }
 
-    // --- Leitor (thread de áudio) ---
+    // --- Leitor ---
 
     const T& read() noexcept
     {
-        // Marca a publicada como "em uso" e confere que ela continua sendo a publicada. Se a
-        // interface publicou outra no meio, tenta de novo. Assim o escritor, que evita a
-        // publicada e a em uso, nunca escreve na cópia que o áudio vai ler.
+        // Marca a publicada como "em uso" e confere que ela continua sendo a publicada. Se o
+        // escritor publicou outra no meio, tenta de novo. Assim o escritor, que evita a
+        // publicada e a em uso, nunca escreve na cópia que o leitor vai ler.
         int index = publishedIndex.load();
         for (;;)
         {

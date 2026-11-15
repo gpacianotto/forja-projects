@@ -14,6 +14,7 @@ PluginProcessor::PluginProcessor()
     baseHzParam    = apvts.getRawParameterValue (ParamIDs::baseHz);
     refNoteParam   = apvts.getRawParameterValue (ParamIDs::refNote);
     bendStepsParam = apvts.getRawParameterValue (ParamIDs::bendSteps);
+    mtsFollowParam = apvts.getRawParameterValue (ParamIDs::mtsFollow);
     attackParam    = apvts.getRawParameterValue (ParamIDs::attack);
     decayParam     = apvts.getRawParameterValue (ParamIDs::decay);
     sustainParam   = apvts.getRawParameterValue (ParamIDs::sustain);
@@ -96,6 +97,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParam
     // Trava da interface (RF8): só a interface lê; não faz sentido automatizar.
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ParamIDs::tuningLock, 1 }, "Tuning Lock", false,
+        juce::AudioParameterBoolAttributes().withAutomatable (false)));
+
+    // Follow MTS-ESP (RF18): ligado por padrão (com master na sessão, segue o master).
+    // Salvo no set, mas não automatizável, como o Lock.
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { ParamIDs::mtsFollow, 1 }, "Follow MTS-ESP", true,
         juce::AudioParameterBoolAttributes().withAutomatable (false)));
 
     // --- Osciladores (RF6) --- (a ordem das opções de onda = enum Waveform)
@@ -281,6 +288,52 @@ void PluginProcessor::updateTuning()
     settings.bendSteps = bendStepsParam->load();
     settings.table = tuningTables.read(); // RF17: cópia de ~600 bytes, sem alocação
     tuning.setSettings (settings);
+
+    // RF18: com o Follow ligado e um master na sessão, copia a tabela dele. As funções MTS_*
+    // só são chamadas aqui, na thread de áudio (a biblioteca guarda caches sem atômicos); a
+    // leitura é sem lock e sem alocação. Sem o MTS-ESP instalado, MTS_HasMaster dá false.
+    auto* client = mtsClient.get();
+    const bool hasMaster = MTS_HasMaster (client);
+    masterTuning.active = mtsFollowParam->load() > 0.5f && hasMaster;
+
+    if (masterTuning.active)
+    {
+        for (int n = 0; n < TuningEngine::numMidiNotes; ++n)
+        {
+            const auto index = static_cast<std::size_t> (n);
+            const auto note  = static_cast<char> (n);
+            masterTuning.hz[index]       = MTS_NoteToFrequency (client, note, -1); // -1 = sem canal MIDI
+            masterTuning.filtered[index] = MTS_ShouldFilterNote (client, note, -1);
+        }
+    }
+
+    tuning.setMasterTuning (masterTuning);
+    publishMasterDisplay (hasMaster);
+}
+
+void PluginProcessor::publishMasterDisplay (bool hasMaster)
+{
+    // Thread de áudio: só cópias de tamanho fixo, sem alocação e sem lock.
+    auto& display = masterDisplays.beginWrite();
+    display.hasMaster = hasMaster;
+    display.active    = masterTuning.active;
+
+    if (masterTuning.active)
+    {
+        auto* client = mtsClient.get();
+        display.hz          = masterTuning.hz;
+        display.refKey      = MTS_GetRefKey (client);
+        display.periodRatio = MTS_GetPeriodRatio (client);
+
+        // Nome da escala: copia caractere a caractere para o array fixo (sempre termina em '\0').
+        const char* name = MTS_GetScaleName (client);
+        std::size_t i = 0;
+        for (; name != nullptr && name[i] != '\0' && i + 1 < display.scaleName.size(); ++i)
+            display.scaleName[i] = name[i];
+        display.scaleName[i] = '\0';
+    }
+
+    masterDisplays.publish();
 }
 
 void PluginProcessor::updateVoices()

@@ -57,6 +57,10 @@ public:
         if (! TuningEngine::isPlayable (tuning.noteToHz (midiNoteNumber), getSampleRate()))
             return;
 
+        // RF18: tecla que o master do MTS-ESP filtra (sem mapeamento num .kbm) não toca.
+        if (tuning.isNoteFiltered (midiNoteNumber))
+            return;
+
         if (! monoMode)
         {
             juce::Synthesiser::noteOn (midiChannel, midiNoteNumber, velocity);

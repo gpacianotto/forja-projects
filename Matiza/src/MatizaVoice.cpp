@@ -249,11 +249,11 @@ MatizaVoice::PitchSnapshot MatizaVoice::getPitchSnapshot() const noexcept
     if (! isVoiceActive())
         return snapshot;
 
-    // Usa a afinação copiada no note-on (RF3), com a tabela desenhada (RF17), então o ponto
-    // mostra a altura que está soando de verdade.
+    // Usa a mesma afinação do som (cópia do note-on, RF3/RF17, ou a do master, RF18), então o
+    // ponto mostra a altura que está soando de verdade.
     snapshot.held          = ! released;
     snapshot.midiNote      = currentMidiNote;
-    snapshot.centsFromBase = noteTuning.centsFromBase (glide.getCurrent(), bend);
+    snapshot.centsFromBase = pitchTuning().centsFromBase (glide.getCurrent(), bend);
     return snapshot;
 }
 
@@ -338,7 +338,7 @@ void MatizaVoice::updateFrequencies()
         // Transposição em steps e Pitch da matriz somam steps à nota antes da tabela (RF17):
         // com afinação desenhada, "+4 steps" cai na quarta linha acima da nota. A oitava e o
         // Fine multiplicam depois (×2 por oitava; cents).
-        const double hz = noteTuning.noteToHz (note, bend, steps)
+        const double hz = pitchTuning().noteToHz (note, bend, steps)
                         * std::exp2 (osc.octave + fineCents / 1200.0);
 
         // Unison (RF12): cada cópia desvia alguns cents da frequência do oscilador.

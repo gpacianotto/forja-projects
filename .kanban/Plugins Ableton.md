@@ -69,30 +69,6 @@ kanban-plugin: board
 	- [ ] Testes: licença válida, adulterada, de outro produto, vencida (alpha), lista negra; set salvo com licença abre igual sem licença (só com ruído); compra completa no sandbox de ponta a ponta
 	
 	#Matiza
-- [ ] # Feat: seguir a afinação do MTS-ESP
-	
-	Fazer o Matiza seguir a afinação de um plugin "master" do MTS-ESP (ODDSound), o padrão aberto que sincroniza a afinação entre plugins. Com isso o Matiza fica afinado junto com Serum, synths da u-he e dezenas de outros, sem configurar nada. Ver [[Plano de produto — Kick microtonal]], seção 4.
-	
-	**Decidido (12/11/2026)**
-	- Adotar o MTS-ESP em vez de criar um centralizador de afinação próprio.
-	- Vem antes do segundo produto (Kick), que também nasce com MTS-ESP.
-	
-	**Proposta**
-	- Seletor na aba Tuning: **Interna** (EDO, Base Freq, Ref Note, afinação desenhada) ou **MTS-ESP** (segue o master). [a definir] modo automático: seguir o MTS-ESP sempre que houver master na sessão.
-	- Com MTS-ESP ativo: knobs de afinação interna desabilitados (como com o Lock); gráfico de steps mostra a afinação vinda do master; notas filtradas pelo master (`MTS_ShouldFilterNote`) não tocam.
-	- Indicador "MTS-ESP: conectado / sem master" na aba Tuning.
-	- [a definir] Nota segurada quando a afinação do master muda: mantém a altura (como hoje, RF3) ou acompanha.
-	- [a definir] Como fica a afinação desenhada (RF17) quando o MTS-ESP está ativo.
-	
-	**Etapas**
-	- [ ] RF no Spec
-	- [ ] Biblioteca cliente (`libMTSClient.h/.cpp`, licença aberta) no projeto e no CMake
-	- [ ] `TuningEngine` com fonte de afinação: interna ou MTS-ESP (`MTS_NoteToFrequency`), consultada fora da thread de áudio quando possível
-	- [ ] Interface: seletor, indicador e gráfico de steps com a afinação do master
-	- [ ] Testes com o MTS-ESP Mini (gratuito) no Ableton: carregar um .scl e conferir no Tuner do Live
-	- [ ] Build Debug/Release sem warnings, pluginval nível 5
-	
-	#Matiza
 - [ ] # Produto: kick microtonal (segundo produto da Forja)
 	
 	Sintetizador de kick que segue a afinação microtonal da música (afinação interna igual à do Matiza + MTS-ESP). Nome e branding a definir quando o escopo fechar. Ver [[Plano de produto — Kick microtonal]].
@@ -108,6 +84,114 @@ kanban-plugin: board
 	- [ ] Criar a pasta do projeto (skill `novo-plugin`) e registrar na tabela de projetos do `CLAUDE.md`
 	
 	#Workspace
+- [ ] # DSP: harmônicos alinhados à escala (estudo de viabilidade)
+	
+	Diferencial sonoro do Matiza, decidido em 13/11/2026: o timbre se ajusta à afinação. Com uma escala como 19 EDO, os harmônicos de cada onda são puxados para os graus da escala (ex.: 3º harmônico de 3,00× para 2,95×), e acordes nessa escala soam tão "redondos" quanto no 12-TET (ideia do William Sethares sobre timbre e escala).
+	
+	**Por que não dá com o wavetable atual (RF13):** um quadro de um ciclo só guarda harmônicos inteiros (2×, 3×, 4×…). Harmônicos realinhados não são inteiros, a onda deixa de se repetir a cada ciclo e não cabe numa tabela de um ciclo.
+	
+	**Proposta: workflow de wavetable, motor aditivo por baixo**
+	1. Análise (fora do áudio): FFT de cada quadro extrai a amplitude de cada harmônico ("receita" do quadro). Reaproveita a FFT que já monta os mipmaps.
+	2. Alinhamento (fora do áudio): com os intervalos da afinação ativa (EDO interna, afinação desenhada do RF17 ou tabela do master MTS-ESP do RF18), calcula para onde vai cada harmônico.
+	3. Síntese (tempo real, na voz): banco de senoides, uma por harmônico, na frequência alinhada e com a amplitude da receita. A interpolação entre quadros (Position da etapa C) passa a interpolar receitas.
+	4. Entrega ao áudio pelo buffer triplo, como nas formas desenhadas (RF15), sem lock e sem alocação.
+	
+	**Pontos do estudo**
+	- CPU: hoje são até 192 osciladores (8 vozes × 3 osc × 8 cópias de unison) a 1,4 % de um núcleo. Aditivo com 64 harmônicos seria até ~12 mil senoides por amostra. Medir num benchmark como o de `Matiza/bench/wavetable/`.
+	- [a definir] Técnica de síntese: banco de senoides com SIMD e osciladores por recorrência; IFFT com overlap-add por bloco; ou híbrido (harmônicos de baixo realinhados no aditivo, o resto no wavetable).
+	- [a definir] Número máximo de harmônicos e limite de unison com o alinhamento ligado.
+	- Com o MTS-ESP, o master entrega 128 frequências, não a estrutura da escala: o builder deriva os intervalos da tabela e refaz as receitas quando ela muda (hash das frequências).
+	- Notas fora do pitch class 0: em escalas não equidistantes (RF17), a escala vista de cada nota muda. [a definir] alinhar pela nota tocada ou pela tônica (Ref Note).
+	
+	**Critérios de aceite (se aprovado)**
+	- Alinhamento desligado soa igual ao wavetable atual.
+	- Acorde em 19 EDO com alinhamento ligado soa com menos batimento que desligado (comparar em teste cego com os produtores parceiros).
+	- Unison no máximo roda no Live sem estalar.
+	
+	> Tentar: um knob "Align" de 0 a 100 % que interpola entre a posição original e a alinhada dos harmônicos.
+	
+	Resultado esperado: recomendação (fazer / não fazer / versão simplificada) e plano em etapas no Spec, como no [[Estudo — Wavetable nos osciladores]]. Depende da etapa C (Position) para o workflow completo.
+	
+	#Matiza
+- [ ] # Interface: modulação animada nos knobs e nos gráficos
+	
+	Hoje o anel da modulação (RF10/RF14) mostra só o alcance, parado. No Serum, o knob mostra o valor modulado se mexendo em tempo real. Os gráficos que dependem de knobs modulados (curva do filtro do RF9, por exemplo) também não reagem à modulação. Os concorrentes têm isso, e ajuda a entender o que a modulação está fazendo.
+	
+	**Proposta**
+	- **Knob:** um marcador (ponto ou trecho mais claro do anel) na posição do valor modulado atual, andando dentro do alcance. Com vários slots no mesmo knob (RF14), um marcador para o valor final (soma dos slots).
+	- **Gráfico do filtro:** a curva desenhada com Cutoff e Resonance modulados, não com o valor do knob. [a definir] manter a curva do valor base apagada por trás.
+	- [a definir] Outros gráficos afetados por destinos da matriz (ondas dos osciladores com Level, steps com Pitch).
+	
+	**Como fazer**
+	- O valor modulado só existe no áudio (matriz calculada por voz a cada bloco). No fim de cada bloco, o processador publica em atômicos o valor final de cada destino da **última voz tocada** (como o Serum e o ponto do envelope do RF9).
+	- A interface lê com o timer que já existe (30 Hz, como no RF16) e só redesenha o que mudou.
+	- Sem nota tocando: marcador some (ou fica no valor base). LFO com trigger livre: [a definir] mostrar o movimento mesmo sem nota.
+	- Custo: um atômico por destino (hoje 10 + 4 vagas), escrito uma vez por bloco.
+	
+	**Etapas**
+	- [ ] RF no Spec
+	- [ ] Processador: valores modulados da última voz em atômicos
+	- [ ] Knobs: marcador do valor modulado
+	- [ ] Gráfico do filtro com os valores modulados
+	- [ ] Build Debug/Release sem warnings, testes, pluginval nível 5
+	- [ ] Teste no Ableton: LFO 1 → Cutoff (knob e curva andando juntos), dois slots no mesmo knob, sem nota tocando, CPU da interface
+	
+	#Matiza
+- [ ] # Interface: gráfico do unison (Unison, Detune, Blend, Width)
+	
+	O unison (RF12) já funciona, mas os 4 knobs não mostram o que estão fazendo. No Serum, ao mexer neles aparece um gráfico que explica o efeito. Pedido em 13/11/2026.
+	
+	**Proposta**
+	- Ao arrastar (ou passar o mouse em) Unison, Detune, Blend ou Width, um gráfico aparece **por cima do gráfico da onda do oscilador** e some ~1 s depois de soltar.
+	- Uma barra por cópia sobre um eixo de afinação (cents em volta da nota):
+		- **Unison:** número de barras.
+		- **Detune:** espalhamento das barras para os lados.
+		- **Blend:** altura das barras laterais em relação às centrais.
+		- **Width:** [a definir] cor ou deslocamento vertical das barras indo da esquerda para a direita (pan), ou um segundo eixo L/R.
+	- Bônus do Matiza: linhas da escala atual (steps da EDO, afinação desenhada ou MTS-ESP) atrás das barras, mostrando o detune em relação aos graus da escala.
+	
+	**Espaço na tela**
+	- Por cima do gráfico da onda, não precisa de área nova. O tamanho mínimo da janela hoje é 840 × 560.
+	- Se o gráfico da onda ficar pequeno demais para ler as barras no tamanho mínimo: **avisar o Guilherme antes** de aumentar o tamanho mínimo do plugin (ele topa aumentar, mas quer ser consultado).
+	
+	**Etapas**
+	- [ ] RF no Spec
+	- [ ] Cálculo das posições, volumes e pans das cópias reaproveitando `src/Unison.h` (mesma conta do áudio, sem duplicar)
+	- [ ] Componente do gráfico e sobreposição no gráfico da onda, com aparecer/sumir
+	- [ ] Linhas da escala atrás das barras
+	- [ ] Build Debug/Release sem warnings, testes, pluginval nível 5
+	- [ ] Teste no Ableton: os 4 knobs nos 3 osciladores, automação do Live (o gráfico não deve aparecer só por automação [a definir]), tamanho mínimo da janela
+	
+	#Matiza
+- [ ] # Feat: landing page v0 (site da Forja Instruments)
+	
+	Primeira versão do site, com a página do Matiza. Além de vender, é **pré-requisito da Paddle**: a aprovação do domínio bloqueia a primeira venda real (ver card "Feat: licenciamento", seção "Aprovação do domínio"). Pôr uma versão simples no ar cedo, mesmo antes das demos dos produtores.
+	
+	Estrutura e conteúdo já propostos em [[Plano de produto — Matiza, by Forja Instruments]], seção "Nossa landing page e modelo de venda".
+	
+	**v0 (mínimo para a revisão da Paddle)**
+	- Página do Matiza pública (sem login): descrição clara, screenshot, **preço visível**, botão "Comprar" com checkout em overlay do Paddle.js (sandbox primeiro).
+	- Páginas de **termos** (citando a Paddle como merchant of record), **reembolso** (14 a 90 dias), **privacidade** e **contato**, acessíveis pela navegação.
+	- Nome do vendedor igual ao da conta na Paddle.
+	- Domínio próprio da Forja [a definir].
+	- Idioma principal **inglês** (venda em USD), português como opção.
+	
+	**Depois da v0:** players das 4 demos dos produtores (com a afinação de cada faixa), player "12 EDO × outra afinação", seções de funcionalidades, FAQ, newsletter, download da demo.
+	
+	**Stack [a definir]** (conversado em 13/11/2026)
+	- **Next.js:** primeira ideia do Guilherme; SSG bom para SEO; faz mais sentido se o site ganhar área logada (conta, downloads).
+	- **Astro + ilhas React:** HTML estático sem JS por padrão (melhor Core Web Vitals), React só nas partes interativas (players, checkout, demo de afinação); i18n nativo.
+	- Hospedagem estática (Cloudflare Pages, Vercel ou Netlify); áudio comprimido no CDN. Servidor de licenças separado (card de licenciamento).
+	
+	**Etapas**
+	- [ ] Decidir a stack e o domínio
+	- [ ] Projeto do site no repositório [a definir] (pasta própria no workspace ou repositório separado)
+	- [ ] Página do Matiza com preço e checkout do sandbox
+	- [ ] Termos, reembolso, privacidade e contato
+	- [ ] Deploy no domínio
+	- [ ] Pedir aprovação do domínio na Paddle (conta de produção)
+	
+	#Matiza
 
 
 ## Em Andamento
@@ -115,6 +199,31 @@ kanban-plugin: board
 
 
 ## Em Revisão
+
+- [ ] # Feat: seguir a afinação do MTS-ESP
+	
+	Fazer o Matiza seguir a afinação de um plugin "master" do MTS-ESP (ODDSound), o padrão aberto que sincroniza a afinação entre plugins. Com isso o Matiza fica afinado junto com Serum, synths da u-he e dezenas de outros, sem configurar nada. Ver [[Plano de produto — Kick microtonal]], seção 4.
+	
+	**Decidido (12/11/2026)**
+	- Adotar o MTS-ESP em vez de criar um centralizador de afinação próprio.
+	- Vem antes do segundo produto (Kick), que também nasce com MTS-ESP.
+	
+	**Proposta**
+	- Botão **Follow MTS-ESP** na aba Tuning, ligado por padrão: com master na sessão segue o master; sem master, afinação interna (decidido em 12/11/2026).
+	- Com MTS-ESP ativo: knobs de afinação interna desabilitados (como com o Lock); gráfico de steps mostra a afinação vinda do master; notas filtradas pelo master (`MTS_ShouldFilterNote`) não tocam.
+	- Indicador "MTS-ESP: conectado / sem master" na aba Tuning.
+	- Nota segurada acompanha o master quando ele muda a afinação (decidido em 12/11/2026); a afinação interna continua como no RF3.
+	- Afinação desenhada (RF17) fica guardada e inativa enquanto o master está ativo (decidido em 12/11/2026).
+	
+	**Etapas**
+	- [x] RF18 no Spec (12/11/2026)
+	- [x] Biblioteca cliente (`libMTSClient.h/.cpp`, licença 0BSD) no projeto e no CMake (baixada e lida em 12/11/2026, em `third_party/MTS-ESP/`; biblioteca estática `MTSClient` no CMake e cliente registrado no processador em 15/11/2026)
+	- [x] `TuningEngine` com fonte de afinação: interna ou MTS-ESP (`MTS_NoteToFrequency`), tabela copiada pela thread de áudio a cada bloco (regra do RF18); parâmetro `mtsFollow` (sem botão ainda), notas filtradas e 9 testes (15/11/2026)
+	- [x] Interface: botão Follow MTS-ESP, indicador, knobs internos desabilitados e gráfico de steps com a escala do master; 8 testes (15/11/2026)
+	- [x] Testes com o MTS-ESP Mini (gratuito) no Ableton: carregar um .scl e conferir no Tuner do Live (motor, "master sai" e interface ok, testado pelo Guilherme em 15/11/2026; arquivos em `Matiza/tests/tunings/`)
+	- [ ] Build Debug/Release sem warnings, pluginval nível 5 (Debug ok e pluginval nível 5 no Debug ok em 15/11/2026; falta Release)
+	
+	#Matiza
 
 
 

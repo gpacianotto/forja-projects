@@ -12,6 +12,8 @@
 #include "TuningEngine.h"
 #include "TuningTable.h"
 
+#include "libMTSClient.h"
+
 // Processador do Matiza: recebe MIDI do host e devolve áudio estéreo.
 class PluginProcessor final : public juce::AudioProcessor
 {
@@ -72,6 +74,20 @@ public:
     const TuningTable& getTuningTable() const { return tuningTableUi; }
     void setTuningTable (const TuningTable& table);
 
+    // --- Master do MTS-ESP (RF18), para a interface. ---
+    // A thread de áudio publica a cada bloco; só a thread da interface lê (getMasterDisplay).
+    struct MasterDisplay
+    {
+        bool   hasMaster   = false; // há um master na sessão (mesmo com o Follow desligado)
+        bool   active      = false; // Follow ligado e com master: o Matiza está seguindo o master
+        int    refKey      = -1;    // tecla de referência do master (-1 = não informou)
+        double periodRatio = 2.0;   // período da escala (2,0 = oitava)
+        std::array<double, TuningEngine::numMidiNotes> hz {};
+        std::array<char, 64> scaleName {}; // texto C terminado em '\0' (sem alocação no áudio)
+    };
+    // Cópia do último estado publicado. Só na thread da interface.
+    MasterDisplay getMasterDisplay() { return masterDisplays.read(); }
+
     static constexpr int numVoices = 8;
 
     // Altura de cada voz para o gráfico dos steps (RF16). A thread de áudio escreve uma vez por
@@ -105,6 +121,7 @@ private:
     std::atomic<float>* baseHzParam    = nullptr;
     std::atomic<float>* refNoteParam   = nullptr;
     std::atomic<float>* bendStepsParam = nullptr;
+    std::atomic<float>* mtsFollowParam = nullptr; // RF18
     std::atomic<float>* attackParam    = nullptr;
     std::atomic<float>* decayParam     = nullptr;
     std::atomic<float>* sustainParam   = nullptr;
@@ -159,6 +176,23 @@ private:
     std::atomic<float>* modEnvDecayParam   = nullptr;
     std::atomic<float>* modEnvSustainParam = nullptr;
     std::atomic<float>* modEnvReleaseParam = nullptr;
+
+    // Cliente MTS-ESP (RF18): registrado na construção, liberado na destruição.
+    // unique_ptr com deleter próprio = RAII (o destrutor chama MTS_DeregisterClient sozinho).
+    // Declarado antes de tudo que vai consultá-lo: membros são destruídos na ordem inversa
+    // da declaração, então ele é liberado por último. Só a thread de áudio chama MTS_*
+    // depois do registro (a biblioteca guarda caches sem atômicos).
+    struct MtsClientDeleter
+    {
+        void operator() (MTSClient* c) const { MTS_DeregisterClient (c); }
+    };
+    std::unique_ptr<MTSClient, MtsClientDeleter> mtsClient { MTS_RegisterClient() };
+
+    // Tabela do master copiada a cada bloco (membro, e não variável local, para não ocupar
+    // ~1,2 KB da pilha da thread de áudio a cada bloco). Só a thread de áudio usa.
+    TuningEngine::MasterTuning masterTuning;
+    TripleBuffer<MasterDisplay> masterDisplays; // áudio → interface
+    void publishMasterDisplay (bool hasMaster);
 
     // Atualizado no início de cada processBlock; as vozes consultam no note-on.
     // Declarado antes do synth: membros são construídos na ordem de declaração e as vozes

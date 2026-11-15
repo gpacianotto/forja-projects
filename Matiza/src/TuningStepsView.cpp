@@ -173,6 +173,34 @@ void TuningStepsView::timerCallback()
         changed = true;
     }
 
+    // RF18: seguindo um master do MTS-ESP, as linhas vêm da escala dele.
+    {
+        const auto display = pluginProcessor.getMasterDisplay();
+        const bool newMasterMode = display.active;
+
+        if (newMasterMode)
+        {
+            const auto newLayout = MasterScale::build (display.hz, display.refKey, display.periodRatio, refNote);
+            const juce::String newName (juce::CharPointer_UTF8 (display.scaleName.data()));
+
+            if (! masterMode || ! (newLayout == masterLayout) || newName != masterName || display.hz != masterHz)
+            {
+                masterLayout = newLayout;
+                masterName = newName;
+                masterHz = display.hz;
+                changed = true;
+            }
+        }
+
+        if (newMasterMode != masterMode)
+        {
+            masterMode = newMasterMode;
+            dragStep = hoverStep = -1; // sem alças com o master
+            setMouseCursor (juce::MouseCursor::NormalCursor);
+            changed = true;
+        }
+    }
+
     updateResetButton();
 
     // Notas seguradas agora: quais steps acendem, onde ficam os pontos e a lista.
@@ -190,6 +218,23 @@ void TuningStepsView::timerCallback()
             continue;
 
         const int note = voice.midiNote.load();
+
+        if (masterMode)
+        {
+            // A voz informa a altura a partir da Base Freq; o gráfico conta a partir do step 0
+            // do master e dentro do período dele.
+            const auto pos = MasterScale::locate (note, masterLayout);
+            held[static_cast<size_t> (pos.step)] = true;
+
+            const double fromRef = voice.centsFromBase.load() + 1200.0 * std::log2 (baseHz / masterLayout.refHz);
+            newDots[i] = static_cast<float> (MasterScale::toDisplay (MasterScale::wrap (fromRef, masterLayout.periodCents),
+                                                                     masterLayout));
+
+            if (std::none_of (newHeld.begin(), newHeld.end(), [note] (const HeldNote& h) { return h.midiNote == note; }))
+                newHeld.push_back ({ note, pos.step, pos.octave });
+            continue;
+        }
+
         const auto pos = StepMath::locate (note, refNote, edo);
         held[static_cast<size_t> (pos.step)] = true;
         newDots[i] = static_cast<float> (StepMath::wrapCents (voice.centsFromBase.load()));
@@ -207,7 +252,7 @@ void TuningStepsView::timerCallback()
     {
         const auto index = static_cast<size_t> (k);
         // Steps que não existem nesta EDO apagam na hora.
-        const float next = k < edo ? StepMath::nextGlow (glow[index], held[index], 1.0 / refreshHz, glowFadeSeconds)
+        const float next = k < numLines() ? StepMath::nextGlow (glow[index], held[index], 1.0 / refreshHz, glowFadeSeconds)
                                    : 0.0f;
         if (next != glow[index])
         {
@@ -273,12 +318,23 @@ void TuningStepsView::paintHeader (juce::Graphics& g, juce::Rectangle<float> are
         return;
     }
 
+    g.setColour (Palette::text);
+    g.setFont (juce::FontOptions (13.0f));
+
+    // RF18. Ex.: "MTS-ESP · 19-EDO · 19 notes/oct"
+    if (masterMode)
+    {
+        const juce::String name = masterName.isNotEmpty() ? masterName : juce::String ("master");
+        g.drawFittedText ("MTS-ESP " + middleDot + " " + name + " " + middleDot + " " + juce::String (numLines())
+                              + " notes/" + periodName(),
+                          area.toNearestInt(), juce::Justification::centredLeft, 1, 0.7f);
+        return;
+    }
+
     // Ex.: "19 EDO · 63.2 ¢/step", ou "19 EDO · custom" com afinação desenhada (RF17).
     const juce::String detail = table.isCustomFor (edo)
                                     ? juce::String ("custom")
                                     : juce::String (StepMath::stepCents (1, edo), 1) + " " + centSign + "/step";
-    g.setColour (Palette::text);
-    g.setFont (juce::FontOptions (13.0f));
     g.drawText (juce::String (edo) + " EDO " + middleDot + " " + detail, area, juce::Justification::centredLeft);
 }
 
@@ -358,31 +414,35 @@ void TuningStepsView::paintCircle (juce::Graphics& g, juce::Rectangle<float> are
     // Referência 12-TET: tracinhos fora da borda, a cada 100 ¢.
     if (showTwelveTet)
     {
+        // Com o master, a volta é o período dele: os tracinhos cobrem só o que cabe nele.
         g.setColour (Palette::textMuted.withAlpha (0.7f));
-        for (int i = 0; i < 12; ++i)
+        const double period = masterMode ? masterLayout.periodCents : StepMath::centsPerOctave;
+        for (int i = 0; 100.0 * i < period - 1.0e-6; ++i)
         {
-            const double angle = StepMath::centsToAngle (100.0 * i);
+            const double angle = StepMath::centsToAngle (masterMode ? MasterScale::toDisplay (100.0 * i, masterLayout)
+                                                                    : 100.0 * i);
             g.drawLine ({ polar (centre, angle, radius + 3.0f), polar (centre, angle, radius + 9.0f) }, 1.5f);
         }
     }
 
     // Linhas: as apagadas primeiro, as acesas por cima.
+    const int lines = numLines();
     for (const bool litPass : { false, true })
-        for (int k = 0; k < edo; ++k)
+        for (int k = 0; k < lines; ++k)
             if ((glow[static_cast<size_t> (k)] > 0.0f) == litPass)
             {
-                const double angle = StepMath::centsToAngle (stepPosition (k));
+                const double angle = StepMath::centsToAngle (linePosition (k));
                 drawStepLine (g, { centre, polar (centre, angle, radius) }, k);
             }
 
     // Números dos steps, fora da borda.
     g.setFont (juce::FontOptions (11.0f));
-    for (int k = 0; k < edo; ++k)
+    for (int k = 0; k < lines; ++k)
     {
-        if (! StepMath::shouldLabel (k, edo) && glow[static_cast<size_t> (k)] <= 0.0f)
+        if (! StepMath::shouldLabel (k, lines) && glow[static_cast<size_t> (k)] <= 0.0f)
             continue;
 
-        const double angle = StepMath::centsToAngle (stepPosition (k));
+        const double angle = StepMath::centsToAngle (linePosition (k));
         const auto at = polar (centre, angle, radius + 15.0f);
         g.setColour (labelColour (k));
         g.drawText (juce::String (k), juce::Rectangle<float> (26.0f, 14.0f).withCentre (at),
@@ -405,14 +465,18 @@ void TuningStepsView::paintCircle (juce::Graphics& g, juce::Rectangle<float> are
         const juce::Rectangle<float> edoRow  (centre.x - textWidth * 0.5f, centre.y - 15.0f, textWidth, 15.0f);
         const juce::Rectangle<float> stepRow (centre.x - textWidth * 0.5f, centre.y + 1.0f,  textWidth, 12.0f);
 
+        // RF18: com o master, "MTS-ESP" e o número de notas por período.
+        const juce::String title  = masterMode ? juce::String ("MTS-ESP") : juce::String (edo) + " EDO";
+        const juce::String detail = masterMode            ? juce::String (lines) + " notes"
+                                  : table.isCustomFor (edo) ? juce::String ("custom")
+                                                            : juce::String (StepMath::stepCents (1, edo), 1) + " " + centSign;
+
         g.setColour (Palette::text);
         g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
-        g.drawText (juce::String (edo) + " EDO", edoRow, juce::Justification::centred);
+        g.drawFittedText (title, edoRow.toNearestInt(), juce::Justification::centred, 1, 0.7f);
         g.setColour (Palette::textMuted);
         g.setFont (juce::FontOptions (10.0f));
-        g.drawText (table.isCustomFor (edo) ? juce::String ("custom")
-                                            : juce::String (StepMath::stepCents (1, edo), 1) + " " + centSign,
-                    stepRow, juce::Justification::centred);
+        g.drawText (detail, stepRow, juce::Justification::centred);
     }
 
     paintHandles (g);
@@ -466,35 +530,41 @@ void TuningStepsView::paintLine (juce::Graphics& g, juce::Rectangle<float> area)
     // Referência 12-TET: linhas tracejadas a cada 100 ¢.
     if (showTwelveTet)
     {
+        // Com o master, a largura é o período dele: as tracejadas cobrem só o que cabe nele.
         g.setColour (Palette::textMuted.withAlpha (0.35f));
         const float dashes[] = { 3.0f, 3.0f };
-        for (int c = 100; c < 1200; c += 100)
-            g.drawDashedLine ({ xOf (c), lineArea.getY(), xOf (c), lineArea.getBottom() }, dashes, 2, 1.0f);
+        const double period = masterMode ? masterLayout.periodCents : StepMath::centsPerOctave;
+        for (int c = 100; c < period - 1.0e-6; c += 100)
+        {
+            const float x = xOf (masterMode ? MasterScale::toDisplay (c, masterLayout) : c);
+            g.drawDashedLine ({ x, lineArea.getY(), x, lineArea.getBottom() }, dashes, 2, 1.0f);
+        }
     }
 
-    // Linhas: k = edo é o step 0 da oitava seguinte (0′), na borda direita.
+    // Linhas: k = lines é o step 0 do período seguinte (0′), na borda direita.
+    const int lines = numLines();
     for (const bool litPass : { false, true })
-        for (int k = 0; k <= edo; ++k)
+        for (int k = 0; k <= lines; ++k)
         {
-            const int step = k % edo;
+            const int step = k % lines;
             if ((glow[static_cast<size_t> (step)] > 0.0f) != litPass)
                 continue;
 
-            const float x = xOf (k == edo ? StepMath::centsPerOctave : stepPosition (k));
+            const float x = xOf (k == lines ? StepMath::centsPerOctave : linePosition (k));
             drawStepLine (g, { x, lineArea.getY(), x, lineArea.getBottom() }, step);
         }
 
     // Números dos steps
     g.setFont (juce::FontOptions (11.0f));
-    for (int k = 0; k <= edo; ++k)
+    for (int k = 0; k <= lines; ++k)
     {
-        const int step = k % edo;
-        if (! StepMath::shouldLabel (step, edo) && glow[static_cast<size_t> (step)] <= 0.0f)
+        const int step = k % lines;
+        if (! StepMath::shouldLabel (step, lines) && glow[static_cast<size_t> (step)] <= 0.0f)
             continue;
 
-        const float x = xOf (k == edo ? StepMath::centsPerOctave : stepPosition (k));
+        const float x = xOf (k == lines ? StepMath::centsPerOctave : linePosition (k));
         g.setColour (labelColour (step));
-        g.drawText (k == edo ? "0" + primeSign : juce::String (k),
+        g.drawText (k == lines ? "0" + primeSign : juce::String (k),
                     juce::Rectangle<float> (x - 13.0f, numbersRow.getY(), 26.0f, numbersRow.getHeight()),
                     juce::Justification::centred);
     }
@@ -508,15 +578,18 @@ void TuningStepsView::paintLine (juce::Graphics& g, juce::Rectangle<float> area)
         g.setColour (Palette::textMuted);
         g.drawLine (x, ruler.getY(), x, ruler.getY() + 5.0f, 1.0f);
 
+        // Com o master, o texto mostra os cents reais do período dele (a marca é proporcional).
+        const int label = masterMode ? juce::roundToInt (MasterScale::fromDisplay (c, masterLayout)) : c;
         if (c % textEvery == 0)
-            g.drawText (juce::String (c) + centSign, juce::Rectangle<float> (x - 24.0f, ruler.getY() + 6.0f, 48.0f, 14.0f),
+            g.drawText (juce::String (label) + centSign, juce::Rectangle<float> (x - 24.0f, ruler.getY() + 6.0f, 48.0f, 14.0f),
                         juce::Justification::centred);
     }
 
-    // Régua em Hz em cima: a oitava de referência, de Base Freq até 2 × Base Freq.
+    // Régua em Hz em cima: o período de referência, a partir da Base Freq (ou do step 0 do master).
     g.setColour (Palette::textMuted);
     for (int c = 0; c <= 1200; c += 300)
-        g.drawText (formatHz (StepMath::toHz (baseHz, 0, c)),
+        g.drawText (formatHz (masterMode ? StepMath::toHz (masterLayout.refHz, 0, MasterScale::fromDisplay (c, masterLayout))
+                                         : StepMath::toHz (baseHz, 0, c)),
                     juce::Rectangle<float> (xOf (c) - 32.0f, hzRow.getY(), 64.0f, hzRow.getHeight()),
                     juce::Justification::centred);
 
@@ -543,6 +616,17 @@ void TuningStepsView::paintHeldList (juce::Graphics& g, juce::Rectangle<float> a
     // Ex.: "MIDI 75 → step 6, oct +0 · 379 ¢ · 547.7 Hz"
     auto describe = [this] (const HeldNote& note)
     {
+        // RF18: com o master, a altura e a frequência vêm da tabela dele.
+        if (masterMode)
+        {
+            const double cents = MasterScale::noteCentsInPeriod (masterHz, note.midiNote, masterLayout);
+            const double hz    = MasterScale::safeHz (masterHz, juce::jlimit (0, 127, note.midiNote));
+            return "MIDI " + juce::String (note.midiNote) + " " + arrow + " step " + juce::String (note.step)
+                 + ", " + periodName() + " " + signedInt (note.octave) + " " + middleDot + " "
+                 + juce::String (juce::roundToInt (cents)) + " " + centSign + " " + middleDot + " "
+                 + juce::String (hz, 1) + " Hz";
+        }
+
         const double cents = stepPosition (note.step);
         return "MIDI " + juce::String (note.midiNote) + " " + arrow + " step " + juce::String (note.step)
              + ", oct " + signedInt (note.octave) + " " + middleDot + " " + juce::String (juce::roundToInt (cents))
@@ -606,9 +690,21 @@ void TuningStepsView::paintHeldList (juce::Graphics& g, juce::Rectangle<float> a
 
 // ----------------------------------------------------------------------------- Afinação desenhada (RF17)
 
+double TuningStepsView::linePosition (int k) const
+{
+    return masterMode ? MasterScale::toDisplay (masterLayout.lineCents[static_cast<size_t> (k)], masterLayout)
+                      : stepPosition (k);
+}
+
+juce::String TuningStepsView::periodName() const
+{
+    return std::abs (masterLayout.periodCents - StepMath::centsPerOctave) < 0.01 ? "oct" : "per";
+}
+
 bool TuningStepsView::canEdit() const
 {
-    if (locked || edo < 2) // com 1 EDO só existe o step 0, que é fixo
+    // Com o master (RF18), só visualização. Com 1 EDO só existe o step 0, que é fixo.
+    if (masterMode || locked || edo < 2)
         return false;
 
     return view == View::circle ? circleRadius > 0.0f : ! lineHandleRow.isEmpty();
@@ -696,7 +792,7 @@ void TuningStepsView::paintHandles (juce::Graphics& g) const
 
 void TuningStepsView::updateResetButton()
 {
-    resetButton.setEnabled (! locked && table.isCustomFor (edo));
+    resetButton.setEnabled (! masterMode && ! locked && table.isCustomFor (edo));
 }
 
 void TuningStepsView::mouseMove (const juce::MouseEvent& event)

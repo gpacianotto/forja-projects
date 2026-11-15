@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include "TuningTable.h"
 
 // Motor de afinação do Matiza: converte nota MIDI em frequência para qualquer EDO
@@ -11,11 +13,26 @@
 //
 //     f = baseHz * 2^((oitava * 1200 + cents[step]) / 1200)
 //
-// C++ puro, sem JUCE: pode ser testado sozinho. Não aloca memória, então é seguro chamar
-// na thread de áudio.
+// Com o master do MTS-ESP ativo (RF18), a afinação interna é ignorada: cada nota MIDI toca na
+// frequência que o master define, e "1 step" = 1 nota MIDI (bend e transposição andam na
+// tabela do master).
+//
+// C++ puro, sem JUCE e sem a biblioteca do MTS-ESP: pode ser testado sozinho. Quem fala com o
+// MTS-ESP é o processador, que entrega a tabela pronta (setMasterTuning). Não aloca memória,
+// então é seguro chamar na thread de áudio.
 class TuningEngine
 {
 public:
+    static constexpr int numMidiNotes = 128;
+
+    // Tabela do master do MTS-ESP (RF18), copiada pelo processador a cada bloco.
+    struct MasterTuning
+    {
+        bool active = false; // false = vale a afinação interna (Follow desligado ou sem master)
+        std::array<double, numMidiNotes> hz {};      // frequência de cada nota MIDI
+        std::array<bool, numMidiNotes>   filtered {}; // notas que o master manda não tocar
+    };
+
     // Valores padrão = temperamento de 12 tons com A = 440 Hz (RF2 do Spec).
     struct Settings
     {
@@ -28,6 +45,13 @@ public:
 
     void setSettings (const Settings& newSettings) noexcept;
     const Settings& getSettings() const noexcept { return settings; }
+
+    // RF18. Frequência inválida (zero, negativa, NaN) vale como 12-TET com A = 440 Hz.
+    void setMasterTuning (const MasterTuning& master) noexcept;
+    bool followsMaster() const noexcept { return masterActive; }
+
+    // O master manda não tocar esta nota? (sempre false sem master)
+    bool isNoteFiltered (int midiNote) const noexcept;
 
     // bend vai de -1 (pitch wheel todo para baixo) a +1 (todo para cima); 0 = sem bend.
     // A nota é double para aceitar alturas "entre notas" (ex.: 60,5 no meio de um glide).
@@ -52,4 +76,15 @@ public:
 
 private:
     Settings settings;
+
+    // Tabela do master guardada em cents absolutos (1200 × log2(Hz), a partir de 1 Hz): interpolar
+    // em cents = interpolar na escala que o ouvido percebe. É calculada uma vez por bloco, não
+    // a cada nota.
+    bool masterActive = false;
+    std::array<double, numMidiNotes> masterCents {};
+    std::array<bool, numMidiNotes>   masterFiltered {};
+
+    // Altura em cents absolutos de uma posição em notas MIDI (fracionária, pode sair de 0..127).
+    double masterAbsoluteCents (double note) const noexcept;
+    double masterNoteCents (int note) const noexcept;
 };

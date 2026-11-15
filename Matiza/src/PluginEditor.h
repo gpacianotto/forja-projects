@@ -110,8 +110,14 @@ private:
     // Declarado depois das páginas: é destruído antes delas.
     juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };
 
-    // Knobs que a trava de afinação desabilita (não são donos: o tuningGroup é).
-    std::vector<juce::Component*> tuningControls;
+    // Knobs da afinação (não são donos: o tuningGroup é). A trava (Lock) desabilita todos; o
+    // master do MTS-ESP (RF18) desabilita só os da afinação interna (EDO, Base Freq, Ref Note),
+    // porque o Bend Range continua valendo com o master.
+    std::vector<juce::Component*> internalTuningControls;
+    juce::Component* bendRangeControl = nullptr;
+    bool tuningLocked = false;
+    bool followingMaster = false;
+    void updateTuningControls();
 
     // Liga o parâmetro tuningLock à interface; o callback roda sempre na thread da interface.
     std::unique_ptr<juce::ParameterAttachment> tuningLockAttachment;
