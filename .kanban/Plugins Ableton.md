@@ -84,35 +84,6 @@ kanban-plugin: board
 	- [ ] Criar a pasta do projeto (skill `novo-plugin`) e registrar na tabela de projetos do `CLAUDE.md`
 	
 	#Workspace
-- [ ] # DSP: harmônicos alinhados à escala (estudo de viabilidade)
-	
-	Diferencial sonoro do Matiza, decidido em 13/11/2026: o timbre se ajusta à afinação. Com uma escala como 19 EDO, os harmônicos de cada onda são puxados para os graus da escala (ex.: 3º harmônico de 3,00× para 2,95×), e acordes nessa escala soam tão "redondos" quanto no 12-TET (ideia do William Sethares sobre timbre e escala).
-	
-	**Por que não dá com o wavetable atual (RF13):** um quadro de um ciclo só guarda harmônicos inteiros (2×, 3×, 4×…). Harmônicos realinhados não são inteiros, a onda deixa de se repetir a cada ciclo e não cabe numa tabela de um ciclo.
-	
-	**Proposta: workflow de wavetable, motor aditivo por baixo**
-	1. Análise (fora do áudio): FFT de cada quadro extrai a amplitude de cada harmônico ("receita" do quadro). Reaproveita a FFT que já monta os mipmaps.
-	2. Alinhamento (fora do áudio): com os intervalos da afinação ativa (EDO interna, afinação desenhada do RF17 ou tabela do master MTS-ESP do RF18), calcula para onde vai cada harmônico.
-	3. Síntese (tempo real, na voz): banco de senoides, uma por harmônico, na frequência alinhada e com a amplitude da receita. A interpolação entre quadros (Position da etapa C) passa a interpolar receitas.
-	4. Entrega ao áudio pelo buffer triplo, como nas formas desenhadas (RF15), sem lock e sem alocação.
-	
-	**Pontos do estudo**
-	- CPU: hoje são até 192 osciladores (8 vozes × 3 osc × 8 cópias de unison) a 1,4 % de um núcleo. Aditivo com 64 harmônicos seria até ~12 mil senoides por amostra. Medir num benchmark como o de `Matiza/bench/wavetable/`.
-	- [a definir] Técnica de síntese: banco de senoides com SIMD e osciladores por recorrência; IFFT com overlap-add por bloco; ou híbrido (harmônicos de baixo realinhados no aditivo, o resto no wavetable).
-	- [a definir] Número máximo de harmônicos e limite de unison com o alinhamento ligado.
-	- Com o MTS-ESP, o master entrega 128 frequências, não a estrutura da escala: o builder deriva os intervalos da tabela e refaz as receitas quando ela muda (hash das frequências).
-	- Notas fora do pitch class 0: em escalas não equidistantes (RF17), a escala vista de cada nota muda. [a definir] alinhar pela nota tocada ou pela tônica (Ref Note).
-	
-	**Critérios de aceite (se aprovado)**
-	- Alinhamento desligado soa igual ao wavetable atual.
-	- Acorde em 19 EDO com alinhamento ligado soa com menos batimento que desligado (comparar em teste cego com os produtores parceiros).
-	- Unison no máximo roda no Live sem estalar.
-	
-	> Tentar: um knob "Align" de 0 a 100 % que interpola entre a posição original e a alinhada dos harmônicos.
-	
-	Resultado esperado: recomendação (fazer / não fazer / versão simplificada) e plano em etapas no Spec, como no [[Estudo — Wavetable nos osciladores]]. Depende da etapa C (Position) para o workflow completo.
-	
-	#Matiza
 - [ ] # Feat: landing page v0 (site da Forja Instruments)
 	
 	Primeira versão do site, com a página do Matiza. Além de vender, é **pré-requisito da Paddle**: a aprovação do domínio bloqueia a primeira venda real (ver card "Feat: licenciamento", seção "Aprovação do domínio"). Pôr uma versão simples no ar cedo, mesmo antes das demos dos produtores.
@@ -146,6 +117,18 @@ kanban-plugin: board
 
 ## Em Andamento
 
+- [ ] # DSP: harmônicos alinhados à escala (RF21)
+	
+	Implementar o estudo aprovado em 15/11/2026 ([[Estudo — Harmônicos alinhados à escala]]): knob **Align** global (`harmonicAlign`, 0–100 %, padrão 0 %) e motor híbrido (24 senoides alinhadas + wavetable do resto). Ver RF21 e as etapas 22 a 25 no Spec.
+	
+	**Etapas**
+	- [x] 22. Matemática pura: `src/AlignedSpectrum.h` (razões alinhadas pela afinação do teclado, limite de colisão, receitas das formas prontas e da desenhada), 12 testes
+	- [x] 23. Motor híbrido na voz: `PartialBank.h` (24 senoides, SSE), mipmaps "do resto" (formas prontas e desenhada), parâmetro `harmonicAlign` e knob Align provisório na aba Tuning; 142 testes (resto + senoides = onda completa); CPU ~10 % no pior caso; pluginval nível 5 (Release)
+	- [x] Teste da etapa 23 no Ableton (16/11/2026): aprovado
+	- [ ] 24. Interface: knob Align na aba Tuning e gráfico dos harmônicos sobre as linhas da escala
+	- [ ] 25. Teste de escuta: 7, 10, 12 e 19 EDO com e sem Align, teste cego com os produtores parceiros
+	
+	#Matiza
 
 
 ## Em Revisão
@@ -154,6 +137,42 @@ kanban-plugin: board
 
 ## Concluído
 
+- [x] # DSP: harmônicos alinhados à escala (estudo de viabilidade)
+	
+	Diferencial sonoro do Matiza, decidido em 13/11/2026: o timbre se ajusta à afinação. Com uma escala como 19 EDO, os harmônicos de cada onda são puxados para os graus da escala (ex.: 3º harmônico de 3,00× para 2,95×), e acordes nessa escala soam tão "redondos" quanto no 12-TET (ideia do William Sethares sobre timbre e escala).
+	
+	**Por que não dá com o wavetable atual (RF13):** um quadro de um ciclo só guarda harmônicos inteiros (2×, 3×, 4×…). Harmônicos realinhados não são inteiros, a onda deixa de se repetir a cada ciclo e não cabe numa tabela de um ciclo.
+	
+	**Proposta: workflow de wavetable, motor aditivo por baixo**
+	1. Análise (fora do áudio): FFT de cada quadro extrai a amplitude de cada harmônico ("receita" do quadro). Reaproveita a FFT que já monta os mipmaps.
+	2. Alinhamento (fora do áudio): com os intervalos da afinação ativa (EDO interna, afinação desenhada do RF17 ou tabela do master MTS-ESP do RF18), calcula para onde vai cada harmônico.
+	3. Síntese (tempo real, na voz): banco de senoides, uma por harmônico, na frequência alinhada e com a amplitude da receita. A interpolação entre quadros (Position da etapa C) passa a interpolar receitas.
+	4. Entrega ao áudio pelo buffer triplo, como nas formas desenhadas (RF15), sem lock e sem alocação.
+	
+	**Pontos do estudo**
+	- CPU: hoje são até 192 osciladores (8 vozes × 3 osc × 8 cópias de unison) a 1,4 % de um núcleo. Aditivo com 64 harmônicos seria até ~12 mil senoides por amostra. Medir num benchmark como o de `Matiza/bench/wavetable/`.
+	- [a definir] Técnica de síntese: banco de senoides com SIMD e osciladores por recorrência; IFFT com overlap-add por bloco; ou híbrido (harmônicos de baixo realinhados no aditivo, o resto no wavetable).
+	- [a definir] Número máximo de harmônicos e limite de unison com o alinhamento ligado.
+	- Com o MTS-ESP, o master entrega 128 frequências, não a estrutura da escala: o builder deriva os intervalos da tabela e refaz as receitas quando ela muda (hash das frequências).
+	- Notas fora do pitch class 0: em escalas não equidistantes (RF17), a escala vista de cada nota muda. [a definir] alinhar pela nota tocada ou pela tônica (Ref Note).
+	
+	**Critérios de aceite (se aprovado)**
+	- Alinhamento desligado soa igual ao wavetable atual.
+	- Acorde em 19 EDO com alinhamento ligado soa com menos batimento que desligado (comparar em teste cego com os produtores parceiros).
+	- Unison no máximo roda no Live sem estalar.
+	
+	> Tentar: um knob "Align" de 0 a 100 % que interpola entre a posição original e a alinhada dos harmônicos.
+	
+	Resultado esperado: recomendação (fazer / não fazer / versão simplificada) e plano em etapas no Spec, como no [[Estudo — Wavetable nos osciladores]]. Depende da etapa C (Position) para o workflow completo.
+	
+	**Resultado (15/11/2026):** ver [[Estudo — Harmônicos alinhados à escala]].
+	- [x] Benchmark (`Matiza/bench/aligned-harmonics/`): híbrido com 24 harmônicos no aditivo (recorrência SSE) + wavetable = 9 % de um núcleo no pior caso (192 osc), contra 2,8 % do wavetable; aditivo puro com 64 = 15 % a 24 %
+	- [x] Modelo de dissonância (Plomp-Levelt/Sethares): aspereza cai 25 % a 50 % em 5, 7, 10 e 13 EDO; só ~10 % em 19 e 31 EDO
+	- [x] Áudios de comparação (12, 19, 10 e 7 EDO, natural × alinhado) em `bench/aligned-harmonics/build/audio/`
+	- [x] Recomendação: fazer, versão híbrida, knob Align com padrão 0 %, alinhando pela nota tocada (altura mais próxima da afinação do teclado)
+	- [x] Decisão do Guilherme (15/11/2026): fazer agora, com Align **global** (um knob para os 3 osciladores). Plano no Spec: RF21, etapas 22 a 25
+	
+	#Matiza
 - [x] # Interface: gráfico do unison (Unison, Detune, Blend, Width)
 	
 	O unison (RF12) já funciona, mas os 4 knobs não mostram o que estão fazendo. No Serum, ao mexer neles aparece um gráfico que explica o efeito. Pedido em 13/11/2026.

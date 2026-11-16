@@ -17,11 +17,17 @@ public:
     void setWaveform (Waveform newWaveform) noexcept;
 
     // Mipmaps da forma desenhada (RF15), usados quando a forma é Custom. O dono dos dados é o
-    // CustomShapes; o ponteiro vale até o próximo bloco de áudio.
-    void setCustomTables (const float* levels) noexcept;
+    // CustomShapes; o ponteiro vale até o próximo bloco de áudio. residualLevels: as tabelas
+    // "do resto" da mesma forma (RF21), ou nullptr.
+    void setCustomTables (const float* levels, const float* residualLevels = nullptr) noexcept;
+
+    // Harmônicos alinhados (RF21): true = lê as tabelas "do resto" (sem os 24 primeiros
+    // harmônicos, que tocam no PartialBank); false = a onda completa.
+    void setResidual (bool useResidual) noexcept;
     void setFrequency (double hz, double sampleRate) noexcept;
     void resetPhase() noexcept { phase = 0.0; }
     void setPhase (double newPhase) noexcept; // 0..1 (valores fora são dobrados para dentro)
+    double getPhase() const noexcept { return phase; }
 
     // Devolve a amostra atual (entre -1 e 1, com um pequeno sobressinal perto dos saltos da
     // serra e da quadrada) e avança a fase.
@@ -37,6 +43,8 @@ private:
     // Tabela do nível (mipmap) atual. Iniciada aqui: o primeiro oscilador criado monta o banco.
     const float* table = Wavetables::table (Waveform::saw, 0);
     const float* customLevels = nullptr;
+    const float* customResidualLevels = nullptr;
+    bool residual = false;
 };
 
 // "inline" no header: chamada a cada amostra, para cada cópia de cada oscilador. Com o corpo

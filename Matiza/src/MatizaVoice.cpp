@@ -75,9 +75,12 @@ void MatizaVoice::setParameters (const VoiceParameters& params)
     {
         for (auto& copy : oscillators[o])
         {
-            copy.setCustomTables (params.oscCustomTables[o]);
+            copy.setCustomTables (params.oscCustomTables[o], params.oscCustomResidual[o]);
             copy.setWaveform (params.oscillators[o].waveform);
         }
+
+        for (auto& bank : partialBanks[o])
+            bank.setRecipe (recipeFor (o));
 
         blendSmoothed[o].setTargetValue (params.oscillators[o].blend);
         widthSmoothed[o].setTargetValue (params.oscillators[o].width);
@@ -94,6 +97,10 @@ void MatizaVoice::setParameters (const VoiceParameters& params)
         lfos[k].setCustomTable (params.lfoCustomTables[k]);
     }
     glide.setTime (params.glideSeconds, getSampleRate());
+
+    // RF21: girar o Align acima de 0 com a nota tocando liga o motor híbrido nela.
+    if (isVoiceActive() && ! hybrid && params.harmonicAlign > 0.0f)
+        setHybrid (true);
 
     // Knobs (e a matriz em cima deles) valem em tempo real, inclusive para notas presas.
     updateModulation();
@@ -163,6 +170,9 @@ void MatizaVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesis
     }
 
     updateUnisonLayouts();
+
+    // RF21: depois das fases, porque o banco de senoides começa na fase de cada cópia.
+    setHybrid (parameters.harmonicAlign > 0.0f);
 
     modEnv.reset();
     modEnvValue = 0.0f;
@@ -313,7 +323,56 @@ void MatizaVoice::updateUnisonLayouts()
     }
 }
 
-void MatizaVoice::updateFrequencies()
+const AlignedSpectrum::Recipe& MatizaVoice::recipeFor (size_t osc) const noexcept
+{
+    const auto waveform = parameters.oscillators[osc].waveform;
+
+    if (waveform == Waveform::custom)
+        return parameters.oscCustomRecipes[osc] != nullptr ? *parameters.oscCustomRecipes[osc]
+                                                            : builtinRecipes[static_cast<size_t> (Waveform::saw)];
+
+    return builtinRecipes[static_cast<size_t> (waveform)];
+}
+
+void MatizaVoice::setHybrid (bool on)
+{
+    hybrid = on;
+
+    for (size_t o = 0; o < oscillators.size(); ++o)
+    {
+        for (size_t k = 0; k < oscillators[o].size(); ++k)
+        {
+            oscillators[o][k].setResidual (on);
+
+            // O banco começa na fase atual da cópia: wavetable do resto + senoides = a mesma
+            // onda de antes, sem salto.
+            if (on)
+                partialBanks[o][k].start (oscillators[o][k].getPhase());
+        }
+    }
+}
+
+void MatizaVoice::updateAlignedRatios (size_t osc)
+{
+    // A referência é a altura do oscilador na escala (nota + steps), sem bend, Fine, detune nem
+    // modulação: esses multiplicam o espectro inteiro depois (RF21). A oitava do oscilador
+    // também fica de fora (em escalas de oitava, alinhar uma oitava acima dá as mesmas razões).
+    const auto& t = pitchTuning();
+    const int steps = parameters.oscillators[osc].steps;
+    const AlignKey key { currentMidiNote + steps, parameters.harmonicAlign, t.getRevision(), t.followsMaster() };
+
+    if (key == alignKeys[osc])
+        return;
+
+    alignKeys[osc] = key;
+
+    const double note = currentMidiNote;
+    const double base = t.centsFromBase (note, 0.0, steps);
+    alignedRatios[osc] = AlignedSpectrum::align ([&] (int k) { return t.centsFromBase (note, 0.0, steps + k) - base; },
+                                                 parameters.harmonicAlign);
+}
+
+void MatizaVoice::updateFrequencies (bool includePartials)
 {
     const double sampleRate = getSampleRate();
 
@@ -325,6 +384,10 @@ void MatizaVoice::updateFrequencies()
     for (size_t i = 0; i < oscillators.size(); ++i)
     {
         const auto& osc = parameters.oscillators[i];
+        const bool updatePartials = hybrid && includePartials;
+
+        if (updatePartials)
+            updateAlignedRatios (i);
 
         // Matriz: Pitch em passos da EDO; Level e Fine na faixa normalizada do knob.
         const double steps = osc.steps + globalPitchSteps
@@ -352,6 +415,8 @@ void MatizaVoice::updateFrequencies()
             const bool playable = TuningEngine::isPlayable (copyHz, sampleRate);
 
             oscillators[i][k].setFrequency (copyHz, sampleRate);
+            if (updatePartials)
+                partialBanks[i][static_cast<size_t> (k)].setFrequency (copyHz, alignedRatios[i], sampleRate);
             copyAudible[i][k] = playable;
             anyCopyPlayable = anyCopyPlayable || playable;
         }
@@ -422,11 +487,16 @@ void MatizaVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSa
 
             updateUnisonLayouts();
             updateModulation(); // inclui updateFrequencies
+
+            if (hybrid)
+                for (size_t o = 0; o < partialBanks.size(); ++o)
+                    for (int k = 0; k < unisonLayouts[o].count; ++k)
+                        partialBanks[o][static_cast<size_t> (k)].renormalise();
             samplesUntilModUpdate = modUpdateInterval;
         }
         else if (gliding)
         {
-            updateFrequencies();
+            updateFrequencies (false);
         }
 
         if (cutoffSmoothed.isSmoothing() || cutoffModRatio.isSmoothing())
@@ -453,7 +523,9 @@ void MatizaVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSa
                 if (! copyAudible[o][k])
                     continue;
 
-                const float copySample = oscillators[o][k].nextSample();
+                float copySample = oscillators[o][k].nextSample();
+                if (hybrid)
+                    copySample += partialBanks[o][static_cast<size_t> (k)].nextSample();
                 left  += copySample * unisonLayout.gainLeft[k];
                 right += copySample * unisonLayout.gainRight[k];
             }

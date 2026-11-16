@@ -12,14 +12,24 @@ void Oscillator::setWaveform (Waveform newWaveform) noexcept
     updateTable();
 }
 
-void Oscillator::setCustomTables (const float* levels) noexcept
+void Oscillator::setCustomTables (const float* levels, const float* residualLevels) noexcept
 {
-    if (levels == customLevels)
+    if (levels == customLevels && residualLevels == customResidualLevels)
         return;
 
     customLevels = levels;
+    customResidualLevels = residualLevels;
     if (waveform == Waveform::custom)
         updateTable();
+}
+
+void Oscillator::setResidual (bool useResidual) noexcept
+{
+    if (useResidual == residual)
+        return;
+
+    residual = useResidual;
+    updateTable();
 }
 
 void Oscillator::setFrequency (double hz, double sampleRate) noexcept
@@ -37,8 +47,13 @@ void Oscillator::updateTable() noexcept
 {
     const int level = Wavetables::levelFor (increment);
 
-    if (waveform == Waveform::custom && customLevels != nullptr)
-        table = customLevels + level * Wavetables::levelStride;
+    // Custom sem tabela ainda: serra.
+    const float* custom = residual ? customResidualLevels : customLevels;
+
+    if (waveform == Waveform::custom && custom != nullptr)
+        table = custom + level * Wavetables::levelStride;
+    else if (residual)
+        table = Wavetables::residualTable (waveform, level);
     else
-        table = Wavetables::table (waveform, level); // Custom sem tabela ainda: serra
+        table = Wavetables::table (waveform, level);
 }

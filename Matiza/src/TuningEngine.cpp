@@ -5,8 +5,14 @@
 
 void TuningEngine::setSettings (const Settings& newSettings) noexcept
 {
-    settings = newSettings;
-    settings.edo = std::max (1, settings.edo); // evita divisão por zero
+    Settings clamped = newSettings;
+    clamped.edo = std::max (1, clamped.edo); // evita divisão por zero
+
+    if (clamped == settings)
+        return;
+
+    settings = clamped;
+    ++revision;
 }
 
 namespace
@@ -26,17 +32,27 @@ namespace
 
 void TuningEngine::setMasterTuning (const MasterTuning& master) noexcept
 {
+    bool changed = master.active != masterActive;
     masterActive = master.active;
     if (! masterActive)
+    {
+        if (changed)
+            ++revision;
         return; // a tabela antiga fica, mas não vale
+    }
 
     for (std::size_t n = 0; n < masterCents.size(); ++n)
     {
         const double hz = master.hz[n];
         const bool valid = std::isfinite (hz) && hz > 0.0;
-        masterCents[n]    = absoluteCents (valid ? hz : standardHz (static_cast<int> (n)));
+        const double cents = absoluteCents (valid ? hz : standardHz (static_cast<int> (n)));
+        changed = changed || cents != masterCents[n] || master.filtered[n] != masterFiltered[n];
+        masterCents[n]    = cents;
         masterFiltered[n] = master.filtered[n];
     }
+
+    if (changed)
+        ++revision;
 }
 
 bool TuningEngine::isNoteFiltered (int midiNote) const noexcept

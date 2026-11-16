@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 #include "TuningTable.h"
 
@@ -41,6 +42,8 @@ public:
         int    refNote   = 69;    // nota MIDI que soa em baseHz
         double bendSteps = 2.0;   // alcance do pitch bend, em passos da EDO
         TuningTable table;        // afinação desenhada (RF17); só vale se table.edo == edo
+
+        bool operator== (const Settings&) const = default;
     };
 
     void setSettings (const Settings& newSettings) noexcept;
@@ -49,6 +52,11 @@ public:
     // RF18. Frequência inválida (zero, negativa, NaN) vale como 12-TET com A = 440 Hz.
     void setMasterTuning (const MasterTuning& master) noexcept;
     bool followsMaster() const noexcept { return masterActive; }
+
+    // Contador que muda sempre que a afinação muda (settings ou tabela do master). Quem guarda
+    // contas feitas com a afinação (ex.: harmônicos alinhados, RF21) compara o número para
+    // saber se precisa refazer, sem comparar as tabelas inteiras.
+    std::uint64_t getRevision() const noexcept { return revision; }
 
     // O master manda não tocar esta nota? (sempre false sem master)
     bool isNoteFiltered (int midiNote) const noexcept;
@@ -76,6 +84,7 @@ public:
 
 private:
     Settings settings;
+    std::uint64_t revision = 0;
 
     // Tabela do master guardada em cents absolutos (1200 × log2(Hz), a partir de 1 Hz): interpolar
     // em cents = interpolar na escala que o ouvido percebe. É calculada uma vez por bloco, não

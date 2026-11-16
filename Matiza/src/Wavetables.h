@@ -20,6 +20,11 @@ namespace Wavetables
     inline constexpr int tableSize = 2048; // potência de 2: o índice dá a volta com "& (tableSize - 1)"
     inline constexpr int numLevels = 21;   // 1023 harmônicos no nível 0 ... 1 harmônico no nível 20
 
+    // Amplitude do harmônico h (coeficiente da série de Fourier em senos) de cada forma pronta,
+    // escolhida para a forma e a fase ficarem iguais às do oscilador PolyBLEP antigo. Custom
+    // devolve 0 (não fica no banco). Usada também pelas receitas do alinhamento (RF21).
+    double harmonicAmplitude (Waveform waveform, int h) noexcept;
+
     // Maior harmônico guardado no nível `level` (1023, 724, 512, 362, 256 ... 1).
     int maxHarmonic (int level) noexcept;
 
@@ -37,9 +42,16 @@ namespace Wavetables
     // Custom não está no banco (cada oscilador tem a sua): pedir Custom devolve a serra.
     const float* table (Waveform waveform, int level) noexcept;
 
+    // Harmônicos alinhados (RF21): os harmônicos 1..residualFirstHarmonic-1 tocam num banco de
+    // senoides (PartialBank.h) e o resto vem destas tabelas "do resto", iguais às de cima mas
+    // sem os primeiros harmônicos. Somar as duas partes dá a onda completa.
+    inline constexpr int residualFirstHarmonic = 25;
+    const float* residualTable (Waveform waveform, int level) noexcept;
+
     // Monta os 21 níveis de uma forma desenhada (RF15). cycle: tableSize amostras de um ciclo.
     // out: mipmapSetSize amostras (nível 0, nível 1, ...). Usa FFT: separa os harmônicos,
     // zera os que passariam do limite de cada nível (e o DC, a média da onda) e volta.
     // Aloca memória: chamar só fora da thread de áudio.
-    void buildMipmaps (const float* cycle, float* out);
+    // firstHarmonic > 1 monta as tabelas "do resto" (RF21): os harmônicos abaixo dele também saem.
+    void buildMipmaps (const float* cycle, float* out, int firstHarmonic = 1);
 }

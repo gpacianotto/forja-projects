@@ -13,40 +13,14 @@ namespace Wavetables
         constexpr int samplesPerTable = tableSize + 1;
         constexpr double pi = std::numbers::pi;
 
-        // Amplitude do harmônico h (coeficiente da série de Fourier em senos) de cada forma,
-        // escolhida para a forma e a fase ficarem iguais às do oscilador PolyBLEP antigo.
-        double harmonicAmplitude (Waveform waveform, int h)
-        {
-            switch (waveform)
-            {
-                case Waveform::sine:
-                    return h == 1 ? 1.0 : 0.0;
-
-                case Waveform::saw: // rampa de -1 a +1, salto para baixo em t = 0
-                    return -2.0 / (pi * h);
-
-                case Waveform::square: // +1 na primeira metade, -1 na segunda (só harmônicos ímpares)
-                    return h % 2 == 1 ? 4.0 / (pi * h) : 0.0;
-
-                case Waveform::triangle: // começa em 0 e desce (harmônicos ímpares, caem com 1/h²)
-                {
-                    if (h % 2 == 0)
-                        return 0.0;
-                    const double sign = ((h - 1) / 2) % 2 == 0 ? 1.0 : -1.0;
-                    return -sign * 8.0 / (pi * pi * h * h);
-                }
-
-                case Waveform::custom: // não fica no banco
-                    return 0.0;
-            }
-            return 0.0;
-        }
-
-        // Todas as tabelas num único vetor: [forma][nível][amostra].
+        // Todas as tabelas num único vetor: [conjunto][forma][nível][amostra]. Conjunto 0 = onda
+        // completa; conjunto 1 = "do resto" (sem os harmônicos abaixo de residualFirstHarmonic, RF21).
         class Bank
         {
         public:
-            Bank() : samples (static_cast<size_t> (numBuiltinWaveforms * numLevels * samplesPerTable))
+            static constexpr int numSets = 2;
+
+            Bank() : samples (static_cast<size_t> (numSets * numBuiltinWaveforms * numLevels * samplesPerTable))
             {
                 // Seno de 1 ciclo amostrado uma vez. O harmônico h na amostra i é
                 // sin(2π·h·i/N) = sineTable[(h·i) mod N]: sem chamar std::sin no laço.
@@ -56,8 +30,10 @@ namespace Wavetables
 
                 std::vector<double> sum (tableSize);
 
+                for (int set = 0; set < numSets; ++set)
                 for (int w = 0; w < numBuiltinWaveforms; ++w)
                 {
+                    const int firstHarmonic = set == 0 ? 1 : residualFirstHarmonic;
                     const auto waveform = static_cast<Waveform> (w);
 
                     for (int level = 0; level < numLevels; ++level)
@@ -65,7 +41,7 @@ namespace Wavetables
                         std::fill (sum.begin(), sum.end(), 0.0);
                         const int harmonics = maxHarmonic (level);
 
-                        for (int h = 1; h <= harmonics; ++h)
+                        for (int h = firstHarmonic; h <= harmonics; ++h)
                         {
                             const double amplitude = harmonicAmplitude (waveform, h);
                             if (amplitude == 0.0)
@@ -75,7 +51,7 @@ namespace Wavetables
                                 sum[static_cast<size_t> (i)] += amplitude * sineTable[static_cast<size_t> ((h * i) & (tableSize - 1))];
                         }
 
-                        float* out = data (waveform, level);
+                        float* out = data (set, waveform, level);
                         for (int i = 0; i < tableSize; ++i)
                             out[i] = static_cast<float> (sum[static_cast<size_t> (i)]);
                         out[tableSize] = out[0];
@@ -83,9 +59,9 @@ namespace Wavetables
                 }
             }
 
-            float* data (Waveform waveform, int level) noexcept
+            float* data (int set, Waveform waveform, int level) noexcept
             {
-                const auto index = (static_cast<int> (waveform) * numLevels + level) * samplesPerTable;
+                const auto index = ((set * numBuiltinWaveforms + static_cast<int> (waveform)) * numLevels + level) * samplesPerTable;
                 return samples.data() + index;
             }
 
@@ -140,6 +116,33 @@ namespace Wavetables
         }
     }
 
+    double harmonicAmplitude (Waveform waveform, int h) noexcept
+    {
+        switch (waveform)
+        {
+            case Waveform::sine:
+                return h == 1 ? 1.0 : 0.0;
+
+            case Waveform::saw: // rampa de -1 a +1, salto para baixo em t = 0
+                return -2.0 / (pi * h);
+
+            case Waveform::square: // +1 na primeira metade, -1 na segunda (só harmônicos ímpares)
+                return h % 2 == 1 ? 4.0 / (pi * h) : 0.0;
+
+            case Waveform::triangle: // começa em 0 e desce (harmônicos ímpares, caem com 1/h²)
+            {
+                if (h % 2 == 0)
+                    return 0.0;
+                const double sign = ((h - 1) / 2) % 2 == 0 ? 1.0 : -1.0;
+                return -sign * 8.0 / (pi * pi * h * h);
+            }
+
+            case Waveform::custom: // não fica no banco
+                return 0.0;
+        }
+        return 0.0;
+    }
+
     int maxHarmonic (int level) noexcept
     {
         level = std::clamp (level, 0, numLevels - 1);
@@ -171,10 +174,18 @@ namespace Wavetables
         if (waveform == Waveform::custom)
             waveform = Waveform::saw;
 
-        return bank().data (waveform, std::clamp (level, 0, numLevels - 1));
+        return bank().data (0, waveform, std::clamp (level, 0, numLevels - 1));
     }
 
-    void buildMipmaps (const float* cycle, float* out)
+    const float* residualTable (Waveform waveform, int level) noexcept
+    {
+        if (waveform == Waveform::custom)
+            waveform = Waveform::saw;
+
+        return bank().data (1, waveform, std::clamp (level, 0, numLevels - 1));
+    }
+
+    void buildMipmaps (const float* cycle, float* out, int firstHarmonic)
     {
         // Espectro do ciclo desenhado: o índice h é o harmônico h.
         std::vector<std::complex<double>> spectrum (tableSize);
@@ -191,7 +202,7 @@ namespace Wavetables
             // Mantém só os harmônicos 1..harmonics (e os espelhos, N-h, que um sinal real tem).
             // O DC (h = 0, a média) sai: uma onda desenhada fora do centro não empurra a saída.
             std::fill (work.begin(), work.end(), std::complex<double> {});
-            for (int h = 1; h <= harmonics; ++h)
+            for (int h = std::max (1, firstHarmonic); h <= harmonics; ++h)
             {
                 work[static_cast<std::size_t> (h)] = spectrum[static_cast<std::size_t> (h)];
                 work[static_cast<std::size_t> (tableSize - h)] = spectrum[static_cast<std::size_t> (tableSize - h)];

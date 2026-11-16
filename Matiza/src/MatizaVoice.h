@@ -1,15 +1,18 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
 
+#include "AlignedSpectrum.h"
 #include "Glide.h"
 #include "GraphMath.h"
 #include "Lfo.h"
 #include "ModMatrix.h"
 #include "Oscillator.h"
+#include "PartialBank.h"
 #include "Parameters.h"
 #include "TuningEngine.h"
 #include "Unison.h"
@@ -50,12 +53,15 @@ struct VoiceParameters
     float cutoffHz     = 8000.0f;
     float resonance    = 0.7f;
     float glideSeconds = 0.0f;
+    float harmonicAlign = 0.0f; // RF21, 0..1 (0 = harmônicos naturais)
     ModMatrix::Slots modSlots {};
     std::array<LfoParameters, ParamIDs::numLfos> lfos {};
 
     // Formas desenhadas (RF15), lidas pelo processador no começo do bloco. Válidas até o
     // próximo bloco.
     std::array<const float*, ParamIDs::numOscillators> oscCustomTables {};
+    std::array<const float*, ParamIDs::numOscillators> oscCustomResidual {}; // RF21: sem os 24 primeiros harmônicos
+    std::array<const AlignedSpectrum::Recipe*, ParamIDs::numOscillators> oscCustomRecipes {}; // RF21
     std::array<const float*, ParamIDs::numLfos> lfoCustomTables {};
 };
 
@@ -92,7 +98,12 @@ class MatizaVoice final : public juce::SynthesiserVoice
 public:
     // A voz só lê estas referências; o dono é o PluginProcessor, que vive mais que ela.
     MatizaVoice (const TuningEngine& tuningEngine, const GlobalModState& globalModState, const ModRanges& modRanges)
-        : tuning (tuningEngine), globalMod (globalModState), ranges (modRanges) {}
+        : tuning (tuningEngine), globalMod (globalModState), ranges (modRanges)
+    {
+        // Receitas das formas prontas (RF21), calculadas uma vez, fora da thread de áudio.
+        for (int w = 0; w < numBuiltinWaveforms; ++w)
+            builtinRecipes[static_cast<size_t> (w)] = AlignedSpectrum::builtinRecipe (static_cast<Waveform> (w));
+    }
 
     // Chamado em prepareToPlay, fora da thread de áudio (o filtro aloca memória aqui).
     void prepare (double sampleRate, int maxBlockSize);
@@ -147,7 +158,12 @@ public:
 private:
     void updateModulation();
     void restartLfos();
-    void updateFrequencies();
+    // includePartials = false: só os wavetables (usado a cada amostra do glide; o banco de
+    // senoides, mais caro de reajustar, acompanha a cada 32 amostras).
+    void updateFrequencies (bool includePartials = true);
+    void setHybrid (bool on);
+    void updateAlignedRatios (size_t osc);
+    const AlignedSpectrum::Recipe& recipeFor (size_t osc) const noexcept;
     void updateUnisonLayouts();
     float clampCutoff (float hz) const;
     static void setEnvelopeParameters (juce::ADSR& envelope, const juce::ADSR::Parameters& newParams);
@@ -177,6 +193,26 @@ private:
     // Todas existem desde o início (sem alocação); só as primeiras `count` tocam.
     std::array<std::array<Oscillator, Unison::maxVoices>, ParamIDs::numOscillators> oscillators;
     std::array<Unison::Layout, ParamIDs::numOscillators> unisonLayouts {};
+
+    // Harmônicos alinhados (RF21). Com o Align acima de 0, cada cópia toca o wavetable "do resto"
+    // mais um banco de 24 senoides nas posições alinhadas (motor híbrido). Com o Align em 0 a
+    // nota começa só no wavetable completo, como antes do RF21. Ligado durante a nota, fica
+    // ligado até ela acabar: desligar no meio trocaria a onda de uma vez e estalaria.
+    bool hybrid = false;
+    std::array<std::array<PartialBank, Unison::maxVoices>, ParamIDs::numOscillators> partialBanks;
+    std::array<AlignedSpectrum::Ratios, ParamIDs::numOscillators> alignedRatios {};
+    std::array<AlignedSpectrum::Recipe, numBuiltinWaveforms> builtinRecipes {};
+
+    // O que as razões alinhadas de cada oscilador usaram: se nada mudou, não refaz a conta.
+    struct AlignKey
+    {
+        int refStep = 0;            // nota + steps do oscilador
+        float amount = -1.0f;       // Align (-1 = ainda não calculado)
+        std::uint64_t revision = 0; // TuningEngine::getRevision
+        bool master = false;        // afinação do master ou interna
+        bool operator== (const AlignKey&) const = default;
+    };
+    std::array<AlignKey, ParamIDs::numOscillators> alignKeys {};
 
     // Cópia fora da faixa tocável (RF4) fica muda; as outras do mesmo oscilador continuam.
     std::array<std::array<bool, Unison::maxVoices>, ParamIDs::numOscillators> copyAudible {};

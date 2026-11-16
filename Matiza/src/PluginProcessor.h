@@ -126,6 +126,7 @@ private:
     std::atomic<float>* refNoteParam   = nullptr;
     std::atomic<float>* bendStepsParam = nullptr;
     std::atomic<float>* mtsFollowParam = nullptr; // RF18
+    std::atomic<float>* harmonicAlignParam = nullptr; // RF21
     std::atomic<float>* attackParam    = nullptr;
     std::atomic<float>* decayParam     = nullptr;
     std::atomic<float>* sustainParam   = nullptr;

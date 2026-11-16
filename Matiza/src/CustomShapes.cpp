@@ -15,7 +15,7 @@ CustomShapes::CustomShapes()
     for (std::size_t i = 0; i < numOscillators; ++i)
     {
         oscPoints[i] = ShapePoints::preset (ShapePoints::Preset::sawUp);
-        oscTables[i].fillAll ([this, i] (OscTables& tables) { renderOsc (oscPoints[i], tables); });
+        oscShapes[i].fillAll ([this, i] (OscShape& shape) { renderOsc (oscPoints[i], shape); });
     }
 }
 
@@ -29,8 +29,8 @@ void CustomShapes::setLfoPoints (std::size_t lfo, const ShapePoints& points)
 void CustomShapes::setOscPoints (std::size_t osc, const ShapePoints& points)
 {
     oscPoints[osc] = points;
-    renderOsc (points, oscTables[osc].beginWrite());
-    oscTables[osc].publish();
+    renderOsc (points, oscShapes[osc].beginWrite());
+    oscShapes[osc].publish();
 }
 
 void CustomShapes::renderLfo (const ShapePoints& points, LfoTable& out)
@@ -41,11 +41,13 @@ void CustomShapes::renderLfo (const ShapePoints& points, LfoTable& out)
         out[i] = points.evaluate (static_cast<double> (i) / Lfo::customTableSize);
 }
 
-void CustomShapes::renderOsc (const ShapePoints& points, OscTables& out)
+void CustomShapes::renderOsc (const ShapePoints& points, OscShape& out)
 {
     std::vector<float> cycle (Wavetables::tableSize);
     for (int i = 0; i < Wavetables::tableSize; ++i)
         cycle[static_cast<std::size_t> (i)] = points.evaluate (static_cast<double> (i) / Wavetables::tableSize);
 
-    Wavetables::buildMipmaps (cycle.data(), out.data());
+    Wavetables::buildMipmaps (cycle.data(), out.tables.data());
+    Wavetables::buildMipmaps (cycle.data(), out.residual.data(), Wavetables::residualFirstHarmonic);
+    out.recipe = AlignedSpectrum::recipeFromCycle (cycle.data());
 }

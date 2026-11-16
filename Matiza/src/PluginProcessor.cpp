@@ -15,6 +15,7 @@ PluginProcessor::PluginProcessor()
     refNoteParam   = apvts.getRawParameterValue (ParamIDs::refNote);
     bendStepsParam = apvts.getRawParameterValue (ParamIDs::bendSteps);
     mtsFollowParam = apvts.getRawParameterValue (ParamIDs::mtsFollow);
+    harmonicAlignParam = apvts.getRawParameterValue (ParamIDs::harmonicAlign);
     attackParam    = apvts.getRawParameterValue (ParamIDs::attack);
     decayParam     = apvts.getRawParameterValue (ParamIDs::decay);
     sustainParam   = apvts.getRawParameterValue (ParamIDs::sustain);
@@ -104,6 +105,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParam
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { ParamIDs::mtsFollow, 1 }, "Follow MTS-ESP", true,
         juce::AudioParameterBoolAttributes().withAutomatable (false)));
+
+    // Harmônicos alinhados à escala (RF21): 0 % = harmônicos naturais (o som de sempre).
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { ParamIDs::harmonicAlign, 1 }, "Harmonic Align",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
 
     // --- Osciladores (RF6) --- (a ordem das opções de onda = enum Waveform)
     // Custom (RF15) no fim: as outras opções mantêm o índice.
@@ -355,6 +362,7 @@ void PluginProcessor::updateVoices()
     }
 
     params.glideSeconds = glideParam->load() / 1000.0f; // ms -> s
+    params.harmonicAlign = harmonicAlignParam->load() / 100.0f; // % -> 0..1
 
     params.modEnv.attack  = modEnvAttackParam->load() / 1000.0f;
     params.modEnv.decay   = modEnvDecayParam->load() / 1000.0f;
@@ -374,7 +382,12 @@ void PluginProcessor::updateVoices()
     for (size_t k = 0; k < params.lfoCustomTables.size(); ++k)
         params.lfoCustomTables[k] = customShapes->readLfoTable (k);
     for (size_t i = 0; i < params.oscCustomTables.size(); ++i)
-        params.oscCustomTables[i] = customShapes->readOscTables (i);
+    {
+        const auto& shape = customShapes->readOscShape (i);
+        params.oscCustomTables[i]   = shape.tables.data();
+        params.oscCustomResidual[i] = shape.residual.data(); // RF21
+        params.oscCustomRecipes[i]  = &shape.recipe;
+    }
 
     for (size_t i = 0; i < modSlotParams.size(); ++i)
     {

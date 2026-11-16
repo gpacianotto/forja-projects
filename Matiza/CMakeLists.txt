@@ -103,6 +103,8 @@ if(MATIZA_BUILD_TESTS)
         tests/MasterTuningTests.cpp
         tests/MasterScaleTests.cpp
         tests/ScaleLinesTests.cpp
+        tests/AlignedSpectrumTests.cpp
+        tests/PartialBankTests.cpp
         src/TuningEngine.cpp
         src/Oscillator.cpp
         src/Wavetables.cpp

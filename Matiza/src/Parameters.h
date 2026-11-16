@@ -15,6 +15,7 @@ namespace ParamIDs
     inline constexpr auto bendSteps  = "bendSteps";
     inline constexpr auto tuningLock = "tuningLock"; // trava da interface (RF8), não automatizável
     inline constexpr auto mtsFollow  = "mtsFollow";  // seguir o master do MTS-ESP (RF18), não automatizável
+    inline constexpr auto harmonicAlign = "harmonicAlign"; // harmônicos alinhados à escala (RF21), %
 
     // Osciladores (RF6). Índice 0..2 = osc 1..3.
     // O osc 1 reaproveita o ID "wave" da v0.1, para sets antigos continuarem iguais.

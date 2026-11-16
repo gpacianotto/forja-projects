@@ -274,6 +274,8 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
     internalTuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::baseHz,  "Base Freq")));
     internalTuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::refNote, "Ref Note")));
     bendRangeControl = &tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::bendSteps, "Bend Range"));
+    // RF21: timbre que segue a escala. Não é afinação, então o Lock não trava.
+    tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::harmonicAlign, "Align"));
 
     // Gráfico dos steps da EDO (RF16): ocupa o grupo inteiro (sem controles próprios).
     stepsGroup.setDisplay (std::make_unique<TuningStepsView> (processor), 1.0f, ParameterGroup::DisplayPlacement::left);
