@@ -384,6 +384,126 @@ void UnisonGraph::paint (juce::Graphics& g)
     g.drawFittedText (title, titleRow.toNearestInt(), juce::Justification::centredLeft, 1, 0.8f);
 }
 
+// ----------------------------------------------------------------------------- HarmonicsGraph
+
+HarmonicsGraph::HarmonicsGraph (std::function<HarmonicsView::Snapshot()> snapshotSource)
+    : source (std::move (snapshotSource))
+{
+    if (source != nullptr)
+        drawn = source();
+    startTimerHz (refreshHz);
+}
+
+void HarmonicsGraph::timerCallback()
+{
+    if (source == nullptr)
+        return;
+
+    const auto now = source();
+    if (! (now == drawn))
+    {
+        drawn = now;
+        repaint();
+    }
+}
+
+void HarmonicsGraph::paint (juce::Graphics& g)
+{
+    const auto area = drawGraphBackground (g, *this);
+    const bool roomForText = area.getHeight() >= 80.0f && area.getWidth() >= 140.0f;
+
+    // Faixas: título em cima, marcas 1×, 2×, 4×… embaixo, barras no meio.
+    auto rest = area;
+    const auto titleRow = roomForText ? rest.removeFromTop (16.0f) : juce::Rectangle<float>();
+    const auto axisRow  = roomForText ? rest.removeFromBottom (14.0f) : juce::Rectangle<float>();
+    const auto bars     = rest.reduced (0.0f, 2.0f);
+
+    constexpr float sideMargin = 10.0f;
+    const float left  = area.getX() + sideMargin;
+    const float width = area.getWidth() - 2.0f * sideMargin;
+    auto xOfCents = [left, width] (double cents)
+    {
+        return left + static_cast<float> (cents / HarmonicsView::maxCents) * width;
+    };
+
+    g.setFont (juce::FontOptions (11.0f));
+
+    // Oitavas da fundamental (1×, 2×, 4×, 8×, 16×): referência fixa do eixo.
+    g.setColour (gridColour (*this));
+    for (int octave = 0; octave <= 4; ++octave)
+        g.drawVerticalLine (juce::roundToInt (xOfCents (1200.0 * octave)), bars.getY(), bars.getBottom());
+
+    // Alturas da escala acima da nota, em bronze. Escalas densas (ex.: 72 EDO) ficam mais fracas
+    // para não virar um borrão.
+    if (drawn.lineCount > 0)
+    {
+        const float spacing = width / static_cast<float> (drawn.lineCount);
+        g.setColour (Palette::secondary.withAlpha (juce::jlimit (0.15f, 0.6f, spacing / 12.0f)));
+        for (int i = 0; i < drawn.lineCount; ++i)
+        {
+            const float x = xOfCents (drawn.lineCents[static_cast<std::size_t> (i)]);
+            g.drawLine (x, bars.getY(), x, bars.getBottom(), 1.0f);
+        }
+    }
+
+    // Harmônicos: altura = volume em dB (de −48 dB até o mais forte da forma).
+    constexpr double floorDb = -48.0;
+    double loudest = 0.0;
+    for (int h = 1; h <= AlignedSpectrum::numPartials; ++h)
+        loudest = std::max (loudest, HarmonicsView::amplitude (drawn.recipe, h));
+
+    const float barWidth = juce::jlimit (2.0f, 5.0f, width / 120.0f);
+    for (int h = 1; h <= AlignedSpectrum::numPartials && loudest > 0.0; ++h)
+    {
+        const double db = 20.0 * std::log10 (HarmonicsView::amplitude (drawn.recipe, h) / loudest + 1e-12);
+        if (db < floorDb)
+            continue; // harmônico ausente na forma (ex.: os pares da quadrada)
+
+        const float barHeight = juce::jmax (3.0f, static_cast<float> ((db - floorDb) / -floorDb) * bars.getHeight());
+        const double ratio = drawn.ratios.ratio[static_cast<std::size_t> (h - 1)];
+        const float xNatural = xOfCents (1200.0 * std::log2 (static_cast<double> (h)));
+        const float xNow = xOfCents (1200.0 * std::log2 (ratio));
+        const bool aligned = h <= drawn.ratios.alignedCount;
+
+        // Posição natural: risco fino e fraco, só quando a barra saiu de lá.
+        if (std::abs (xNow - xNatural) > 1.0f)
+        {
+            g.setColour (gridTextColour (*this));
+            g.fillRect (juce::Rectangle<float> (xNatural - 0.5f, bars.getBottom() - barHeight, 1.0f, barHeight));
+        }
+
+        // Harmônico acima do limite de colisão: não alinha (fica natural), cor apagada.
+        g.setColour (aligned ? curveColour (*this).withAlpha (0.9f) : gridTextColour (*this));
+        g.fillRoundedRectangle (juce::Rectangle<float> (xNow - barWidth / 2.0f, bars.getBottom() - barHeight, barWidth, barHeight),
+                                juce::jmin (2.0f, barWidth / 2.0f));
+    }
+
+    if (! roomForText)
+        return;
+
+    g.setColour (gridTextColour (*this));
+    const juce::String times (juce::CharPointer_UTF8 ("\xc3\x97")); // ×
+    for (int octave = 0; octave <= 4; ++octave)
+        g.drawText (juce::String (1 << octave) + times,
+                    juce::Rectangle<float> (xOfCents (1200.0 * octave) - 16.0f, axisRow.getY(), 32.0f, axisRow.getHeight()),
+                    juce::Justification::centred);
+
+    // Título: "Osc 1 · Saw · note 60 · 22 of 24 aligned"
+    static const juce::StringArray waveNames { "Sine", "Saw", "Square", "Triangle", "Custom" };
+    const juce::String dot (juce::CharPointer_UTF8 (" \xc2\xb7 ")); // ·
+    juce::String title = "Osc " + juce::String (drawn.oscIndex + 1) + dot
+                       + waveNames[juce::jlimit (0, waveNames.size() - 1, drawn.waveform)] + dot
+                       + (drawn.noteHeld ? "note " : "ref ") + juce::String (drawn.note);
+    if (drawn.master)
+        title += dot + "MTS-ESP";
+    title += dot + (drawn.align > 0.0
+                        ? juce::String (drawn.ratios.alignedCount) + " of " + juce::String (AlignedSpectrum::numPartials) + " aligned"
+                        : juce::String ("natural"));
+
+    g.setColour (gridTextColour (*this).withMultipliedAlpha (1.6f));
+    g.drawFittedText (title, titleRow.toNearestInt(), juce::Justification::centredLeft, 1, 0.8f);
+}
+
 // ----------------------------------------------------------------------------- EnvelopeGraph
 
 EnvelopeGraph::EnvelopeGraph (juce::AudioProcessorValueTreeState& apvts, ParamIDs4 ids,

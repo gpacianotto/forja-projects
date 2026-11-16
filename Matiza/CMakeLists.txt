@@ -105,6 +105,7 @@ if(MATIZA_BUILD_TESTS)
         tests/ScaleLinesTests.cpp
         tests/AlignedSpectrumTests.cpp
         tests/PartialBankTests.cpp
+        tests/HarmonicsViewTests.cpp
         src/TuningEngine.cpp
         src/Oscillator.cpp
         src/Wavetables.cpp

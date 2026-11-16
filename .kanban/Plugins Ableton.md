@@ -125,7 +125,8 @@ kanban-plugin: board
 	- [x] 22. Matemática pura: `src/AlignedSpectrum.h` (razões alinhadas pela afinação do teclado, limite de colisão, receitas das formas prontas e da desenhada), 12 testes
 	- [x] 23. Motor híbrido na voz: `PartialBank.h` (24 senoides, SSE), mipmaps "do resto" (formas prontas e desenhada), parâmetro `harmonicAlign` e knob Align provisório na aba Tuning; 142 testes (resto + senoides = onda completa); CPU ~10 % no pior caso; pluginval nível 5 (Release)
 	- [x] Teste da etapa 23 no Ableton (16/11/2026): aprovado
-	- [ ] 24. Interface: knob Align na aba Tuning e gráfico dos harmônicos sobre as linhas da escala
+	- [x] 24. Interface: sub-abas Steps e Harmonic Align na aba Tuning (gráfico dos harmônicos sobre as linhas da escala + knob Align; lado a lado o Steps ficava espremido); `HarmonicsView.h` com 4 testes (146 no total); pluginval nível 5 (Release)
+	- [x] Teste da etapa 24 no Ableton (16/11/2026): aprovado
 	- [ ] 25. Teste de escuta: 7, 10, 12 e 19 EDO com e sem Align, teste cego com os produtores parceiros
 	
 	#Matiza

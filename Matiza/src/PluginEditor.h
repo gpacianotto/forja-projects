@@ -10,6 +10,7 @@
 #include "ModulationUI.h"
 #include "Palette.h"
 #include "Parameters.h"
+#include "HarmonicsView.h"
 #include "ScaleLines.h"
 #include "ShapeEditor.h"
 
@@ -25,6 +26,10 @@ public:
     // próprio (ex.: na aba Tuning, os knobs ficam baixos e o gráfico dos steps cresce).
     void addRow (std::initializer_list<ParameterGroup*> groups, int weight = 1, int rowMaxHeight = 0);
 
+    // Linha ocupada por um componente qualquer (ex.: sub-abas), na largura toda. Como os
+    // grupos, ele não pertence à página.
+    void addComponentRow (juce::Component& component, int weight = 1);
+
     // Altura máxima de cada linha, para os knobs não ficarem gigantes numa aba com poucos controles.
     void setMaxRowHeight (int height) { maxRowHeight = height; }
     void setNote (const juce::String& text);
@@ -39,6 +44,7 @@ private:
     struct Row
     {
         std::vector<ParameterGroup*> groups;
+        juce::Component* component = nullptr; // linha de componente (addComponentRow)
         int weight = 1;
         int maxHeight = 0; // 0 = sem limite próprio
     };
@@ -72,6 +78,15 @@ private:
     // Linhas da escala atual em volta do step 0, para o gráfico do unison (RF19).
     ScaleLines::Lines currentScaleLines();
 
+    // Retrato do gráfico dos harmônicos (RF21): forma do primeiro oscilador ligado, nota mais
+    // grave segurada (ou a nota de referência) e a afinação atual, com a mesma conta da voz.
+    HarmonicsView::Snapshot harmonicsSnapshot();
+
+    // Receita das formas desenhadas, refeita só quando os pontos mudam (a DFT custa ~1 ms).
+    std::array<ShapePoints, ParamIDs::numOscillators> recipePoints {};
+    std::array<AlignedSpectrum::Recipe, ParamIDs::numOscillators> customRecipes {};
+    std::array<bool, ParamIDs::numOscillators> customRecipeReady {};
+
     // Editores de forma desenhada (RF15), ligados aos pontos do processador e ao parâmetro
     // de forma (a primeira edição muda a forma para Custom).
     std::unique_ptr<ShapeEditor> makeLfoShapeEditor (std::size_t lfo);
@@ -101,6 +116,7 @@ private:
     ParameterGroup filterGroup   { "Filter" };
     ParameterGroup tuningGroup   { "Tuning" };
     ParameterGroup stepsGroup    { "Steps" }; // gráfico dos steps da EDO (RF16)
+    ParameterGroup harmonicsGroup { "Harmonic Align" }; // gráfico dos harmônicos + knob Align (RF21)
     ParameterGroup slotsGroup    { "Modulation Matrix" };
     std::array<ParameterGroup, ParamIDs::numLfos> lfoGroups { ParameterGroup { "LFO 1" },
                                                               ParameterGroup { "LFO 2" },
@@ -112,6 +128,10 @@ private:
     // As sub-abas são declaradas depois das páginas: são destruídas antes delas.
     std::array<TabPage, ParamIDs::numOscillators> oscillatorPages;
     juce::TabbedComponent oscillatorTabs { juce::TabbedButtonBar::TabsAtTop };
+
+    // Aba Tuning: knobs em cima e, embaixo, sub-abas Steps (RF16/RF17) e Harmonic Align (RF21).
+    TabPage stepsSubPage, harmonicsSubPage;
+    juce::TabbedComponent tuningSubTabs { juce::TabbedButtonBar::TabsAtTop };
 
     // Alças das fontes de modulação, no cabeçalho.
     std::vector<std::unique_ptr<SourceChip>> sourceChips;

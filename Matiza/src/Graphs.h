@@ -4,6 +4,7 @@
 
 #include <functional>
 
+#include "HarmonicsView.h"
 #include "PluginProcessor.h"
 #include "ScaleLines.h"
 #include "ShapePoints.h"
@@ -95,6 +96,26 @@ private:
 
     std::array<float, 5> drawnValues { -1.0f, -1.0f, -1.0f, -1.0f, -1.0f };
     ScaleLines::Lines drawnLines;
+};
+
+// Gráfico dos harmônicos alinhados (RF21): os 24 primeiros harmônicos da forma de onda sobre as
+// alturas da escala acima da nota. Eixo em cents (escala do ouvido): 1×, 2×, 4×… ficam
+// equidistantes. Cada barra mostra onde o harmônico toca com o Align atual (altura = volume, em
+// dB); um tracinho fraco marca a posição natural. Girar o Align leva as barras até as linhas.
+// O editor monta o retrato (HarmonicsView::Snapshot) num timer de 30 Hz; só redesenha se mudou.
+class HarmonicsGraph final : public juce::Component, private juce::Timer
+{
+public:
+    explicit HarmonicsGraph (std::function<HarmonicsView::Snapshot()> source);
+    ~HarmonicsGraph() override { stopTimer(); }
+
+    void paint (juce::Graphics&) override;
+
+private:
+    void timerCallback() override;
+
+    std::function<HarmonicsView::Snapshot()> source;
+    HarmonicsView::Snapshot drawn;
 };
 
 // Desenho do ADSR, com um ponto na posição atual do envelope da última nota tocada.

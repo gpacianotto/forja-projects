@@ -201,6 +201,12 @@ As listas de forma e divisão também são fechadas: nunca reordenar nem remover
   - **Motor híbrido:** com Align > 0, cada cópia de unison soma um banco de 24 senoides (recorrência com SSE, na frequência alinhada e com a amplitude e a fase da "receita" da forma) a um wavetable "do resto" (os mipmaps da mesma forma sem os 24 primeiros harmônicos). Senoides acima de Nyquist são desligadas. Receitas: fórmula para as 4 formas prontas; DFT do ciclo para a forma desenhada (RF15), refeita junto com os mipmaps.
   - **Quando recalcular:** as razões são refeitas só quando mudam a nota, os steps do oscilador, o Align ou a afinação (o `TuningEngine` tem um contador de revisão; a tabela do master pode mudar a cada bloco). O giro de cada senoide (cos e sen) é refeito a cada 32 amostras, só se a frequência mudou; durante o glide, o wavetable acompanha a cada amostra e as senoides a cada 32. Sem alocação na thread de áudio.
   - CPU no pior caso (192 cópias = 8 vozes × 3 osc × 8 de unison), medida com as classes do plugin (`Oscillator` lendo o resto + `PartialBank`): cerca de 10 % de um núcleo (12 % com a frequência mudando a cada bloco), contra 2,8 % do wavetable puro.
+  - **Interface** (etapa 24): a aba Tuning tem os knobs da afinação em cima e, embaixo, duas sub-abas: **Steps** (o painel do RF16/RF17, na largura toda) e **Harmonic Align** (o gráfico dos harmônicos e o knob Align). Decidido em 16/11/2026: lado a lado, o gráfico dos steps ficava espremido. Os knobs ficam fora das sub-abas, para mudar a EDO e ver os harmônicos seguirem.
+    - Eixo horizontal em cents a partir da fundamental, até pouco acima do 24º harmônico (~5500 ¢), com marcas 1×, 2×, 4×, 8×, 16×.
+    - Linhas em bronze: as alturas da escala acima da nota (mais fracas em escalas densas).
+    - Uma barra por harmônico, na posição com o Align atual; altura = volume em dB (−48 dB até o mais forte da forma). Um risco fraco marca a posição natural quando a barra sai dela. Harmônicos acima do limite de colisão ficam apagados.
+    - Forma mostrada: a do primeiro oscilador ligado (inclusive Custom). Nota: a mais grave segurada; sem nota, a Ref Note (ou a tecla de referência do master). Mesma conta da voz (`HarmonicsView.h`).
+    - Título: "Osc 1 · Saw · note 60 · 22 of 24 aligned".
   - [a definir] Align como destino da matriz de modulação (usaria uma vaga reservada; o custo de recalcular por bloco foi medido no estudo).
 
 ## Modelo de afinação

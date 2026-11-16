@@ -93,10 +93,16 @@ namespace
 
 void TabPage::addRow (std::initializer_list<ParameterGroup*> groups, int weight, int rowMaxHeight)
 {
-    rows.push_back ({ groups, weight, rowMaxHeight });
+    rows.push_back ({ .groups = groups, .weight = weight, .maxHeight = rowMaxHeight });
 
     for (auto* group : groups)
         addAndMakeVisible (*group);
+}
+
+void TabPage::addComponentRow (juce::Component& component, int weight)
+{
+    rows.push_back ({ .component = &component, .weight = weight });
+    addAndMakeVisible (component);
 }
 
 void TabPage::setNote (const juce::String& text)
@@ -145,7 +151,11 @@ void TabPage::resized()
         else if (uncappedWeight > 0)
             height += freedHeight * row.weight / uncappedWeight;
 
-        layoutRow (area.removeFromTop (juce::jmin (maxRowHeight, height)), row.groups);
+        const auto rowArea = area.removeFromTop (juce::jmin (maxRowHeight, height));
+        if (row.component != nullptr)
+            row.component->setBounds (rowArea);
+        else
+            layoutRow (rowArea, row.groups);
         area.removeFromTop (gap);
     }
 
@@ -274,15 +284,32 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
     internalTuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::baseHz,  "Base Freq")));
     internalTuningControls.push_back (&tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::refNote, "Ref Note")));
     bendRangeControl = &tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::bendSteps, "Bend Range"));
-    // RF21: timbre que segue a escala. Não é afinação, então o Lock não trava.
-    tuningGroup.add (std::make_unique<Knob> (apvts, ParamIDs::harmonicAlign, "Align"));
-
     // Gráfico dos steps da EDO (RF16): ocupa o grupo inteiro (sem controles próprios).
     stepsGroup.setDisplay (std::make_unique<TuningStepsView> (processor), 1.0f, ParameterGroup::DisplayPlacement::left);
+
     stepsGroup.setLayoutWeight (1); // sem controles, o peso seria 0 e o grupo ficaria sem largura
 
+    // Harmônicos alinhados (RF21): gráfico à esquerda e o knob Align. É timbre, não afinação,
+    // então o Lock não trava o knob.
+    harmonicsGroup.setDisplay (std::make_unique<HarmonicsGraph> ([this] { return harmonicsSnapshot(); }),
+                               0.85f, ParameterGroup::DisplayPlacement::left);
+    harmonicsGroup.add (std::make_unique<Knob> (apvts, ParamIDs::harmonicAlign, "Align"));
+
+    // Steps e Harmonic Align em sub-abas, cada um com a largura toda (decidido em 16/11/2026:
+    // lado a lado, o gráfico dos steps ficava espremido). Os knobs da afinação ficam em cima,
+    // visíveis nas duas: mudar a EDO e ver os harmônicos seguirem.
+    stepsSubPage.addRow ({ &stepsGroup });
+    harmonicsSubPage.addRow ({ &harmonicsGroup });
+
+    tuningSubTabs.setTabBarDepth (26);
+    tuningSubTabs.setOutline (0);
+    tuningSubTabs.setIndent (0);
+    const auto subTabColour = lookAndFeel.findColour (juce::ResizableWindow::backgroundColourId);
+    tuningSubTabs.addTab ("Steps",          subTabColour, &stepsSubPage,     false);
+    tuningSubTabs.addTab ("Harmonic Align", subTabColour, &harmonicsSubPage, false);
+
     tuningPage.addRow ({ &tuningGroup }, 1, 170);
-    tuningPage.addRow ({ &stepsGroup }, 2);
+    tuningPage.addComponentRow (tuningSubTabs, 2);
     tuningPage.setNoteHeight (36);
     tuningPage.setNote ("Lock protects the tuning knobs from accidental changes in this window. "
                         "Host automation still applies.\n"
@@ -372,6 +399,77 @@ ScaleLines::Lines PluginEditor::currentScaleLines()
     const int edo = juce::jmax (1, juce::roundToInt (pluginProcessor.apvts.getRawParameterValue (ParamIDs::edo)->load()));
     const auto& table = pluginProcessor.getTuningTable();
     return ScaleLines::around ([&] (int k) { return table.stepsToCents (k, edo); }, rangeCents);
+}
+
+HarmonicsView::Snapshot PluginEditor::harmonicsSnapshot()
+{
+    auto& apvts = pluginProcessor.apvts;
+    auto paramValue = [&apvts] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
+
+    HarmonicsView::Snapshot snapshot;
+
+    // Forma do primeiro oscilador ligado (o Align vale para os três; o gráfico mostra um).
+    std::size_t osc = 0;
+    for (std::size_t i = 0; i < ParamIDs::numOscillators; ++i)
+        if (paramValue (ParamIDs::oscOn[i]) > 0.5f) { osc = i; break; }
+
+    const auto waveform = static_cast<Waveform> (juce::roundToInt (paramValue (ParamIDs::oscWave[osc])));
+    snapshot.oscIndex = static_cast<int> (osc);
+    snapshot.waveform = static_cast<int> (waveform);
+
+    if (waveform == Waveform::custom)
+    {
+        const auto& points = pluginProcessor.getOscPoints (osc);
+        if (! customRecipeReady[osc] || ! (points == recipePoints[osc]))
+        {
+            std::vector<float> cycle (Wavetables::tableSize);
+            for (int i = 0; i < Wavetables::tableSize; ++i)
+                cycle[static_cast<std::size_t> (i)] = points.evaluate (static_cast<double> (i) / Wavetables::tableSize);
+            customRecipes[osc] = AlignedSpectrum::recipeFromCycle (cycle.data());
+            recipePoints[osc] = points;
+            customRecipeReady[osc] = true;
+        }
+        snapshot.recipe = customRecipes[osc];
+    }
+    else
+    {
+        snapshot.recipe = AlignedSpectrum::builtinRecipe (waveform);
+    }
+
+    // A mesma afinação da voz: parâmetros + afinação desenhada, ou a tabela do master.
+    TuningEngine tuning;
+    TuningEngine::Settings settings;
+    settings.edo       = juce::jmax (1, juce::roundToInt (paramValue (ParamIDs::edo)));
+    settings.baseHz    = paramValue (ParamIDs::baseHz);
+    settings.refNote   = juce::roundToInt (paramValue (ParamIDs::refNote));
+    settings.bendSteps = paramValue (ParamIDs::bendSteps);
+    settings.table     = pluginProcessor.getTuningTable();
+    tuning.setSettings (settings);
+
+    const auto master = pluginProcessor.getMasterDisplay();
+    snapshot.master = master.active;
+    if (master.active)
+    {
+        TuningEngine::MasterTuning masterTuning;
+        masterTuning.active = true;
+        masterTuning.hz = master.hz;
+        tuning.setMasterTuning (masterTuning);
+    }
+
+    // Nota: a mais grave segurada (a base do acorde); sem nota, a referência da afinação.
+    int note = -1;
+    for (const auto& voice : pluginProcessor.voicePitchDisplay)
+        if (voice.held.load() && (note < 0 || voice.midiNote.load() < note))
+            note = voice.midiNote.load();
+
+    snapshot.noteHeld = note >= 0;
+    if (note < 0)
+        note = master.active && master.refKey >= 0 ? master.refKey : settings.refNote;
+    snapshot.note = note;
+
+    const int oscSteps = juce::roundToInt (paramValue (ParamIDs::oscSteps[osc]));
+    HarmonicsView::compute (snapshot, tuning, note, oscSteps, paramValue (ParamIDs::harmonicAlign) / 100.0);
+    return snapshot;
 }
 
 void PluginEditor::setTuningLocked (bool locked)
