@@ -31,6 +31,21 @@ private:
     bool popupGesture = false; // clique direito em andamento: ignora o arrasto e o soltar
 };
 
+// Quem oferece o MIDI Learn (RF23) aos knobs: o editor. O knob o encontra subindo na árvore de
+// componentes (findParentComponentOfClass), sem precisar receber um ponteiro no construtor.
+// "Classe abstrata pura" ~ interface do Java.
+class MidiLearnHost
+{
+public:
+    virtual ~MidiLearnHost() = default;
+
+    virtual int  midiCcFor (const juce::String& paramID) const = 0; // -1 = sem CC
+    virtual bool isMidiLearning (const juce::String& paramID) const = 0;
+    virtual void startMidiLearn (const juce::String& paramID, juce::Component& knob) = 0;
+    virtual void cancelMidiLearn() = 0;
+    virtual void removeMidiMapping (const juce::String& paramID) = 0;
+};
+
 // Knob giratório com nome em cima e valor embaixo.
 //
 // Um knob pode ser destino da matriz de modulação (RF10): aceita uma fonte arrastada
@@ -49,8 +64,9 @@ public:
     void resized() override;
     void paintOverChildren (juce::Graphics&) override;
 
-    // Menu do clique direito com os slots ligados a este knob (RF14).
-    void showModulationMenu();
+    // Menu do clique direito: slots da matriz ligados a este knob (RF14), se ele for destino,
+    // e a seção MIDI (RF23) em todos os knobs.
+    void showContextMenu();
 
     bool isInterestedInDragSource (const SourceDetails&) override;
     void itemDragEnter (const SourceDetails&) override;
@@ -58,6 +74,9 @@ public:
     void itemDropped (const SourceDetails&) override;
 
 private:
+    void paintMidiState (juce::Graphics&);
+
+    juce::String paramID;
     juce::Label label;
     KnobSlider slider;
     juce::AudioProcessorValueTreeState::SliderAttachment attachment;

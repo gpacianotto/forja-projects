@@ -63,7 +63,10 @@ private:
 //
 // As fontes de modulação ficam no cabeçalho, visíveis em todas as abas, para poderem ser
 // arrastadas até qualquer knob. O editor é o DragAndDropContainer que coordena o arrasto.
-class PluginEditor final : public juce::AudioProcessorEditor, public juce::DragAndDropContainer
+class PluginEditor final : public juce::AudioProcessorEditor,
+                           public juce::DragAndDropContainer,
+                           public MidiLearnHost,
+                           private juce::Timer
 {
 public:
     explicit PluginEditor (PluginProcessor&);
@@ -72,7 +75,24 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    // MIDI Learn (RF23), pedido pelo menu dos knobs. Repassa ao MidiLearn do processador.
+    int  midiCcFor (const juce::String& paramID) const override;
+    bool isMidiLearning (const juce::String& paramID) const override;
+    void startMidiLearn (const juce::String& paramID, juce::Component& knob) override;
+    void cancelMidiLearn() override;
+    void removeMidiMapping (const juce::String& paramID) override;
+
+    // Clique fora do knob ou Esc cancelam o MIDI Learn.
+    void mouseDown (const juce::MouseEvent&) override;
+    bool keyPressed (const juce::KeyPress&) override;
+
 private:
+    // Pisca o knob esperando um CC e redesenha quando o mapeamento muda (inclusive noutra
+    // instância ou quando o CC chega).
+    void timerCallback() override;
+    juce::Component::SafePointer<juce::Component> midiLearnKnob;
+    std::uint64_t drawnMidiRevision = 0;
+
     void setTuningLocked (bool locked);
 
     // Linhas da escala atual em volta do step 0, para o gráfico do unison (RF19).

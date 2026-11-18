@@ -381,6 +381,12 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
 
     addChildComponent (aboutOverlay); // invisível até clicar na logo
 
+    // MIDI Learn (RF23): ver cliques em qualquer componente (para cancelar com clique fora) e
+    // piscar o knob que espera um CC.
+    addMouseListener (this, true);
+    setWantsKeyboardFocus (true);
+    startTimerHz (10);
+
     setResizable (true, true); // true, true = pode redimensionar e mostra a alça no canto
     setResizeLimits (minWidth, minHeight, maxWidth, maxHeight);
     setSize (defaultWidth, defaultHeight);
@@ -388,8 +394,87 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
 
 PluginEditor::~PluginEditor()
 {
+    stopTimer();
+
     // Desligar o LookAndFeel antes que ele (um membro) seja destruído.
     setLookAndFeel (nullptr);
+}
+
+// ----------------------------------------------------------------------------- MIDI Learn (RF23)
+
+int PluginEditor::midiCcFor (const juce::String& paramID) const
+{
+    return pluginProcessor.midiLearn.ccFor (paramID);
+}
+
+bool PluginEditor::isMidiLearning (const juce::String& paramID) const
+{
+    return pluginProcessor.midiLearn.getLearningParameter() == paramID;
+}
+
+void PluginEditor::startMidiLearn (const juce::String& paramID, juce::Component& knob)
+{
+    if (midiLearnKnob != nullptr)
+        midiLearnKnob->repaint(); // apaga o contorno do knob que esperava antes
+
+    pluginProcessor.midiLearn.startLearning (paramID);
+    midiLearnKnob = &knob;
+    knob.repaint();
+}
+
+void PluginEditor::cancelMidiLearn()
+{
+    pluginProcessor.midiLearn.cancelLearning();
+    if (midiLearnKnob != nullptr)
+        midiLearnKnob->repaint();
+    midiLearnKnob = nullptr;
+}
+
+void PluginEditor::removeMidiMapping (const juce::String& paramID)
+{
+    pluginProcessor.midiLearn.remove (paramID);
+    repaint();
+}
+
+void PluginEditor::mouseDown (const juce::MouseEvent& e)
+{
+    // Chega aqui de qualquer componente da janela (addMouseListener no construtor).
+    if (pluginProcessor.midiLearn.getLearningParameter().isEmpty())
+        return;
+
+    auto* clicked = e.eventComponent;
+    const bool onLearningKnob = midiLearnKnob != nullptr
+                             && (clicked == midiLearnKnob.getComponent() || midiLearnKnob->isParentOf (clicked));
+    if (! onLearningKnob)
+        cancelMidiLearn();
+}
+
+bool PluginEditor::keyPressed (const juce::KeyPress& key)
+{
+    if (key == juce::KeyPress::escapeKey && pluginProcessor.midiLearn.getLearningParameter().isNotEmpty())
+    {
+        cancelMidiLearn();
+        return true;
+    }
+    return false;
+}
+
+void PluginEditor::timerCallback()
+{
+    const bool learning = pluginProcessor.midiLearn.getLearningParameter().isNotEmpty();
+
+    if (learning && midiLearnKnob != nullptr)
+        midiLearnKnob->repaint(); // pisca
+
+    // CC aprendido, mapeamento removido ou mudado noutra instância: redesenha os "CC n".
+    const auto revision = pluginProcessor.midiLearn.getRevision();
+    if (revision != drawnMidiRevision)
+    {
+        drawnMidiRevision = revision;
+        if (! learning)
+            midiLearnKnob = nullptr;
+        repaint();
+    }
 }
 
 ScaleLines::Lines PluginEditor::currentScaleLines()

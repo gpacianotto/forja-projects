@@ -218,6 +218,14 @@ As listas de forma e divisão também são fechadas: nunca reordenar nem remover
   - **Com o Align (RF21):** no motor híbrido a fundamental toca no banco de senoides; o botão zera o volume da senoide 1 (com a mesma rampa) e o wavetable do resto não muda. As razões do alinhamento também não mudam: a fundamental é a âncora, e os outros harmônicos ficam onde estavam.
   - Nota tão aguda que só a fundamental cabe abaixo de Nyquist: com o botão ligado, o oscilador fica mudo (não sobra harmônico para tocar).
   - **Interface:** botão **No Fund** no grupo de cada oscilador, ao lado da forma de onda. O gráfico da onda mostra a onda sem a fundamental; o gráfico dos harmônicos (RF21) esconde a barra do 1º harmônico quando o oscilador mostrado está sem a fundamental.
+- RF23 (v0.15): **MIDI Learn** nos knobs, como no Serum: clique direito em qualquer knob → **MIDI Learn**, e o próximo CC que chegar do controlador passa a girar aquele knob. Pedido em 16/11/2026.
+  - **Global** (decidido em 18/11/2026): o mapeamento é um perfil do controlador, salvo num arquivo do usuário (`%APPDATA%\Forja Instruments\Matiza\MidiLearn.txt` no Windows), e vale em todas as instâncias e todos os sets. Não vai no estado do plugin. Instâncias abertas ao mesmo tempo no Live (mesmo processo) compartilham o mapeamento na hora; o arquivo é lido quando o plugin abre e gravado a cada mudança.
+  - **Pula na hora** (decidido em 18/11/2026, sem soft takeover): girar o controle físico leva o knob direto ao valor do CC (0 a 127 → posição 0 a 1 do knob, em qualquer escala do parâmetro), como no Serum e no MIDI Map do Live.
+  - **Um CC por knob, um knob por CC:** aprender um knob que já tinha CC troca o CC; aprender um CC que já girava outro knob o move para o knob novo. Qualquer canal MIDI. CCs 0 a 119; os 120 a 127 são mensagens de modo do canal (All Notes Off etc.) e não entram.
+  - **Menu do clique direito** em todos os knobs (antes só nos modulados, RF14): seção **MIDI** com "MIDI Learn" (ou "Cancel MIDI Learn" enquanto espera), "Remove MIDI (CC n)" quando mapeado. Mapear o CC 1 avisa no menu que ele também é a fonte Mod Wheel da matriz (as duas coisas acontecem).
+  - **Esperando o CC:** o knob pisca com um contorno. Esc, clique fora do knob ou "Cancel MIDI Learn" cancelam. Knob mapeado mostra "CC n" pequeno no canto.
+  - **Threads:** a thread de áudio só lê a tabela CC → parâmetro (128 atômicos) e anota o último valor de cada CC mapeado (atômicos); um timer de 60 Hz na thread da interface (do processador, funciona com a janela fechada) aplica o valor ao parâmetro com `setValueNotifyingHost` (o Live grava automação se estiver gravando), confirma o CC aprendido e grava o arquivo. Sem alocação nem lock no áudio. A suavização de cada parâmetro (cutoff, volumes) cuida dos degraus de 1/127 e do atraso de até ~17 ms.
+  - O Live tem o próprio MIDI Map (Ctrl+M); o MIDI Learn interno é conveniência a mais. Se o mesmo CC estiver nos dois, os dois agem.
 
 ## Modelo de afinação
 
@@ -380,6 +388,7 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 | 24. Interface do Align | Knob Align na aba Tuning e gráfico dos harmônicos sobre as linhas da escala (RF21) | Girar o Align mostra os harmônicos andando até as linhas da escala |
 | 25. Teste de escuta | Acordes em 7, 10, 12 e 19 EDO com e sem Align, teste cego com os produtores parceiros | Preferência pelo alinhado nas EDOs distantes do 12-TET |
 | 26. Remover a fundamental | Botão No Fund por oscilador: subtração do nível 20, rampa de 20 ms, regra da Sine, senoide 1 do Align (RF22); testes | Grave com Osc 1 Saw unison 7 sem fundamental + Osc 2 Sine: em mono (Utility) o grave não cancela; ligar e desligar com a nota soando não estala; com o Align ligado a barra do 1º harmônico some e o som continua sem a fundamental |
+| 27. MIDI Learn | `MidiMap` (lógica pura, testes), aprendizado e aplicação do CC no processador, arquivo global, menu MIDI em todos os knobs, contorno piscando e "CC n" (RF23) | No Live com um controlador: aprender o Cutoff num knob físico e girá-lo move o knob e o som; outra instância do Matiza já responde ao mesmo CC; fechar e reabrir o Live mantém o mapeamento; Remove MIDI desfaz; Esc cancela |
 
 Uma sugestão de ritmo: as etapas 1 e 2 cabem numa primeira noite, e a etapa 3 é o marco que prova a ideia.
 

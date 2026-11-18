@@ -454,6 +454,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     // RF7: Poly ou Mono (trocar de modo solta as notas que estão tocando).
     synth.setVoiceMode (voiceModeParam->load() > 0.5f, legatoParam->load() > 0.5f);
 
+    // RF23: CCs mapeados pelo MIDI Learn (só anota; o timer do MidiLearn aplica nos knobs).
+    midiLearn.processMidi (midi);
+
     const int numSamples = buffer.getNumSamples();
     synth.renderNextBlock (buffer, midi, 0, numSamples);
     publishEnvelopeDisplay();

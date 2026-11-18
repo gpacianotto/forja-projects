@@ -113,32 +113,6 @@ kanban-plugin: board
 	- [ ] Pedir aprovação do domínio na Paddle (conta de produção)
 	
 	#Matiza
-- [ ] # Feat: MIDI Learn nos knobs
-	
-	Clique direito em qualquer knob → **MIDI Learn**: o próximo CC recebido passa a controlar aquele knob, como no Serum. Para quem tem controlador MIDI. Pedido em 16/11/2026.
-	
-	**Como fazer**
-	- Os CCs já chegam ao `processBlock` no VST3: o JUCE emula CC com parâmetros escondidos (`JUCE_VST3_EMULATE_MIDI_CC_WITH_PARAMETERS`, ligado por padrão em plugin que recebe MIDI). Conferir no Live com um controlador.
-	- Menu do clique direito (hoje só nos knobs modulados, `Controls.cpp`, RF14) passa a existir em todos os knobs, com uma seção "MIDI": "MIDI Learn", "Remove MIDI (CC n)".
-	- Modo learn: knob piscando até chegar um CC; Esc ou clique fora cancela.
-	- Tabela CC → parâmetro trocada entre interface e áudio sem lock (buffer triplo, como no RF15).
-	- CC tem 128 valores: suavizar o valor aplicado (cutoff com degraus é audível).
-	- [a definir] Como o valor chega ao host e à interface: atualizar o parâmetro fora da thread de áudio (timer) e usar o valor do CC direto no áudio enquanto isso.
-	- CC1 (Mod Wheel) também é fonte da matriz: mapear CC1 num knob faz as duas coisas (avisar no menu?).
-	- [a definir] Mapeamento **por set** (estado do plugin) ou **global** (arquivo do usuário, vale para toda instância, como perfil do controlador). Talvez os dois.
-	- [a definir] Soft takeover (o knob só "pega" quando o controle físico passa pelo valor atual).
-	- O Live tem o próprio MIDI Map (Ctrl+M); o MIDI Learn interno é conveniência a mais. Se o mesmo CC estiver nos dois, os dois agem.
-	
-	**Etapas**
-	- [ ] RF no Spec (decidir por set × global)
-	- [ ] Tabela de mapeamento + testes
-	- [ ] Menu "MIDI Learn" em todos os knobs, estado learn e indicação de knob mapeado
-	- [ ] Aplicação do CC com suavização
-	- [ ] Salvar e carregar o mapeamento
-	- [ ] Build Debug/Release sem warnings, testes, pluginval nível 5
-	- [ ] Teste no Ableton com controlador: aprender, remover, reabrir o set, CC1, automação do Live junto
-	
-	#Matiza
 - [ ] # Feat: sidechain como fonte de modulação (aba Sidechain)
 	
 	Ideia do Guilherme (16/11/2026): o áudio de outra faixa (ex.: o kick) entra no Matiza e, em vez de só abaixar o volume como um compressor sidechain comum, pode modular **qualquer parâmetro** escolhido pelo usuário, com a intensidade que ele quiser.
@@ -194,6 +168,26 @@ kanban-plugin: board
 
 ## Em Revisão
 
+- [ ] # Feat: MIDI Learn nos knobs
+	
+	Clique direito em qualquer knob → **MIDI Learn**: o próximo CC recebido passa a controlar aquele knob, como no Serum. Para quem tem controlador MIDI. Pedido em 16/11/2026. Ver RF23 no Spec.
+	
+	**Decidido (18/11/2026)**
+	- Mapeamento **global**: perfil do controlador num arquivo do usuário (`%APPDATA%\Forja Instruments\Matiza\MidiLearn.txt`), vale em toda instância e todo set; instâncias abertas no mesmo Live compartilham na hora.
+	- **Pula na hora** (sem soft takeover), como no Serum e no MIDI Map do Live.
+	- Um CC por knob e um knob por CC; CCs 0 a 119 (120 a 127 são mensagens de modo do canal); qualquer canal.
+	- Valor aplicado por um timer de 60 Hz na thread da interface (`setValueNotifyingHost`, o Live grava automação); o áudio só lê atômicos. A suavização de cada parâmetro cuida dos degraus de 1/127.
+	- CC 1 mapeado: o menu avisa que ele também é a fonte Mod Wheel (as duas coisas acontecem).
+	
+	**Etapas**
+	- [x] RF23 no Spec (e etapa 27 no plano)
+	- [x] `MidiMap.h` (lógica pura) + 8 testes; 162 testes passando no Linux (18/11/2026)
+	- [x] `MidiLearn` no processador: arquivo global compartilhado (`SharedResourcePointer`), tabela CC → parâmetro em atômicos, aprendizado e aplicação do CC pelo timer
+	- [x] Menu com seção MIDI em todos os knobs (MIDI Learn, Cancel, Remove MIDI (CC n)), contorno piscando enquanto espera, "CC n" no canto do knob mapeado; Esc e clique fora cancelam (conferido no Standalone em 18/11/2026)
+	- [ ] Build Debug/Release no Windows sem warnings, testes, pluginval nível 5
+	- [ ] Teste no Ableton com controlador: aprender (Cutoff num knob físico), o "CC n" aparece, girar move o knob e o som, outra instância já responde, fechar e reabrir o Live mantém, Remove MIDI, CC 1, automação gravada pelo Live
+	
+	#Matiza
 - [ ] # Feat: remover a fundamental do oscilador
 	
 	Botão por oscilador que tira a frequência fundamental da onda, como no Serum. Pedido em 16/11/2026. Ver RF22 no Spec.

@@ -43,10 +43,10 @@ void KnobSlider::mouseUp (const juce::MouseEvent& e)
 
 // ----------------------------------------------------------------------------- Knob
 
-Knob::Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& paramID, const juce::String& labelText)
+Knob::Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& parameterID, const juce::String& labelText)
     // O slider precisa existir antes do attachment: a lista de inicialização segue a ordem
-    // de declaração no .h (label, slider, attachment).
-    : attachment (apvts, paramID, slider)
+    // de declaração no .h (paramID, label, slider, attachment).
+    : paramID (parameterID), attachment (apvts, parameterID, slider)
 {
     setupLabel (label, labelText);
     addAndMakeVisible (label);
@@ -65,6 +65,9 @@ Knob::Knob (juce::AudioProcessorValueTreeState& apvts, const juce::String& param
     }
 
     addAndMakeVisible (slider);
+
+    // Clique direito em qualquer knob: menu com a seção MIDI (RF23) e, nos modulados, a matriz.
+    slider.onPopupMenu = [this] { showContextMenu(); };
 }
 
 Knob::~Knob() = default;
@@ -77,44 +80,64 @@ void Knob::enableModulation (ModulationModel& model, ModMatrix::Dest dest, float
     addAndMakeVisible (*ring); // por cima do slider: só captura o mouse sobre os anéis
 
     ring->onRingCountChanged = [this] { resized(); };
-    ring->onPopupMenu        = [this] { showModulationMenu(); };
-    slider.onPopupMenu       = [this] { showModulationMenu(); };
+    ring->onPopupMenu        = [this] { showContextMenu(); };
 }
 
-void Knob::showModulationMenu()
+void Knob::showContextMenu()
 {
-    if (modulationModel == nullptr)
-        return;
-
-    auto& model = *modulationModel;
-    const auto slots = model.slotsFor (modDest);
-
-    // IDs dos itens: slot × 10 + ação (0 não pode ser usado: é "menu fechado sem escolha").
+    // IDs dos itens da matriz: slot × 10 + ação (0 não pode ser usado: é "menu fechado sem
+    // escolha"). Os do MIDI ficam a partir de 1000, longe deles.
     enum Action { invert = 1, zero = 2, remove = 3 };
+    enum MidiAction { midiLearn = 1001, midiCancel = 1002, midiRemove = 1003 };
 
     juce::PopupMenu menu;
-    menu.addSectionHeader ("Modulation");
 
-    if (slots.isEmpty())
-        menu.addItem (juce::PopupMenu::Item ("Drag a source from the header onto this knob").setEnabled (false));
-
-    for (int slotIndex : slots)
+    if (modulationModel != nullptr)
     {
-        const auto slot = model.getSlot (static_cast<std::size_t> (slotIndex));
-        const float percent = model.getAmountPercent (static_cast<std::size_t> (slotIndex));
-        const int base = (slotIndex + 1) * 10;
+        auto& model = *modulationModel;
+        const auto slots = model.slotsFor (modDest);
 
-        juce::PopupMenu actions;
-        actions.addItem (base + invert, "Invert");
-        actions.addItem (base + zero,   "Set amount to 0 %");
-        actions.addSeparator();
-        actions.addItem (base + remove, "Remove");
+        menu.addSectionHeader ("Modulation");
 
-        juce::PopupMenu::Item item (juce::String (ModMatrix::sourceNames[ModMatrix::index (slot.source)])
-                                    + ": " + (percent > 0.0f ? "+" : "") + juce::String (percent, 0) + " %");
-        item.subMenu = std::make_unique<juce::PopupMenu> (std::move (actions));
-        item.colour  = ModulationModel::sourceColour (slot.source);
-        menu.addItem (std::move (item));
+        if (slots.isEmpty())
+            menu.addItem (juce::PopupMenu::Item ("Drag a source from the header onto this knob").setEnabled (false));
+
+        for (int slotIndex : slots)
+        {
+            const auto slot = model.getSlot (static_cast<std::size_t> (slotIndex));
+            const float percent = model.getAmountPercent (static_cast<std::size_t> (slotIndex));
+            const int base = (slotIndex + 1) * 10;
+
+            juce::PopupMenu actions;
+            actions.addItem (base + invert, "Invert");
+            actions.addItem (base + zero,   "Set amount to 0 %");
+            actions.addSeparator();
+            actions.addItem (base + remove, "Remove");
+
+            juce::PopupMenu::Item item (juce::String (ModMatrix::sourceNames[ModMatrix::index (slot.source)])
+                                        + ": " + (percent > 0.0f ? "+" : "") + juce::String (percent, 0) + " %");
+            item.subMenu = std::make_unique<juce::PopupMenu> (std::move (actions));
+            item.colour  = ModulationModel::sourceColour (slot.source);
+            menu.addItem (std::move (item));
+        }
+    }
+
+    // Seção MIDI (RF23).
+    if (auto* host = findParentComponentOfClass<MidiLearnHost>())
+    {
+        const int cc = host->midiCcFor (paramID);
+        menu.addSectionHeader ("MIDI");
+
+        if (host->isMidiLearning (paramID))
+            menu.addItem (midiCancel, "Cancel MIDI Learn");
+        else
+            menu.addItem (midiLearn, "MIDI Learn");
+
+        if (cc >= 0)
+            menu.addItem (midiRemove, "Remove MIDI (CC " + juce::String (cc) + ")");
+
+        if (cc == 1)
+            menu.addItem (juce::PopupMenu::Item ("CC 1 is also the Mod Wheel source").setEnabled (false));
     }
 
     // O menu é assíncrono: o knob pode ser destruído (janela fechada) antes da escolha.
@@ -122,7 +145,24 @@ void Knob::showModulationMenu()
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&slider),
                         [safeThis = juce::Component::SafePointer<Knob> (this)] (int result)
                         {
-                            if (safeThis == nullptr || safeThis->modulationModel == nullptr || result <= 0)
+                            if (safeThis == nullptr || result <= 0)
+                                return;
+
+                            if (result >= midiLearn)
+                            {
+                                if (auto* host = safeThis->findParentComponentOfClass<MidiLearnHost>())
+                                {
+                                    if (result == midiLearn)
+                                        host->startMidiLearn (safeThis->paramID, *safeThis);
+                                    else if (result == midiCancel)
+                                        host->cancelMidiLearn();
+                                    else if (result == midiRemove)
+                                        host->removeMidiMapping (safeThis->paramID);
+                                }
+                                return;
+                            }
+
+                            if (safeThis->modulationModel == nullptr)
                                 return;
 
                             auto& m = *safeThis->modulationModel;
@@ -170,6 +210,36 @@ void Knob::paintOverChildren (juce::Graphics& g)
     {
         g.setColour (ModulationModel::accentColour());
         g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (1.0f), 6.0f, 2.0f);
+    }
+
+    paintMidiState (g);
+}
+
+void Knob::paintMidiState (juce::Graphics& g)
+{
+    auto* host = findParentComponentOfClass<MidiLearnHost>();
+    if (host == nullptr)
+        return;
+
+    // Esperando um CC: contorno piscando (o editor redesenha este knob a cada ~100 ms).
+    if (host->isMidiLearning (paramID))
+    {
+        const bool on = (juce::Time::getMillisecondCounter() / 350) % 2 == 0;
+        g.setColour (Palette::primary.withAlpha (on ? 1.0f : 0.25f));
+        g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (1.0f), 6.0f, 2.0f);
+
+        g.setFont (juce::FontOptions (10.0f));
+        g.drawText ("MIDI", slider.getBounds().removeFromTop (14).reduced (4, 0), juce::Justification::topRight);
+        return;
+    }
+
+    // Mapeado: "CC n" pequeno no canto de cima do slider.
+    const int cc = host->midiCcFor (paramID);
+    if (cc >= 0)
+    {
+        g.setColour (Palette::primary.withAlpha (0.8f));
+        g.setFont (juce::FontOptions (10.0f));
+        g.drawText ("CC " + juce::String (cc), slider.getBounds().removeFromTop (14).reduced (4, 0), juce::Justification::topRight);
     }
 }
 

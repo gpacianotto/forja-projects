@@ -49,6 +49,7 @@ target_sources(Matiza PRIVATE
     src/TuningStepsView.cpp
     src/MtsControl.cpp
     src/Controls.cpp
+    src/MidiLearn.cpp
     src/MatizaVoice.cpp
     src/Oscillator.cpp
     src/Wavetables.cpp
@@ -107,6 +108,7 @@ if(MATIZA_BUILD_TESTS)
         tests/PartialBankTests.cpp
         tests/HarmonicsViewTests.cpp
         tests/FundamentalTests.cpp
+        tests/MidiMapTests.cpp
         src/TuningEngine.cpp
         src/Oscillator.cpp
         src/Wavetables.cpp

@@ -7,6 +7,7 @@
 
 #include "CustomShapes.h"
 #include "MatizaSynthesiser.h"
+#include "MidiLearn.h"
 #include "ModulationDisplay.h"
 #include "Parameters.h"
 #include "TripleBuffer.h"
@@ -48,6 +49,9 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState apvts;
+
+    // MIDI Learn (RF23). Declarado depois do apvts: lê a lista de parâmetros ao ser construído.
+    MidiLearn midiLearn { *this };
 
     // Posição do envelope da última nota tocada, para o ponto do gráfico (RF9).
     // A thread de áudio escreve e a interface lê; atômicos = sem lock.
