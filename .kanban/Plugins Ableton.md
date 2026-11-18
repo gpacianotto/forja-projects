@@ -94,22 +94,44 @@ kanban-plugin: board
 	- Página do Matiza pública (sem login): descrição clara, screenshot, **preço visível**, botão "Comprar" com checkout em overlay do Paddle.js (sandbox primeiro).
 	- Páginas de **termos** (citando a Paddle como merchant of record), **reembolso** (14 a 90 dias), **privacidade** e **contato**, acessíveis pela navegação.
 	- Nome do vendedor igual ao da conta na Paddle.
-	- Domínio próprio da Forja [a definir].
+	- Domínio próprio da Forja: favorito **`forjainstruments.com`** (18/11/2026), disponibilidade a conferir; registrar também o `.com.br` e redirecionar para o principal. A Forja terá vários plugins: domínio da marca, Matiza em `/matiza` no futuro.
 	- Idioma principal **inglês** (venda em USD), português como opção.
 	
 	**Depois da v0:** players das 4 demos dos produtores (com a afinação de cada faixa), player "12 EDO × outra afinação", seções de funcionalidades, FAQ, newsletter, download da demo.
 	
-	**Stack [a definir]** (conversado em 13/11/2026)
-	- **Next.js:** primeira ideia do Guilherme; SSG bom para SEO; faz mais sentido se o site ganhar área logada (conta, downloads).
-	- **Astro + ilhas React:** HTML estático sem JS por padrão (melhor Core Web Vitals), React só nas partes interativas (players, checkout, demo de afinação); i18n nativo.
-	- Hospedagem estática (Cloudflare Pages, Vercel ou Netlify); áudio comprimido no CDN. Servidor de licenças separado (card de licenciamento).
+	**Decidido (18/11/2026)**
+	- **Next.js** (área logada no futuro), hospedado na **Cloudflare Workers** com OpenNext (plano grátis permite uso comercial; Vercel Hobby não permite, Pro custa US$ 20/mês).
+	- **Repositório próprio** `forja-site` no GitHub e pasta separada no PC (fora deste workspace).
+	- **Preço:** US$ 79, lançamento a US$ 49.
+	- Paddle **aceita vendedor pessoa física no Brasil** (Brasil fora da lista de países bloqueados; verificação de empresa não exigida de pessoa física). Repasse por SWIFT custa US$ 15 por transferência; alternativa Payoneer.
+	- Custo fixo estimado da infra (domínio + Cloudflare + AWS do servidor de licenças): ~US$ 15 a 25/ano; o que pesa é a tarifa de repasse e, depois, assinatura de código (US$ 300 a 500/ano, opcional no início).
+	
+	**Conta na ponta do lápis (18/11/2026)**
+	- Infra: domínio .com na Cloudflare ~US$ 11/ano; site na Cloudflare Workers (grátis, arquivos estáticos ilimitados); servidor de licenças com Lambda + DynamoDB na cota grátis permanente, segredos no Parameter Store (grátis) ou Secrets Manager (US$ 0,40/segredo/mês), e-mail pelo SES (US$ 0,10 a cada 1.000).
+	- Por venda: Paddle 5% + US$ 0,50 e produtores parceiros 4% → sobram ~US$ 44 a US$ 49 e ~US$ 71 a US$ 79. [a definir] porcentagem dos produtores sobre o preço cheio ou sobre o líquido da Paddle.
+	- Ponto de equilíbrio: ~5 vendas/ano a US$ 49 com um repasse SWIFT por mês (~US$ 200/ano); ~13 a 16 com certificado de assinatura. Para reduzir a tarifa de repasse: deixar o saldo acumular ou usar o Payoneer; receber numa conta em dólar (Wise, Nomad, Inter Global etc.) [a definir].
+	- Licença do JUCE: Starter grátis até US$ 20 mil/ano de receita com o framework; acima disso, Indie (US$ 40/mês ou US$ 800 perpétuo).
+	- Assinatura de código: o serviço barato da Microsoft (US$ 9,99/mês) não atende o Brasil; certificado de terceiros US$ 300 a 500+/ano. Adiar até haver instalador (o .vst3 em .zip carregado pelo Live quase não esbarra no aviso do Windows).
+	- Imposto: o que vem da Paddle entra no carnê-leão; confirmar com um contador antes da primeira venda (ver seção "Recebimento em dólar e impostos" do plano de produto).
+	
+	**Esqueleto do site (18/11/2026, commitado localmente na sessão do Claude, aguardando o repositório)**
+	- Next.js 16 (App Router, TypeScript, Tailwind), paleta Têmpera, logos de `_brand/`, fonte Inter hospedada no site (OFL); `npm run build` e `npm run lint` sem erros.
+	- `/`: página do Matiza (assinatura, slogan, screenshot, 6 funcionalidades que já existem no plugin, preço US$ 49 com US$ 79 riscado, botão de compra com Paddle.js; token e price ID do sandbox pelo `.env.local`; botão da demo desabilitado, "coming soon").
+	- `/terms`, `/refunds`, `/privacy` (rascunhos, citando a Paddle como merchant of record) e `/contact`, no rodapé.
+	- Configuração central em `src/lib/site.ts`; README com decisões e pendências; CLAUDE.md para o Claude Code.
+	- [a definir] Confirmar o que entrou na página sem decisão: **reembolso em 14 dias** (Paddle aceita 14 a 90) e **atualizações grátis na versão 1.x**.
+	- Pendentes na configuração: domínio (`site.url`), e-mail de contato no domínio (ex.: `hello@forjainstruments.com`), nome do vendedor igual ao da conta na Paddle (pessoa física: provavelmente o nome completo).
+	- Screenshot da página é o print do Standalone em Debug de 18/11; trocar por um definitivo.
 	
 	**Etapas**
-	- [ ] Decidir a stack e o domínio
-	- [ ] Projeto do site no repositório [a definir] (pasta própria no workspace ou repositório separado)
-	- [ ] Página do Matiza com preço e checkout do sandbox
-	- [ ] Termos, reembolso, privacidade e contato
-	- [ ] Deploy no domínio
+	- [x] Decidir a stack (Next.js + Cloudflare) e o preço (18/11/2026)
+	- [ ] Domínio (conferir e registrar `forjainstruments.com` + `.com.br`)
+	- [x] Esqueleto do Next.js (18/11/2026)
+	- [ ] Repositório `forja-site` no GitHub (privado): falta o login no GitHub no navegador do app Claude, ou o Guilherme criar o repositório vazio; aí o Claude envia o esqueleto
+	- [ ] Pasta local `Projetos de Software\Forja Site` (o Guilherme cria e adiciona só ela no app desktop; o acesso à pasta "Projetos de Software" inteira foi negado) e clonar o repositório nela
+	- [ ] Sandbox da Paddle: produto Matiza, preço em USD, token no `.env.local`, compra de teste na página
+	- [ ] Revisar os textos de termos, reembolso e privacidade (hoje rascunho)
+	- [ ] Deploy na Cloudflare Workers (OpenNext) e domínio apontado
 	- [ ] Pedir aprovação do domínio na Paddle (conta de produção)
 	
 	#Matiza
