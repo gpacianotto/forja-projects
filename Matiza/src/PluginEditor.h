@@ -163,6 +163,12 @@ private:
     };
     std::array<LfoSyncControls, ParamIDs::numLfos> lfoSyncControls;
 
+    // Botão No Fund de cada oscilador (RF22): apagado com Sine, em que não vale. O attachment
+    // avisa quando a forma de onda muda (inclusive por automação); declarado depois dos grupos,
+    // é destruído antes do botão.
+    std::array<juce::Component*, ParamIDs::numOscillators> noFundControls {};
+    std::array<std::unique_ptr<juce::ParameterAttachment>, ParamIDs::numOscillators> noFundWaveAttachments;
+
     // Logo MTZ no cabeçalho; clicar abre a tela Sobre.
     juce::DrawableButton logoButton { "About Matiza", juce::DrawableButton::ImageFitted };
 

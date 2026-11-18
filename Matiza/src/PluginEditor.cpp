@@ -180,6 +180,24 @@ PluginEditor::PluginEditor (PluginProcessor& processor)
         auto& group = oscillatorGroups[i];
         group.add (std::make_unique<Toggle> (apvts, ParamIDs::oscOn[i],     "On"));
         group.add (std::make_unique<Choice> (apvts, ParamIDs::oscWave[i],   "Waveform"));
+
+        // Sem a fundamental (RF22), ao lado da forma de onda. Com Sine fica apagado.
+        auto& noFund = group.add (std::make_unique<Toggle> (apvts, ParamIDs::oscNoFund[i], "No Fund"));
+        noFund.getButton().setTooltip ("Remove the fundamental (1st harmonic): keeps a wide unison bass "
+                                       "out of the low end. Not available with Sine.");
+        noFundControls[i] = &noFund;
+
+        if (auto* waveParam = apvts.getParameter (ParamIDs::oscWave[i]))
+        {
+            noFundWaveAttachments[i] = std::make_unique<juce::ParameterAttachment> (*waveParam, [this, i] (float value)
+            {
+                const bool usable = static_cast<Waveform> (juce::roundToInt (value)) != Waveform::sine;
+                noFundControls[i]->setEnabled (usable);
+                noFundControls[i]->setAlpha (usable ? 1.0f : 0.4f);
+            });
+            noFundWaveAttachments[i]->sendInitialUpdate();
+        }
+
         group.add (std::make_unique<OscillatorGraph> (
             apvts, i,
             [this, i] { return pluginProcessor.getOscPoints (i); },
@@ -434,6 +452,13 @@ HarmonicsView::Snapshot PluginEditor::harmonicsSnapshot()
     else
     {
         snapshot.recipe = AlignedSpectrum::builtinRecipe (waveform);
+    }
+
+    // Oscilador sem a fundamental (RF22): a barra do 1º harmônico some (com Sine o botão não vale).
+    if (paramValue (ParamIDs::oscNoFund[osc]) > 0.5f && waveform != Waveform::sine)
+    {
+        snapshot.recipe.sinAmp[0] = 0.0f;
+        snapshot.recipe.cosAmp[0] = 0.0f;
     }
 
     // A mesma afinação da voz: parâmetros + afinação desenhada, ou a tabela do master.

@@ -56,4 +56,15 @@ void Oscillator::updateTable() noexcept
         table = Wavetables::residualTable (waveform, level);
     else
         table = Wavetables::table (waveform, level);
+
+    // Fundamental da mesma forma (RF22): o último nível das tabelas completas. Nas "do resto"
+    // ela não existe (toca no PartialBank).
+    constexpr int fundamentalLevel = Wavetables::numLevels - 1;
+
+    if (residual)
+        fundamental = nullptr;
+    else if (waveform == Waveform::custom && customLevels != nullptr)
+        fundamental = customLevels + fundamentalLevel * Wavetables::levelStride;
+    else
+        fundamental = Wavetables::table (waveform, fundamentalLevel);
 }

@@ -151,6 +151,7 @@ private:
         std::atomic<float>* detune = nullptr;
         std::atomic<float>* blend  = nullptr;
         std::atomic<float>* width  = nullptr;
+        std::atomic<float>* noFund = nullptr; // RF22
     };
     std::array<OscillatorParamPointers, ParamIDs::numOscillators> oscParams;
 

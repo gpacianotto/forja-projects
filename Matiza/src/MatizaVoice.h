@@ -32,6 +32,13 @@ struct OscillatorParameters
     float detuneCents = 25.0f;
     float blend       = 0.5f; // 0..1
     float width       = 1.0f; // 0..1
+
+    // Botão No Fund (RF22)
+    bool removeFundamental = false;
+
+    // A fundamental sai de verdade? Com Sine a onda é só a fundamental: o botão não vale
+    // (senão o oscilador ficaria mudo).
+    bool cutsFundamental() const noexcept { return removeFundamental && waveform != Waveform::sine; }
 };
 
 // Configuração de um LFO (RF11). rateHz já vem calculado pelo processador (Hz livre ou
@@ -223,6 +230,10 @@ private:
     // Volume de cada oscilador, suavizado (20 ms): ligar, desligar ou girar o knob não estala.
     // O alvo é 0 quando o oscilador está desligado ou fora da faixa tocável (RF4).
     std::array<juce::SmoothedValue<float>, ParamIDs::numOscillators> oscLevels;
+
+    // Quanto da fundamental sai de cada oscilador (RF22): 0 = onda inteira, 1 = sem a
+    // fundamental. Anda em 20 ms ao ligar ou desligar o botão com a nota soando, sem estalar.
+    std::array<juce::SmoothedValue<float>, ParamIDs::numOscillators> fundamentalCuts;
 
     juce::dsp::StateVariableTPTFilter<float> filter;
     juce::ADSR adsr;

@@ -35,6 +35,9 @@ namespace ParamIDs
     inline constexpr std::array<const char*, numOscillators> oscBlend  { "osc1Blend",  "osc2Blend",  "osc3Blend" };
     inline constexpr std::array<const char*, numOscillators> oscWidth  { "osc1Width",  "osc2Width",  "osc3Width" };
 
+    // Sem fundamental (RF22, botão No Fund)
+    inline constexpr std::array<const char*, numOscillators> oscNoFund { "osc1NoFund", "osc2NoFund", "osc3NoFund" };
+
     // Vozes (RF7)
     inline constexpr auto voiceMode = "voiceMode"; // 0 = Poly, 1 = Mono
     inline constexpr auto legato    = "legato";

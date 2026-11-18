@@ -67,6 +67,7 @@ Todos os parâmetros abaixo são expostos ao host, então podem ser automatizado
 | Osciladores (RF12) | Detune (`osc1Detune`, `osc2Detune`, `osc3Detune`) | 0 a 100 cents | 25 ct |
 | Osciladores (RF12) | Blend (`osc1Blend`, `osc2Blend`, `osc3Blend`) | 0 a 100 % | 50 % |
 | Osciladores (RF12) | Width (`osc1Width`, `osc2Width`, `osc3Width`) | 0 a 100 % | 100 % |
+| Osciladores (RF22) | Sem fundamental (`osc1NoFund`, `osc2NoFund`, `osc3NoFund`) | sim/não | não |
 
 **Parâmetros da matriz de modulação (v0.4)**
 
@@ -208,6 +209,15 @@ As listas de forma e divisão também são fechadas: nunca reordenar nem remover
     - Forma mostrada: a do primeiro oscilador ligado (inclusive Custom). Nota: a mais grave segurada; sem nota, a Ref Note (ou a tecla de referência do master). Mesma conta da voz (`HarmonicsView.h`).
     - Título: "Osc 1 · Saw · note 60 · 22 of 24 aligned".
   - [a definir] Align como destino da matriz de modulação (usaria uma vaga reservada; o custo de recalcular por bloco foi medido no estudo).
+- RF22 (v0.14): botão **No Fund** em cada oscilador, que tira a frequência fundamental (o 1º harmônico) da onda, como no Serum. Pedido em 16/11/2026.
+  - **Uso típico (graves):** um oscilador com unison e sem a fundamental, outro com a fundamental limpa e mono. As cópias desafinadas da fundamental cancelam a fase no grave e desmoronam em mono; sem ela, a largura fica só nos harmônicos de cima. A nota continua sendo percebida pelos harmônicos (efeito da fundamental ausente).
+  - **Parâmetro** `osc1NoFund`, `osc2NoFund`, `osc3NoFund`: sim/não, padrão não, salvo no set e automatizável (decidido em 18/11/2026: a rampa abaixo deixa a automação sem estalo).
+  - **Como funciona, sem tabela nova** (decidido em 18/11/2026, no lugar de um conjunto de tabelas a mais por forma): o último mipmap de cada forma (nível 20 do RF13) só tem o 1º harmônico, ou seja, é exatamente a fundamental daquela forma, com a amplitude e a fase dela (inclusive na forma desenhada do RF15). O oscilador subtrai esse nível da tabela que está lendo, no mesmo índice e com a mesma interpolação: o 1º harmônico some e os outros ficam iguais. Custo: uma leitura de tabela a mais por amostra, só com o botão ligado; nenhuma memória a mais.
+  - **Sem estalo:** ligar ou desligar com uma nota soando faz a fundamental sumir ou voltar em 20 ms (a quantidade subtraída anda de 0 a 1), como o liga/desliga do RF6. Nota nova começa direto no valor do botão.
+  - **Sine:** a onda é só a fundamental, então o botão não vale com Sine (o oscilador toca normalmente) e aparece apagado na interface.
+  - **Com o Align (RF21):** no motor híbrido a fundamental toca no banco de senoides; o botão zera o volume da senoide 1 (com a mesma rampa) e o wavetable do resto não muda. As razões do alinhamento também não mudam: a fundamental é a âncora, e os outros harmônicos ficam onde estavam.
+  - Nota tão aguda que só a fundamental cabe abaixo de Nyquist: com o botão ligado, o oscilador fica mudo (não sobra harmônico para tocar).
+  - **Interface:** botão **No Fund** no grupo de cada oscilador, ao lado da forma de onda. O gráfico da onda mostra a onda sem a fundamental; o gráfico dos harmônicos (RF21) esconde a barra do 1º harmônico quando o oscilador mostrado está sem a fundamental.
 
 ## Modelo de afinação
 
@@ -369,6 +379,7 @@ São seis etapas curtas, e cada uma termina com algo que você pode tocar ou tes
 | 23. Motor híbrido | Banco SSE de 24 senoides na voz, mipmaps "do resto", parâmetro `harmonicAlign` (RF21) | Align 0 soa idêntico ao atual; com Align 100 %, um acorde de 7 EDO bate menos; CPU medida no plugin; pluginval nível 5 |
 | 24. Interface do Align | Knob Align na aba Tuning e gráfico dos harmônicos sobre as linhas da escala (RF21) | Girar o Align mostra os harmônicos andando até as linhas da escala |
 | 25. Teste de escuta | Acordes em 7, 10, 12 e 19 EDO com e sem Align, teste cego com os produtores parceiros | Preferência pelo alinhado nas EDOs distantes do 12-TET |
+| 26. Remover a fundamental | Botão No Fund por oscilador: subtração do nível 20, rampa de 20 ms, regra da Sine, senoide 1 do Align (RF22); testes | Grave com Osc 1 Saw unison 7 sem fundamental + Osc 2 Sine: em mono (Utility) o grave não cancela; ligar e desligar com a nota soando não estala; com o Align ligado a barra do 1º harmônico some e o som continua sem a fundamental |
 
 Uma sugestão de ritmo: as etapas 1 e 2 cabem numa primeira noite, e a etapa 3 é o marco que prova a ideia.
 

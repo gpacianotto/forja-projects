@@ -31,7 +31,12 @@ public:
 
     // Devolve a amostra atual (entre -1 e 1, com um pequeno sobressinal perto dos saltos da
     // serra e da quadrada) e avança a fase.
-    float nextSample() noexcept;
+    //
+    // fundamentalCut (RF22, botão No Fund): quanto da fundamental (1º harmônico) tirar da onda,
+    // de 0 (onda inteira) a 1 (sem a fundamental). A voz passa um valor que anda em rampa ao
+    // ligar ou desligar o botão. Lendo as tabelas "do resto" (RF21) não há fundamental na
+    // tabela (ela toca no PartialBank), então o valor é ignorado.
+    float nextSample (float fundamentalCut = 0.0f) noexcept;
 
 private:
     void updateTable() noexcept;
@@ -45,12 +50,17 @@ private:
     const float* customLevels = nullptr;
     const float* customResidualLevels = nullptr;
     bool residual = false;
+
+    // Só a fundamental da forma atual (RF22): o último mipmap, que guarda apenas o 1º harmônico
+    // (Wavetables::maxHarmonic (20) = 1), com a mesma amplitude e fase que ele tem nos outros
+    // níveis. nullptr lendo as tabelas "do resto".
+    const float* fundamental = Wavetables::table (Waveform::saw, Wavetables::numLevels - 1);
 };
 
 // "inline" no header: chamada a cada amostra, para cada cópia de cada oscilador. Com o corpo
 // visível aqui, o compilador cola o código dentro do laço da voz em vez de fazer uma chamada de
 // função (medido: ~2× mais rápido).
-inline float Oscillator::nextSample() noexcept
+inline float Oscillator::nextSample (float fundamentalCut) noexcept
 {
     // Posição fracionária na tabela: índice inteiro + fração entre ele e o próximo.
     const double position = phase * Wavetables::tableSize;
@@ -59,7 +69,14 @@ inline float Oscillator::nextSample() noexcept
 
     // Interpolação linear: anda em linha reta da amostra atual até a próxima.
     // (A tabela tem uma amostra extra no fim, então table[index + 1] sempre existe.)
-    const float value = table[index] + fraction * (table[index + 1] - table[index]);
+    float value = table[index] + fraction * (table[index + 1] - table[index]);
+
+    // RF22: subtrai a fundamental lida no mesmo índice e com a mesma interpolação. Como a
+    // interpolação linear é linear (interpolar a diferença = diferença das interpolações), o
+    // 1º harmônico some por inteiro e os outros não mudam. O "if" custa quase nada: o
+    // processador acerta a previsão, porque o valor é o mesmo por milhares de amostras.
+    if (fundamentalCut != 0.0f && fundamental != nullptr)
+        value -= fundamentalCut * (fundamental[index] + fraction * (fundamental[index + 1] - fundamental[index]));
 
     // Volta para [0, 1). O floor só roda quando a fase passa de 1 (uma vez por ciclo): chamado a
     // cada amostra, ele sozinho dobrava o custo do oscilador. Usar floor (e não "- 1") cobre

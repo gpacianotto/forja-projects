@@ -27,6 +27,12 @@ void MatizaVoice::prepare (double sampleRate, int maxBlockSize)
         oscLevel.setCurrentAndTargetValue (0.0f);
     }
 
+    for (size_t o = 0; o < fundamentalCuts.size(); ++o)
+    {
+        fundamentalCuts[o].reset (sampleRate, 0.02);
+        fundamentalCuts[o].setCurrentAndTargetValue (parameters.oscillators[o].cutsFundamental() ? 1.0f : 0.0f);
+    }
+
     modWheelSmoothed.reset (sampleRate, 0.02);
     aftertouchSmoothed.reset (sampleRate, 0.02);
 
@@ -84,6 +90,7 @@ void MatizaVoice::setParameters (const VoiceParameters& params)
 
         blendSmoothed[o].setTargetValue (params.oscillators[o].blend);
         widthSmoothed[o].setTargetValue (params.oscillators[o].width);
+        fundamentalCuts[o].setTargetValue (params.oscillators[o].cutsFundamental() ? 1.0f : 0.0f);
     }
 
     updateUnisonLayouts();
@@ -167,6 +174,9 @@ void MatizaVoice::startNote (int midiNoteNumber, float velocity, juce::Synthesis
 
         blendSmoothed[o].setCurrentAndTargetValue (parameters.oscillators[o].blend);
         widthSmoothed[o].setCurrentAndTargetValue (parameters.oscillators[o].width);
+
+        // RF22: nota nova já começa com ou sem a fundamental, sem rampa.
+        fundamentalCuts[o].setCurrentAndTargetValue (fundamentalCuts[o].getTargetValue());
     }
 
     updateUnisonLayouts();
@@ -511,6 +521,9 @@ void MatizaVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSa
         {
             const float oscLevel = juce::jmax (0.0f, oscLevels[o].getNextValue() + oscLevelMods[o].getNextValue());
 
+            // RF22: lido antes do "continue", para a rampa andar mesmo com o oscilador mudo.
+            const float fundamentalCut = fundamentalCuts[o].getNextValue();
+
             // Oscilador mudo e parado em 0: não gasta CPU calculando a onda.
             if (oscLevel <= 0.0f)
                 continue;
@@ -523,9 +536,15 @@ void MatizaVoice::renderNextBlock (juce::AudioBuffer<float>& output, int startSa
                 if (! copyAudible[o][k])
                     continue;
 
-                float copySample = oscillators[o][k].nextSample();
+                // Sem a fundamental (RF22): o wavetable a subtrai; no motor híbrido (RF21) ela
+                // toca no banco de senoides, que baixa o volume da senoide 1.
+                float copySample = oscillators[o][k].nextSample (fundamentalCut);
                 if (hybrid)
-                    copySample += partialBanks[o][static_cast<size_t> (k)].nextSample();
+                {
+                    auto& bank = partialBanks[o][static_cast<size_t> (k)];
+                    bank.setFundamentalGain (1.0f - fundamentalCut);
+                    copySample += bank.nextSample();
+                }
                 left  += copySample * unisonLayout.gainLeft[k];
                 right += copySample * unisonLayout.gainRight[k];
             }

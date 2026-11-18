@@ -54,8 +54,19 @@ public:
         updateAmplitudes();
     }
 
-    // Frequência da fundamental e posição de cada harmônico. Recalcula o giro de cada um
-    // (std::cos e std::sin, a parte cara) só se algo mudou.
+    // Volume da fundamental (senoide 1) em relação à receita, de 0 a 1 (RF22, botão No Fund).
+    // A voz chama a cada amostra durante a rampa de 20 ms; fora dela o valor não muda e a
+    // chamada sai logo no "if".
+    void setFundamentalGain (float gain) noexcept
+    {
+        if (gain == fundamentalGain)
+            return;
+        fundamentalGain = gain;
+        updateFundamentalAmplitude();
+    }
+
+    // Frequência da fundamental e posição de cada harmônico.
+    // Recalcula o giro de cada um (std::cos e std::sin, a parte cara) só se algo mudou.
     void setFrequency (double hz, const AlignedSpectrum::Ratios& newRatios, double sampleRate) noexcept
     {
         if (hz == currentHz && sampleRate == currentSampleRate && newRatios.ratio == currentRatios)
@@ -134,11 +145,20 @@ public:
 private:
     void updateAmplitudes() noexcept
     {
-        for (int k = 0; k < size; ++k)
+        for (int k = 1; k < size; ++k)
         {
             ampSin[k] = audible[k] ? recipe.sinAmp[static_cast<size_t> (k)] : 0.0f;
             ampCos[k] = audible[k] ? recipe.cosAmp[static_cast<size_t> (k)] : 0.0f;
         }
+        updateFundamentalAmplitude();
+    }
+
+    // Harmônico 1 (índice 0): receita × volume da fundamental (RF22).
+    void updateFundamentalAmplitude() noexcept
+    {
+        const float gain = audible[0] ? fundamentalGain : 0.0f;
+        ampSin[0] = gain * recipe.sinAmp[0];
+        ampCos[0] = gain * recipe.cosAmp[0];
     }
 
     // alignas(16): o SSE lê 16 bytes alinhados de uma vez.
@@ -151,6 +171,7 @@ private:
     bool audible[size] {};
 
     AlignedSpectrum::Recipe recipe;
+    float fundamentalGain = 1.0f; // RF22: 1 = fundamental inteira; 0 = sem fundamental
     std::array<double, size> currentRatios {};
     double currentHz = -1.0, currentSampleRate = 0.0;
 };

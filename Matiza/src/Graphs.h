@@ -62,7 +62,8 @@ private:
     std::atomic<float>* onParam    = nullptr;
     std::atomic<float>* waveParam  = nullptr;
     std::atomic<float>* levelParam = nullptr;
-    float drawnOn = -1.0f, drawnWave = -1.0f, drawnLevel = -1.0f;
+    std::atomic<float>* noFundParam = nullptr; // RF22
+    float drawnOn = -1.0f, drawnWave = -1.0f, drawnLevel = -1.0f, drawnNoFund = -1.0f;
 
     std::function<ShapePoints()> customPoints;
     std::function<void (juce::Component&)> openEditor;

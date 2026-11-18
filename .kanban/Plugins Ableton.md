@@ -113,6 +113,66 @@ kanban-plugin: board
 	- [ ] Pedir aprovação do domínio na Paddle (conta de produção)
 	
 	#Matiza
+- [ ] # Feat: MIDI Learn nos knobs
+	
+	Clique direito em qualquer knob → **MIDI Learn**: o próximo CC recebido passa a controlar aquele knob, como no Serum. Para quem tem controlador MIDI. Pedido em 16/11/2026.
+	
+	**Como fazer**
+	- Os CCs já chegam ao `processBlock` no VST3: o JUCE emula CC com parâmetros escondidos (`JUCE_VST3_EMULATE_MIDI_CC_WITH_PARAMETERS`, ligado por padrão em plugin que recebe MIDI). Conferir no Live com um controlador.
+	- Menu do clique direito (hoje só nos knobs modulados, `Controls.cpp`, RF14) passa a existir em todos os knobs, com uma seção "MIDI": "MIDI Learn", "Remove MIDI (CC n)".
+	- Modo learn: knob piscando até chegar um CC; Esc ou clique fora cancela.
+	- Tabela CC → parâmetro trocada entre interface e áudio sem lock (buffer triplo, como no RF15).
+	- CC tem 128 valores: suavizar o valor aplicado (cutoff com degraus é audível).
+	- [a definir] Como o valor chega ao host e à interface: atualizar o parâmetro fora da thread de áudio (timer) e usar o valor do CC direto no áudio enquanto isso.
+	- CC1 (Mod Wheel) também é fonte da matriz: mapear CC1 num knob faz as duas coisas (avisar no menu?).
+	- [a definir] Mapeamento **por set** (estado do plugin) ou **global** (arquivo do usuário, vale para toda instância, como perfil do controlador). Talvez os dois.
+	- [a definir] Soft takeover (o knob só "pega" quando o controle físico passa pelo valor atual).
+	- O Live tem o próprio MIDI Map (Ctrl+M); o MIDI Learn interno é conveniência a mais. Se o mesmo CC estiver nos dois, os dois agem.
+	
+	**Etapas**
+	- [ ] RF no Spec (decidir por set × global)
+	- [ ] Tabela de mapeamento + testes
+	- [ ] Menu "MIDI Learn" em todos os knobs, estado learn e indicação de knob mapeado
+	- [ ] Aplicação do CC com suavização
+	- [ ] Salvar e carregar o mapeamento
+	- [ ] Build Debug/Release sem warnings, testes, pluginval nível 5
+	- [ ] Teste no Ableton com controlador: aprender, remover, reabrir o set, CC1, automação do Live junto
+	
+	#Matiza
+- [ ] # Feat: sidechain como fonte de modulação (aba Sidechain)
+	
+	Ideia do Guilherme (16/11/2026): o áudio de outra faixa (ex.: o kick) entra no Matiza e, em vez de só abaixar o volume como um compressor sidechain comum, pode modular **qualquer parâmetro** escolhido pelo usuário, com a intensidade que ele quiser.
+	
+	**Mercado:** existe em poucos (ES2/Alchemy do Logic, Current da Minimal Audio, FabFilter Twin 3/Volcano 3 com envelope follower), mas **Serum e Vital não têm**. Diferencial frente aos concorrentes diretos e bem na linha da Forja. Frase possível: "o synth que escuta a sua música".
+	
+	**Proposta**
+	- Entrada de sidechain (barramento de entrada estéreo opcional; hoje o processador só tem saída) → **envelope follower** → nova fonte **Sidechain** (0 a 1) na matriz, ocupando a vaga **Reserved 1** das fontes.
+	- A partir daí funciona como um LFO: arrastar a alça "Sidechain" até qualquer knob, quantidade positiva ou negativa.
+	- Ducking clássico = Sidechain → Volume com quantidade negativa. Hoje não existe destino de volume geral: novo destino **Volume** numa vaga reservada de destino (conferir quais vagas o RF21 já usou).
+	- Fonte global (um sidechain só): mesmo valor para todas as vozes.
+	
+	**Aba Sidechain**
+	- Medidor do sinal de entrada com a curva do follower desenhada por cima (como os gráficos do envelope e do LFO).
+	- Gain, Attack, Release, [a definir] Threshold; [a definir] modo Transiente (só os ataques, como o Volcano).
+	- Alça "Sidechain" para arrastar até os knobs.
+	- Atalho **Duck**: um knob que cria/ajusta o slot Sidechain → Volume (uso nº 1).
+	- Aviso quando não há sinal no sidechain ("conecte uma faixa no Sidechain do dispositivo").
+	
+	**Riscos e pontos em aberto**
+	- **Primeiro passo:** testar como o Ableton expõe a entrada de sidechain num **instrumento** VST3 (em efeitos é comum, em instrumentos o suporte varia por host). Pode mudar o desenho.
+	- Cada ligação usa um dos 8 slots da matriz. [a definir] Reavaliar o limite de slots.
+	- Adicionar barramento de entrada muda o layout de buses do plugin: conferir que sets antigos continuam abrindo e o pluginval.
+	
+	**Etapas**
+	- [ ] Protótipo: barramento de sidechain e teste no Live (instrumento VST3 recebendo o kick de outra faixa)
+	- [ ] RF no Spec
+	- [ ] Envelope follower (Attack/Release/Gain) + testes
+	- [ ] Fonte Sidechain e destino Volume na matriz
+	- [ ] Aba Sidechain: medidor, curva, controles, alça, Duck
+	- [ ] Build Debug/Release sem warnings, testes, pluginval nível 5
+	- [ ] Teste no Ableton: kick → Volume (ducking), kick → Cutoff, kick → Align (RF21), sem sinal no sidechain, set antigo abrindo igual
+	
+	#Matiza
 
 
 ## Em Andamento
@@ -134,6 +194,28 @@ kanban-plugin: board
 
 ## Em Revisão
 
+- [ ] # Feat: remover a fundamental do oscilador
+	
+	Botão por oscilador que tira a frequência fundamental da onda, como no Serum. Pedido em 16/11/2026. Ver RF22 no Spec.
+	
+	**Uso típico (graves):** um oscilador com unison **sem** a fundamental e outro com a fundamental limpa e mono. As cópias desafinadas da fundamental causam cancelamento de fase no grave e um grave estéreo que desmorona em mono; sem ela, a largura fica só nos harmônicos de cima. A nota continua percebida pelos harmônicos (efeito da fundamental ausente).
+	
+	**Decidido (18/11/2026)**
+	- Sem tabela nova: o último mipmap de cada forma (nível 20) só tem o 1º harmônico, ou seja, é a própria fundamental da forma (inclusive Custom). O oscilador subtrai esse nível da tabela que está lendo, no mesmo índice: o 1º harmônico some e os outros ficam iguais. Custo medido: 1,6 % → 2,2 % de um núcleo com as 192 cópias sem fundamental; zero memória a mais.
+	- Parâmetros `osc1NoFund`, `osc2NoFund`, `osc3NoFund`: liga/desliga, padrão desligado, **automatizável** (a rampa de 20 ms deixa a automação sem estalo).
+	- Sine: o botão não vale (o oscilador toca normal) e fica apagado na interface.
+	- Align (RF21): no motor híbrido, a senoide 1 do banco baixa com a mesma rampa; o resto e as razões não mudam.
+	
+	**Etapas**
+	- [x] RF22 no Spec (e etapa 26 no plano)
+	- [x] Subtração da fundamental no `Oscillator` (formas prontas e Custom) + 8 testes em `FundamentalTests.cpp` (1º harmônico ≈ 0, demais iguais, em vários mipmaps; desligado = igual bit a bit; meio da rampa; nota aguda muda; tabelas do resto; banco de senoides); 154 testes passando no Linux (18/11/2026)
+	- [x] Parâmetro, botão **No Fund** ao lado da forma de onda (apagado com Sine), rampa de 20 ms na voz
+	- [x] Interação com o RF21 (`PartialBank::setFundamentalGain`)
+	- [x] Gráfico da onda sem a fundamental; gráfico dos harmônicos sem a barra do 1º
+	- [ ] Build Debug/Release no Windows sem warnings, testes, pluginval nível 5 (o código foi conferido no Linux: testes e compilação dos arquivos com JUCE, sem montar o plugin)
+	- [ ] Teste no Ableton: grave com Osc 1 Saw unison 7 sem fundamental + Osc 2 Sine; conferir em mono (Utility) que o grave não cancela; ligar e desligar com nota soando (sem estalo); Sine apaga o botão; Custom; com Align ligado
+	
+	#Matiza
 
 
 ## Concluído

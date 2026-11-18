@@ -178,6 +178,7 @@ OscillatorGraph::OscillatorGraph (juce::AudioProcessorValueTreeState& apvts, std
     onParam    = apvts.getRawParameterValue (ParamIDs::oscOn[oscIndex]);
     waveParam  = apvts.getRawParameterValue (ParamIDs::oscWave[oscIndex]);
     levelParam = apvts.getRawParameterValue (ParamIDs::oscLevel[oscIndex]);
+    noFundParam = apvts.getRawParameterValue (ParamIDs::oscNoFund[oscIndex]);
     setTooltip ("Click to draw the waveform");
     setMouseCursor (juce::MouseCursor::PointingHandCursor);
     startTimerHz (refreshHz);
@@ -188,7 +189,8 @@ void OscillatorGraph::timerCallback()
     const bool isCustom = juce::roundToInt (waveParam->load()) == static_cast<int> (Waveform::custom);
     const bool pointsChanged = isCustom && customPoints != nullptr && ! (customPoints() == drawnPoints);
 
-    if (pointsChanged || onParam->load() != drawnOn || waveParam->load() != drawnWave || levelParam->load() != drawnLevel)
+    if (pointsChanged || onParam->load() != drawnOn || waveParam->load() != drawnWave || levelParam->load() != drawnLevel
+        || noFundParam->load() != drawnNoFund)
         repaint();
 }
 
@@ -203,6 +205,7 @@ void OscillatorGraph::paint (juce::Graphics& g)
     drawnOn    = onParam->load();
     drawnWave  = waveParam->load();
     drawnLevel = levelParam->load();
+    drawnNoFund = noFundParam->load();
 
     // Deixa livre a faixa do nome (18 px), para o gráfico alinhar com os combos e knobs vizinhos.
     auto bounds = getLocalBounds().toFloat().withTrimmedTop (18.0f).reduced (2.0f, 4.0f);
@@ -221,14 +224,39 @@ void OscillatorGraph::paint (juce::Graphics& g)
     if (isCustom && customPoints != nullptr)
         drawnPoints = customPoints();
 
+    const auto waveform = static_cast<Waveform> (juce::roundToInt (drawnWave));
     Oscillator oscillator;
-    oscillator.setWaveform (static_cast<Waveform> (juce::roundToInt (drawnWave)));
+    oscillator.setWaveform (waveform);
     const int numPoints = juce::jmax (2, juce::roundToInt (area.getWidth()));
     oscillator.setFrequency (1.0, numPoints);
 
+    // Sem a fundamental (RF22; com Sine o botão não vale). Formas prontas: o próprio Oscillator
+    // a tira. Custom: tira do desenho o 1º harmônico dele (a mesma conta da receita do RF21).
+    const bool cutFundamental = drawnNoFund > 0.5f && waveform != Waveform::sine;
+    constexpr double twoPi = 2.0 * juce::MathConstants<double>::pi;
+    double fundamentalSin = 0.0, fundamentalCos = 0.0;
+
+    if (isCustom && cutFundamental)
+    {
+        constexpr int n = Wavetables::tableSize;
+        for (int k = 0; k < n; ++k)
+        {
+            const double x = static_cast<double> (k) / n;
+            const double value = drawnPoints.evaluate (x);
+            fundamentalSin += value * std::sin (twoPi * x);
+            fundamentalCos += value * std::cos (twoPi * x);
+        }
+        fundamentalSin *= 2.0 / n;
+        fundamentalCos *= 2.0 / n;
+    }
+
     auto nextValue = [&] (int i)
     {
-        return isCustom ? drawnPoints.evaluate (static_cast<double> (i) / numPoints) : oscillator.nextSample();
+        if (! isCustom)
+            return oscillator.nextSample (cutFundamental ? 1.0f : 0.0f);
+
+        const double x = static_cast<double> (i) / numPoints;
+        return static_cast<float> (drawnPoints.evaluate (x) - fundamentalSin * std::sin (twoPi * x) - fundamentalCos * std::cos (twoPi * x));
     };
 
     const float amplitude = juce::jlimit (0.0f, 1.0f, drawnLevel / 100.0f) * area.getHeight() / 2.0f;
@@ -237,7 +265,8 @@ void OscillatorGraph::paint (juce::Graphics& g)
     for (int i = 0; i <= numPoints; ++i)
     {
         const float x = area.getX() + area.getWidth() * static_cast<float> (i) / static_cast<float> (numPoints);
-        const float y = area.getCentreY() - nextValue (i) * amplitude;
+        // Sem a fundamental a onda pode passar um pouco de ±1: fica dentro do fundo do gráfico.
+        const float y = juce::jlimit (bounds.getY(), bounds.getBottom(), area.getCentreY() - nextValue (i) * amplitude);
 
         if (i == 0)
             wave.startNewSubPath (x, y);

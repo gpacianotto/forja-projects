@@ -39,6 +39,7 @@ PluginProcessor::PluginProcessor()
         oscParams[i].detune = apvts.getRawParameterValue (ParamIDs::oscDetune[i]);
         oscParams[i].blend  = apvts.getRawParameterValue (ParamIDs::oscBlend[i]);
         oscParams[i].width  = apvts.getRawParameterValue (ParamIDs::oscWidth[i]);
+        oscParams[i].noFund = apvts.getRawParameterValue (ParamIDs::oscNoFund[i]);
     }
 
     for (size_t i = 0; i < modSlotParams.size(); ++i)
@@ -164,6 +165,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout PluginProcessor::createParam
             juce::ParameterID { ParamIDs::oscWidth[i], 1 }, prefix + "Width",
             juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f,
             juce::AudioParameterFloatAttributes().withLabel ("%")));
+
+        // Sem fundamental (RF22). Desligado por padrão: sets antigos soam igual.
+        layout.add (std::make_unique<juce::AudioParameterBool> (
+            juce::ParameterID { ParamIDs::oscNoFund[i], 1 }, prefix + "No Fundamental", false));
     }
 
     // --- Vozes (RF7) ---
@@ -359,6 +364,7 @@ void PluginProcessor::updateVoices()
         osc.detuneCents = oscParams[i].detune->load();
         osc.blend       = oscParams[i].blend->load() / 100.0f; // % -> 0..1
         osc.width       = oscParams[i].width->load() / 100.0f;
+        osc.removeFundamental = oscParams[i].noFund->load() > 0.5f; // RF22
     }
 
     params.glideSeconds = glideParam->load() / 1000.0f; // ms -> s
